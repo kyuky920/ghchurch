@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>✝ 성경 라이어 게임</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Noto+Serif+KR:wght@300;400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+
+<!-- ★ Firebase SDK ★ -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<style>
+:root {
+  --gold: #C9A84C;
+  --gold-light: #F0D080;
+  --gold-dark: #8B6914;
+  --parchment: #F5EDD6;
+  --parchment-dark: #E8D9B0;
+  --ink: #2C1A0E;
+  --ink-light: #5C3D1E;
+  --red: #8B1A1A;
+  --red-light: #C0392B;
+  --green: #1a4a2e;
+  --green-light: #2d7a4a;
+  --shadow: rgba(44,26,14,0.45);
+  --bg: #120a03;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Noto Serif KR', serif;
+  background: var(--bg);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+body::before {
+  content:'';
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse at 15% 10%, rgba(201,168,76,.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 90%, rgba(139,26,26,.07) 0%, transparent 55%),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(201,168,76,.012) 3px, rgba(201,168,76,.012) 4px);
+}
+
+.app { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:16px; min-height:100dvh; }
+
+/* ── HEADER ── */
+.header { text-align:center; padding:32px 0 20px; }
+.header-title {
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(1.4rem,6vw,2rem);
+  color:var(--gold-light);
+  text-shadow:0 0 28px rgba(201,168,76,.5), 2px 2px 0 var(--gold-dark);
+  line-height:1.3;
+}
+.header-cross { font-size:2rem; display:block; margin-bottom:6px; filter:drop-shadow(0 0 8px rgba(201,168,76,.6)); }
+.header-sub {
+  font-family:'IM Fell English',serif; font-style:italic;
+  color:var(--parchment-dark); font-size:.85rem; margin-top:6px; opacity:.7;
+}
+.divider {
+  display:flex; align-items:center; gap:10px; color:var(--gold); opacity:.5; margin:14px 0;
+}
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:linear-gradient(to right,transparent,var(--gold),transparent); }
+
+/* ── CARD ── */
+.card {
+  background:linear-gradient(135deg,var(--parchment) 0%,var(--parchment-dark) 100%);
+  border:2px solid var(--gold-dark); border-radius:6px;
+  padding:24px 20px; margin-bottom:16px; position:relative;
+  box-shadow:0 8px 32px var(--shadow), inset 0 1px 0 rgba(255,255,255,.3);
+}
+.card::before {
+  content:''; position:absolute; inset:5px;
+  border:1px solid rgba(201,168,76,.25); border-radius:3px; pointer-events:none;
+}
+.card-title {
+  font-family:'Cinzel Decorative',serif; font-size:.9rem;
+  color:var(--ink); margin-bottom:16px; text-align:center; letter-spacing:1px;
+}
+
+/* ── INPUTS ── */
+.text-input {
+  width:100%; background:rgba(44,26,14,.07); border:1.5px solid var(--gold-dark);
+  border-radius:4px; padding:11px 14px;
+  font-family:'Noto Serif KR',serif; font-size:1rem; color:var(--ink);
+  outline:none; transition:border-color .2s, box-shadow .2s;
+}
+.text-input:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,168,76,.2); }
+.text-input::placeholder { color:var(--ink-light); opacity:.4; }
+
+/* ── BUTTONS ── */
+.btn-main {
+  display:block; width:100%;
+  background:linear-gradient(135deg,var(--gold-dark) 0%,var(--gold) 50%,var(--gold-dark) 100%);
+  border:none; border-radius:5px; padding:15px 24px;
+  font-family:'Cinzel Decorative',serif; font-size:.95rem; color:var(--ink);
+  cursor:pointer; letter-spacing:2px;
+  box-shadow:0 4px 18px rgba(201,168,76,.4);
+  transition:all .25s; position:relative; overflow:hidden;
+}
+.btn-main:active { transform:scale(.97); }
+.btn-main:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+
+.btn-secondary {
+  display:block; width:100%; background:transparent;
+  border:1.5px solid var(--gold-dark); border-radius:5px; padding:12px;
+  font-family:'Noto Serif KR',serif; font-size:.9rem; color:var(--ink-light);
+  cursor:pointer; transition:all .2s;
+}
+.btn-secondary:active { background:rgba(201,168,76,.1); }
+
+.btn-danger {
+  display:block; width:100%; background:transparent;
+  border:1.5px solid var(--red); border-radius:5px; padding:12px;
+  font-family:'Noto Serif KR',serif; font-size:.9rem; color:var(--red);
+  cursor:pointer; transition:all .2s;
+}
+
+.btn-row { display:flex; gap:10px; margin-top:12px; }
+.btn-row .btn-secondary, .btn-row .btn-main { flex:1; }
+
+/* ── ROOM CODE ── */
+.room-code-display {
+  text-align:center; padding:20px 10px;
+}
+.room-code-big {
+  font-family:'Cinzel Decorative',serif;
+  font-size:3rem; color:var(--gold); letter-spacing:8px;
+  text-shadow:0 0 20px rgba(201,168,76,.5);
+  margin:10px 0;
+}
+.room-code-label { font-size:.8rem; color:var(--ink-light); opacity:.7; }
+
+/* ── PLAYER LIST IN LOBBY ── */
+.lobby-players { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+.lobby-player {
+  display:flex; align-items:center; gap:10px;
+  background:rgba(44,26,14,.06); border:1px solid rgba(201,168,76,.3);
+  border-radius:4px; padding:10px 14px;
+  animation:fadeSlide .3s ease;
+}
+@keyframes fadeSlide { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:none; } }
+.lobby-player-icon { font-size:1.2rem; }
+.lobby-player-name { font-size:.95rem; color:var(--ink); flex:1; }
+.lobby-player-host {
+  font-size:.7rem; background:rgba(201,168,76,.2);
+  border:1px solid var(--gold-dark); color:var(--gold-dark);
+  border-radius:10px; padding:2px 8px;
+}
+.lobby-count { text-align:center; font-size:.8rem; color:var(--ink-light); opacity:.6; margin-bottom:8px; }
+
+/* ── CATEGORY GRID ── */
+.cat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.cat-btn {
+  background:rgba(44,26,14,.05); border:2px solid var(--gold-dark);
+  border-radius:5px; padding:12px 8px; cursor:pointer; text-align:center; transition:all .2s;
+}
+.cat-btn.active {
+  background:linear-gradient(135deg,rgba(201,168,76,.25),rgba(201,168,76,.1));
+  border-color:var(--gold); box-shadow:0 0 10px rgba(201,168,76,.25);
+}
+.cat-icon { font-size:1.5rem; display:block; margin-bottom:4px; }
+.cat-name { font-size:.8rem; color:var(--ink); font-weight:600; }
+.cat-desc { font-size:.68rem; color:var(--ink-light); opacity:.6; margin-top:2px; }
+
+/* ── WAITING SPINNER ── */
+.waiting {
+  text-align:center; padding:32px 16px;
+}
+.spinner {
+  width:48px; height:48px; border:3px solid rgba(201,168,76,.2);
+  border-top-color:var(--gold); border-radius:50%;
+  animation:spin .8s linear infinite; margin:0 auto 16px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.waiting-text { color:var(--ink-light); font-style:italic; font-size:.9rem; }
+
+/* ── ROLE REVEAL ── */
+.role-reveal-wrap { text-align:center; padding:16px 0; }
+.role-badge {
+  display:inline-block; padding:14px 32px; border-radius:5px;
+  font-family:'Cinzel Decorative',serif; font-size:1rem;
+  margin-bottom:16px; letter-spacing:1px;
+}
+.role-badge.citizen {
+  background:linear-gradient(135deg,#1a4a2e,#2d7a4a);
+  color:#a8e6c0; border:2px solid #4a9a6a;
+  box-shadow:0 0 18px rgba(74,154,106,.3);
+}
+.role-badge.liar {
+  background:linear-gradient(135deg,#4a0a0a,#8b1a1a);
+  color:#ffaaaa; border:2px solid #cc3333;
+  box-shadow:0 0 18px rgba(204,51,51,.4);
+}
+.word-box {
+  background:rgba(44,26,14,.08); border:1.5px solid var(--gold-dark);
+  border-radius:5px; padding:16px 24px; margin:12px 0;
+}
+.word-box-main { font-size:1.6rem; font-weight:700; color:var(--ink); letter-spacing:1px; }
+.word-box-hint { font-size:.8rem; color:var(--ink-light); margin-top:6px; font-style:italic; opacity:.7; }
+.liar-box {
+  background:rgba(139,26,26,.1); border:1.5px solid rgba(139,26,26,.4);
+  border-radius:5px; padding:14px; color:var(--red); font-size:.9rem; text-align:center; margin:12px 0;
+}
+.cat-badge {
+  display:inline-block; background:rgba(201,168,76,.15);
+  border:1px solid var(--gold-dark); border-radius:20px;
+  padding:3px 12px; font-size:.72rem; color:var(--gold-dark);
+  font-family:'Cinzel Decorative',serif; letter-spacing:.5px; margin-bottom:8px;
+}
+
+/* ── GAME PHASE STATUS ── */
+.phase-bar {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  margin-bottom:14px; flex-wrap:wrap;
+}
+.phase-step {
+  width:28px; height:6px; border-radius:3px;
+  background:rgba(201,168,76,.15); border:1px solid rgba(201,168,76,.2);
+  transition:background .4s;
+}
+.phase-step.done { background:var(--gold-dark); }
+.phase-step.active { background:var(--gold); box-shadow:0 0 8px var(--gold); }
+
+/* ── VOTE ── */
+
+/* ── RESULT ── */
+.result-banner {
+  text-align:center; padding:20px; border-radius:5px; margin-bottom:14px;
+  font-family:'Cinzel Decorative',serif; font-size:1.1rem; letter-spacing:1px;
+}
+.citizens-win { background:linear-gradient(135deg,rgba(26,74,46,.3),rgba(45,122,74,.2)); border:2px solid #4a9a6a; color:#2d7a4a; box-shadow:0 0 20px rgba(74,154,106,.2); }
+.liar-wins { background:linear-gradient(135deg,rgba(74,10,10,.3),rgba(139,26,26,.2)); border:2px solid var(--red); color:var(--red-light); box-shadow:0 0 20px rgba(139,26,26,.2); }
+.liar-name-big { font-family:'Cinzel Decorative',serif; font-size:1.6rem; color:var(--red-light); text-shadow:0 0 16px rgba(192,57,43,.5); margin:8px 0; }
+.answer-word-big { font-size:1.4rem; font-weight:700; color:var(--gold-dark); margin:6px 0; }
+
+/* ── TOAST ── */
+.toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:var(--ink); color:var(--gold-light); border:1px solid var(--gold-dark);
+  border-radius:24px; padding:10px 22px; font-size:.9rem;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+  z-index:999; transition:transform .3s, opacity .3s; opacity:0; white-space:nowrap;
+}
+.toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+/* ── SCREENS ── */
+.screen { display:none; }
+.screen.active { display:block; animation:fadeIn .3s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+/* ── CONFIG WARNING ── */
+.config-warning {
+  background:rgba(139,26,26,.15); border:2px solid var(--red);
+  border-radius:6px; padding:16px; margin-bottom:16px; color:var(--red);
+  font-size:.85rem; line-height:1.6;
+}
+.config-warning strong { display:block; margin-bottom:6px; font-size:.95rem; }
+.config-step { background:rgba(44,26,14,.08); border-radius:4px; padding:10px 12px; margin:8px 0; font-size:.82rem; color:var(--ink); }
+.config-step code { background:rgba(201,168,76,.2); padding:1px 6px; border-radius:3px; font-family:monospace; color:var(--gold-dark); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <span class="header-cross">✝</span>
+    <div class="header-title">성경 라이어 게임</div>
+    <div class="header-sub">Bible Liar Game — 진실을 찾아라</div>
+    <div class="divider"><span style="font-size:14px;">✦</span></div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 0: Firebase 설정 필요
+  ══════════════════════════════════════ -->
+  <div id="screen-config" class="screen">
+    <div class="card">
+      <div class="config-warning">
+        <strong>⚠️ Firebase 설정이 필요합니다</strong>
+        아래 안내에 따라 Firebase 무료 계정을 연결해야 멀티플레이어가 작동합니다.
+      </div>
+      <div class="card-title">🔧 설정 방법</div>
+      <div class="config-step">1️⃣ <a href="https://console.firebase.google.com" target="_blank" style="color:var(--gold-dark)">console.firebase.google.com</a> 접속 → 프로젝트 생성</div>
+      <div class="config-step">2️⃣ 좌측 메뉴 <code>Realtime Database</code> → 데이터베이스 만들기 (테스트 모드)</div>
+      <div class="config-step">3️⃣ 프로젝트 설정 ⚙️ → 내 앱 → 웹 앱 추가 → SDK 설정 복사</div>
+      <div class="config-step">4️⃣ 이 HTML 파일 맨 아래 <code>&lt;script&gt;</code> 안의 <code>FIREBASE_CONFIG</code> 부분을 복사한 값으로 교체</div>
+      <div style="margin-top:16px;font-size:.8rem;color:var(--ink-light);text-align:center;font-style:italic;">
+        설정 후 파일을 저장하고 다시 열면 게임이 시작됩니다
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 1: 메인 메뉴 (방 만들기 / 참가)
+  ══════════════════════════════════════ -->
+  <div id="screen-menu" class="screen active">
+    <div class="card">
+      <div class="card-title">📛 내 이름 입력</div>
+      <input id="my-name-input" class="text-input" type="text" placeholder="플레이어 이름" maxlength="10" />
+    </div>
+    <button class="btn-main" onclick="goCreateRoom()" style="margin-bottom:12px;">
+      ✦ 방 만들기 (호스트)
+    </button>
+    <div class="card">
+      <div class="card-title">📬 방 코드로 참가</div>
+      <input id="join-code-input" class="text-input" type="text" placeholder="6자리 코드 입력" maxlength="6"
+        style="text-align:center;font-size:1.4rem;letter-spacing:6px;font-family:'Cinzel Decorative',serif;"
+        oninput="this.value=this.value.toUpperCase()" />
+      <button class="btn-main" onclick="joinRoom()" style="margin-top:12px;">참가하기</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 2: 방 만들기 (카테고리 + 인원 대기)
+  ══════════════════════════════════════ -->
+  <div id="screen-host-lobby" class="screen">
+    <div class="card">
+      <div class="room-code-display">
+        <div class="room-code-label">방 코드</div>
+        <div class="room-code-big" id="room-code-display">——</div>
+        <div class="room-code-label">이 코드를 친구들에게 공유하세요</div>
+        <button class="btn-secondary" onclick="copyCode()" style="max-width:200px;margin:10px auto 0;font-size:.8rem;padding:8px;">
+          📋 코드 복사
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📖 카테고리 선택</div>
+      <div class="cat-grid">
+        <div class="cat-btn active" data-cat="인물" onclick="toggleCat(this)">
+          <span class="cat-icon">👤</span><div class="cat-name">인물</div><div class="cat-desc">모세, 다윗…</div>
+        </div>
+        <div class="cat-btn active" data-cat="장소" onclick="toggleCat(this)">
+          <span class="cat-icon">🗺️</span><div class="cat-name">장소</div><div class="cat-desc">예루살렘…</div>
+        </div>
+        <div class="cat-btn" data-cat="사건" onclick="toggleCat(this)">
+          <span class="cat-icon">⚡</span><div class="cat-name">사건/기적</div><div class="cat-desc">홍해, 오병이어…</div>
+        </div>
+        <div class="cat-btn" data-cat="비유" onclick="toggleCat(this)">
+          <span class="cat-icon">🕊️</span><div class="cat-name">비유/말씀</div><div class="cat-desc">선한 사마리아인…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 참가한 플레이어</div>
+      <div class="lobby-count" id="lobby-count">대기 중...</div>
+      <div class="lobby-players" id="lobby-players-list"></div>
+    </div>
+
+    <button class="btn-main" id="btn-start-game" onclick="hostStartGame()" disabled>
+      ✦ 게임 시작 ✦
+    </button>
+    <button class="btn-secondary" onclick="leaveRoom()" style="margin-top:10px;">방 나가기</button>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 3: 참가자 대기실
+  ══════════════════════════════════════ -->
+  <div id="screen-join-lobby" class="screen">
+    <div class="card">
+      <div class="room-code-display">
+        <div class="room-code-label">참가한 방</div>
+        <div class="room-code-big" id="join-room-code-display">——</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">👥 참가한 플레이어</div>
+      <div class="lobby-count" id="join-lobby-count">대기 중...</div>
+      <div class="lobby-players" id="join-lobby-players-list"></div>
+    </div>
+    <div class="card">
+      <div class="waiting">
+        <div class="spinner"></div>
+        <div class="waiting-text">호스트가 게임을 시작하길 기다리는 중...</div>
+      </div>
+    </div>
+    <button class="btn-secondary" onclick="leaveRoom()">방 나가기</button>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 4: 역할 확인 (내 폰에서만)
+  ══════════════════════════════════════ -->
+  <div id="screen-role" class="screen">
+    <div class="card" style="text-align:center;">
+      <div class="card-title">📜 나의 역할</div>
+      <div id="role-content"></div>
+      <button class="btn-main" id="btn-role-confirm" onclick="confirmRoleRead()" style="margin-top:16px;">
+        ✅ 확인했습니다
+      </button>
+    </div>
+    <div class="card" style="margin-top:0;">
+      <div class="waiting">
+        <div id="role-wait-count" style="font-size:.85rem;color:var(--ink-light);font-style:italic;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 5: 대화 단계 (모두 확인 완료 후)
+  ══════════════════════════════════════ -->
+  <div id="screen-discuss" class="screen">
+    <div class="card">
+      <div style="text-align:center;padding:16px 0;">
+        <div style="font-size:2rem;margin-bottom:8px;">🗣️</div>
+        <div class="card-title">대화 시간!</div>
+        <p style="color:var(--ink-light);font-size:.9rem;line-height:1.7;font-style:italic;">
+          각자 단어에 대해 설명하세요.<br>
+          라이어는 들키지 않도록 조심하세요!<br>
+          단어를 <strong>직접 말하면 안 됩니다.</strong>
+        </p>
+        <div id="my-word-reminder" style="margin-top:16px;"></div>
+      </div>
+    </div>
+    <div id="host-only-vote-btn" style="display:none;">
+      <button class="btn-main" onclick="hostRevealLiar()">🎭 라이어 공개!</button>
+    </div>
+    <div id="non-host-wait" style="display:none;">
+      <div class="card">
+        <div class="waiting">
+          <div class="spinner"></div>
+          <div class="waiting-text">호스트가 라이어를 공개하길 기다리는 중...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 6: 라이어 단어 추측
+  ══════════════════════════════════════ -->
+  <div id="screen-guess" class="screen">
+    <div class="card" style="text-align:center;">
+      <div style="font-size:2rem;margin-bottom:8px;">🎭</div>
+      <div class="card-title">라이어 발각!</div>
+      <div class="role-badge liar" style="margin-bottom:16px;">⚔️ 라이어 — <span id="guess-liar-name"></span></div>
+      <div id="liar-guess-section" style="display:none;">
+        <p style="color:var(--ink-light);font-size:.9rem;margin-bottom:14px;">
+          단어를 맞히면 역전 승리!<br>단어가 무엇이었는지 추측하세요.
+        </p>
+        <input type="text" class="text-input" id="liar-guess-input"
+          placeholder="성경 단어를 입력하세요…" style="text-align:center;" />
+        <button class="btn-main" onclick="submitLiarGuess()" style="margin-top:12px;">
+          ✦ 정답 제출 ✦
+        </button>
+      </div>
+      <div id="liar-citizen-wait" style="display:none;">
+        <div class="waiting">
+          <div class="spinner"></div>
+          <div class="waiting-text">라이어가 단어를 추측하는 중...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       화면 8: 최종 결과
+  ══════════════════════════════════════ -->
+  <div id="screen-result" class="screen">
+    <div class="card">
+      <div id="result-banner"></div>
+      <div style="text-align:center;padding:12px 0;">
+        <div style="font-size:2.5rem;margin-bottom:8px;" id="result-emoji"></div>
+        <div style="font-size:.85rem;color:var(--ink-light);">라이어는</div>
+        <div class="liar-name-big" id="result-liar-name"></div>
+        <div style="font-size:.9rem;color:var(--ink-light);margin-top:12px;">이번 라운드의 단어</div>
+        <div class="answer-word-big" id="result-word"></div>
+        <div id="result-cat" style="margin-top:6px;"></div>
+      </div>
+    </div>
+    <div id="host-restart-btn" style="display:none;">
+      <button class="btn-main" onclick="hostRestart()">✦ 같은 멤버로 다시 ✦</button>
+      <button class="btn-secondary" onclick="leaveRoom()" style="margin-top:10px;">처음으로</button>
+    </div>
+    <div id="guest-restart-wait" style="display:none;">
+      <div class="waiting" style="padding:16px 0;">
+        <div class="spinner"></div>
+        <div class="waiting-text">호스트가 다음 라운드를 시작하길 기다리는 중...</div>
+      </div>
+      <button class="btn-secondary" onclick="leaveRoom()" style="margin-top:10px;">방 나가기</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// Firebase 설정을 여기에 붙여넣으세요
+// Firebase Console → 프로젝트 설정 → 내 앱 → SDK 설정
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAwNc3S1Fws1cHqLwVGJqbWcyMaUp_GfIQ",
+  authDomain: "bible-guess.firebaseapp.com",
+  databaseURL: "https://bible-guess-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bible-guess",
+  storageBucket: "bible-guess.firebasestorage.app",
+  messagingSenderId: "1082047472933",
+  appId: "1:1082047472933:web:c498bbe2ee6d664ea866cc"
+};
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+// ── 성경 단어 DB ──
+const BIBLE_WORDS = {
+  인물:[
+    {word:'모세',hint:'출애굽기의 지도자'},{word:'다윗',hint:'골리앗을 이긴 왕'},
+    {word:'솔로몬',hint:'지혜의 왕'},{word:'아브라함',hint:'믿음의 조상'},
+    {word:'요셉',hint:'채색 옷을 입은 자'},{word:'사무엘',hint:'성전에서 자란 선지자'},
+    {word:'엘리야',hint:'불 전차를 탄 선지자'},{word:'바울',hint:'이방인의 사도'},
+    {word:'베드로',hint:'반석이라 불린 제자'},{word:'요나',hint:'물고기 뱃속에 들어간 자'},
+    {word:'룻',hint:'모압 여인, 보아스의 아내'},{word:'에스더',hint:'페르시아 왕비'},
+    {word:'노아',hint:'방주를 만든 자'},{word:'요한',hint:'사랑받는 제자'},
+    {word:'드보라',hint:'이스라엘의 여선지자 사사'},{word:'기드온',hint:'미디안을 물리친 사사'},
+  ],
+  장소:[
+    {word:'예루살렘',hint:'다윗의 성'},{word:'갈릴리',hint:'예수님이 자라신 지방'},
+    {word:'베들레헴',hint:'예수님의 탄생지'},{word:'에덴동산',hint:'최초의 인간이 살던 곳'},
+    {word:'시내산',hint:'십계명을 받은 곳'},{word:'요단강',hint:'세례를 받은 강'},
+    {word:'가나안',hint:'약속의 땅'},{word:'겟세마네',hint:'예수님이 기도한 동산'},
+    {word:'골고다',hint:'십자가의 언덕'},{word:'다마스쿠스',hint:'바울이 회심한 곳'},
+    {word:'바벨론',hint:'포로로 잡혀간 제국의 도시'},{word:'가버나움',hint:'예수님의 사역 중심지'},
+    {word:'안디옥',hint:'처음 그리스도인이라 불린 곳'},{word:'에베소',hint:'아데미 신전이 있던 도시'},
+  ],
+  사건:[
+    {word:'홍해 갈라짐',hint:'모세가 지팡이를 든 기적'},{word:'오병이어',hint:'5개의 떡과 2마리 물고기'},
+    {word:'나사로 부활',hint:'무덤에서 살아난 기적'},{word:'다윗과 골리앗',hint:'돌팔매로 거인을 이긴 싸움'},
+    {word:'물이 포도주로',hint:'가나의 혼인 잔치 기적'},{word:'십계명',hint:'돌판에 새겨진 하나님의 명령'},
+    {word:'이삭의 번제',hint:'아브라함의 믿음 시험'},{word:'만나와 메추라기',hint:'광야에서 내린 음식'},
+    {word:'성령 강림',hint:'오순절 성령 사건'},{word:'물 위를 걸음',hint:'베드로가 물 위를 걸은 기적'},
+  ],
+  비유:[
+    {word:'선한 사마리아인',hint:'강도 만난 자를 도운 이야기'},{word:'탕자의 귀환',hint:'돌아온 아들을 맞이한 아버지'},
+    {word:'씨 뿌리는 자',hint:'길가, 돌밭, 가시덤불, 좋은 땅'},{word:'열 처녀',hint:'슬기로운 자와 미련한 자'},
+    {word:'포도원 품꾼',hint:'나중 온 자도 같은 삯'},{word:'잃어버린 양',hint:'99마리를 두고 한 마리를 찾는'},
+    {word:'달란트 비유',hint:'맡겨진 것을 어떻게 쓰는가'},
+  ],
+};
+
+// ── 상태 ──
+let db = null;
+let roomRef = null;
+let myId = null;
+let myName = '';
+let isHost = false;
+let roomCode = '';
+let myRole = null; // 'citizen' | 'liar'
+let myWord = null;
+let selectedVote = null;
+let gameListeners = [];
+let roleReadyOff = null;
+let isAdvancingFromRole = false;
+let selectedCategories = ['인물','장소'];
+
+// ── Firebase 초기화 ──
+function initFirebase() {
+  if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') {
+    showScreen('screen-config');
+    return false;
+  }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    return true;
+  } catch(e) {
+    showToast('Firebase 연결 실패: ' + e.message);
+    return false;
+  }
+}
+
+window.onload = () => {
+  myId = 'player_' + Math.random().toString(36).substr(2,9);
+  if (!initFirebase()) return;
+  showScreen('screen-menu');
+};
+
+// ── 토스트 ──
+function showToast(msg, dur=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── 화면 전환 ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function clearRoleReadyListener() {
+  if (roleReadyOff) {
+    roleReadyOff();
+    roleReadyOff = null;
+  }
+}
+
+async function maybeAdvanceFromRole(readyCount) {
+  if (!isHost || !roomRef || isAdvancingFromRole) return;
+
+  const phaseSnap = await roomRef.child('phase').get();
+  if (phaseSnap.val() !== 'role') return;
+
+  const playersSnap = await roomRef.child('players').get();
+  const total = Object.keys(playersSnap.val() || {}).length;
+  if (readyCount < total || total === 0) return;
+
+  isAdvancingFromRole = true;
+  try {
+    await roomRef.update({ phase: 'discuss', readyCount: 0 });
+  } finally {
+    isAdvancingFromRole = false;
+  }
+}
+
+// ── 카테고리 토글 (호스트) ──
+function toggleCat(el) {
+  const cat = el.dataset.cat;
+  el.classList.toggle('active');
+  if (el.classList.contains('active')) {
+    if (!selectedCategories.includes(cat)) selectedCategories.push(cat);
+  } else {
+    selectedCategories = selectedCategories.filter(c => c !== cat);
+  }
+}
+
+// ── 방 코드 생성 ──
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+// ── 코드 복사 ──
+function copyCode() {
+  navigator.clipboard?.writeText(roomCode).then(() => showToast('코드 복사됨! 📋'));
+}
+
+// ── 방 만들기 ──
+async function goCreateRoom() {
+  myName = document.getElementById('my-name-input').value.trim();
+  if (!myName) { showToast('이름을 입력해주세요'); return; }
+
+  roomCode = genCode();
+  isHost = true;
+
+  roomRef = db.ref('rooms/' + roomCode);
+  await roomRef.set({
+    host: myId,
+    phase: 'lobby',
+    players: { [myId]: { name: myName, ready: false } },
+    categories: selectedCategories,
+    createdAt: Date.now(),
+  });
+
+  // 연결 끊기면 방 삭제
+  roomRef.onDisconnect().remove();
+
+  document.getElementById('room-code-display').textContent = roomCode;
+  showScreen('screen-host-lobby');
+  listenLobby(true);
+}
+
+// ── 방 참가 ──
+async function joinRoom() {
+  myName = document.getElementById('my-name-input').value.trim();
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!myName) { showToast('이름을 입력해주세요'); return; }
+  if (code.length !== 6) { showToast('6자리 코드를 입력해주세요'); return; }
+
+  const snap = await db.ref('rooms/' + code).get();
+  if (!snap.exists()) { showToast('존재하지 않는 방 코드입니다'); return; }
+  const data = snap.val();
+  if (data.phase !== 'lobby') { showToast('이미 게임이 시작된 방입니다'); return; }
+
+  roomCode = code;
+  isHost = false;
+  roomRef = db.ref('rooms/' + roomCode);
+  await roomRef.child('players/' + myId).set({ name: myName, ready: false });
+
+  document.getElementById('join-room-code-display').textContent = roomCode;
+  showScreen('screen-join-lobby');
+  listenLobby(false);
+}
+
+// ── 대기실 리스닝 ──
+function listenLobby(asHost) {
+  const playersRef = roomRef.child('players');
+  const phaseRef = roomRef.child('phase');
+
+  // 플레이어 목록 실시간 감시
+  const pOff = playersRef.on('value', snap => {
+    const players = snap.val() || {};
+    const names = Object.entries(players).map(([id,p]) => ({id, ...p}));
+    renderLobbyPlayers(names, asHost);
+  });
+
+  // 게임 phase 실시간 감시
+  let lastPhase = null;
+  const phOff = phaseRef.on('value', snap => {
+    const phase = snap.val();
+    if (!phase || phase === lastPhase) return;
+    lastPhase = phase;
+    if (phase !== 'role') clearRoleReadyListener();
+    if (phase === 'role') startRolePhase();
+    if (phase === 'discuss') startDiscussPhase();
+    if (phase === 'guess') startGuessPhase();
+    if (phase === 'result') showResultPhase();
+  });
+
+  gameListeners.push(() => {
+    playersRef.off('value', pOff);
+    phaseRef.off('value', phOff);
+  });
+}
+
+function renderLobbyPlayers(players, asHost) {
+  // 호스트/참가자 양쪽 리스트 모두 업데이트
+  const targets = [
+    { listId:'lobby-players-list', countId:'lobby-count' },
+    { listId:'join-lobby-players-list', countId:'join-lobby-count' },
+  ];
+  targets.forEach(({ listId, countId }) => {
+    const list = document.getElementById(listId);
+    const count = document.getElementById(countId);
+    if (!list) return;
+    list.innerHTML = players.map((p, i) => `
+      <div class="lobby-player">
+        <span class="lobby-player-icon">${i === 0 ? '👑' : '🙋'}</span>
+        <span class="lobby-player-name">${p.name}</span>
+        ${i === 0 ? '<span class="lobby-player-host">호스트</span>' : ''}
+      </div>
+    `).join('');
+    if (count) count.textContent = `${players.length}명 참가 중`;
+  });
+
+  if (asHost) {
+    const btn = document.getElementById('btn-start-game');
+    if (btn) btn.disabled = players.length < 2;
+  }
+}
+
+// ── 호스트: 게임 시작 ──
+async function hostStartGame() {
+  const snap = await roomRef.child('players').get();
+  const players = snap.val();
+  const ids = Object.keys(players);
+
+  if (ids.length < 2) { showToast('최소 2명 필요합니다'); return; }
+
+  // 단어 선택
+  const cats = selectedCategories.length > 0 ? selectedCategories : ['인물'];
+  const pool = cats.flatMap(cat => (BIBLE_WORDS[cat]||[]).map(w=>({...w,category:cat})));
+  const picked = pool[Math.floor(Math.random()*pool.length)];
+
+  // 라이어 선택
+  const liarId = ids[Math.floor(Math.random()*ids.length)];
+
+  // 역할 저장
+  const roles = {};
+  ids.forEach(id => { roles[id] = (id===liarId) ? 'liar' : 'citizen'; });
+
+  await roomRef.update({
+    phase: 'role',
+    word: picked.word,
+    wordCategory: picked.category,
+    wordHint: picked.hint,
+    liarId: liarId,
+    roles: roles,
+    readyCount: 0,
+    liarGuess: null,
+  });
+}
+
+// ── 역할 확인 단계 ──
+async function startRolePhase() {
+  clearRoleReadyListener();
+  isAdvancingFromRole = false;
+
+  const snap = await roomRef.get();
+  const data = snap.val();
+  myRole = data.roles[myId];
+  const isLiar = myRole === 'liar';
+
+  const content = document.getElementById('role-content');
+  if (isLiar) {
+    myWord = null;
+    content.innerHTML = `
+      <div class="role-badge liar">⚔️ 라이어</div>
+      <span class="cat-badge">📖 ${data.wordCategory}</span>
+      <div class="liar-box" style="margin-top:10px;">🎭 당신은 <strong>라이어</strong>입니다!<br>단어를 모르지만 시민인 척 대화에 참여하고,<br>단어를 유추해 보세요!</div>
+    `;
+  } else {
+    myWord = data.word;
+    content.innerHTML = `
+      <div class="role-badge citizen">✝ 시민</div>
+      <span class="cat-badge">📖 ${data.wordCategory}</span>
+      <div class="word-box">
+        <div class="word-box-main">${data.word}</div>
+        <div class="word-box-hint">힌트: ${data.wordHint}</div>
+      </div>
+    `;
+  }
+
+  document.getElementById('btn-role-confirm').disabled = false;
+  document.getElementById('role-wait-count').textContent = '';
+
+  // 다른 사람 readyCount 감시
+  const readyRef = roomRef.child('readyCount');
+  const readyHandler = snap => {
+    const cnt = snap.val() || 0;
+    roomRef.child('players').get().then(ps => {
+      const total = Object.keys(ps.val()||{}).length;
+      document.getElementById('role-wait-count').textContent =
+        `${cnt} / ${total}명 확인 완료`;
+    });
+    maybeAdvanceFromRole(cnt);
+  };
+  readyRef.on('value', readyHandler);
+  roleReadyOff = () => readyRef.off('value', readyHandler);
+
+  showScreen('screen-role');
+}
+
+async function confirmRoleRead() {
+  document.getElementById('btn-role-confirm').disabled = true;
+  await roomRef.child('readyCount').transaction(v => (v||0)+1);
+}
+
+// ── 대화 단계 ──
+function startDiscussPhase() {
+  const reminder = document.getElementById('my-word-reminder');
+  if (myRole === 'citizen' && myWord) {
+    reminder.innerHTML = `
+      <span class="cat-badge">내 단어 기억</span>
+      <div class="word-box" style="margin-top:6px;">
+        <div class="word-box-main">${myWord}</div>
+        <div class="word-box-hint">직접 말하지 마세요!</div>
+      </div>`;
+  } else {
+    reminder.innerHTML = `<div class="liar-box">라이어로서 단어를 유추해 보세요!</div>`;
+  }
+
+  document.getElementById('host-only-vote-btn').style.display = isHost ? 'block' : 'none';
+  document.getElementById('non-host-wait').style.display = isHost ? 'none' : 'block';
+  showScreen('screen-discuss');
+}
+
+async function hostRevealLiar() {
+  await roomRef.update({ phase:'guess' });
+}
+
+// ── 라이어 공개 & 추측 단계 ──
+async function startGuessPhase() {
+  const snap = await roomRef.get();
+  const data = snap.val();
+  const liarName = data.players[data.liarId]?.name || '?';
+  const isTheLiar = myId === data.liarId;
+
+  document.getElementById('guess-liar-name').textContent = liarName;
+  document.getElementById('liar-guess-section').style.display = isTheLiar ? 'block' : 'none';
+  document.getElementById('liar-citizen-wait').style.display = isTheLiar ? 'none' : 'block';
+  showScreen('screen-guess');
+}
+
+async function submitLiarGuess() {
+  const guess = document.getElementById('liar-guess-input').value.trim();
+  if (!guess) { showToast('단어를 입력해주세요'); return; }
+
+  const snap = await roomRef.child('word').get();
+  const word = snap.val();
+  const correct = guess.replace(/\s/g,'') === word.replace(/\s/g,'');
+
+  await roomRef.update({
+    phase: 'result',
+    winner: correct ? 'liar' : 'citizens',
+    liarGuess: guess,
+  });
+}
+
+// ── 결과 단계 ──
+async function showResultPhase() {
+  const snap = await roomRef.get();
+  const data = snap.val();
+
+  const winner = data.winner;
+  const liarName = data.players[data.liarId]?.name || '?';
+
+  const bannerEl = document.getElementById('result-banner');
+  const emojiEl = document.getElementById('result-emoji');
+  if (winner === 'citizens') {
+    bannerEl.innerHTML = `<div class="result-banner citizens-win">🕊️ 시민 팀 승리!</div>`;
+    emojiEl.textContent = '🎉';
+  } else {
+    bannerEl.innerHTML = `<div class="result-banner liar-wins">😈 라이어 승리!</div>`;
+    emojiEl.textContent = '🎭';
+  }
+
+  document.getElementById('result-liar-name').textContent = liarName;
+  document.getElementById('result-word').textContent = data.word;
+  document.getElementById('result-cat').innerHTML =
+    `<span class="cat-badge">📖 ${data.wordCategory} · ${data.wordHint}</span>`;
+
+  document.getElementById('host-restart-btn').style.display = isHost ? 'block' : 'none';
+  document.getElementById('guest-restart-wait').style.display = isHost ? 'none' : 'block';
+
+  showScreen('screen-result');
+}
+
+// ── 다시 시작 ──
+async function hostRestart() {
+  const snap = await roomRef.child('players').get();
+  const players = snap.val();
+  const ids = Object.keys(players);
+
+  const cats = selectedCategories.length > 0 ? selectedCategories : ['인물'];
+  const pool = cats.flatMap(cat => (BIBLE_WORDS[cat]||[]).map(w=>({...w,category:cat})));
+  const picked = pool[Math.floor(Math.random()*pool.length)];
+  const liarId = ids[Math.floor(Math.random()*ids.length)];
+  const roles = {};
+  ids.forEach(id => { roles[id] = (id===liarId)?'liar':'citizen'; });
+
+  await roomRef.update({
+    phase:'role', word:picked.word, wordCategory:picked.category,
+    wordHint:picked.hint, liarId, roles, readyCount:0, liarGuess:null, winner:null,
+  });
+}
+
+// ── 방 나가기 ──
+async function leaveRoom() {
+  clearRoleReadyListener();
+  if (roomRef) {
+    if (isHost) { await roomRef.remove(); }
+    else { await roomRef.child('players/'+myId).remove(); }
+    roomRef = null;
+  }
+  gameListeners.forEach(off => off());
+  gameListeners = [];
+  myRole = null; myWord = null; selectedVote = null;
+  showScreen('screen-menu');
+}
+</script>
+</body>
+</html>
