@@ -693,13 +693,26 @@ async function joinRoom() {
 // ── 대기실 리스닝 ──
 function listenLobby(asHost) {
   const playersRef = roomRef.child('players');
+  const hostRef = roomRef.child('host');
   const phaseRef = roomRef.child('phase');
+  let currentHostId = null;
+
+  const renderPlayers = players => renderLobbyPlayers(players, asHost, currentHostId);
+
+  const hOff = hostRef.on('value', snap => {
+    currentHostId = snap.val() || null;
+    playersRef.get().then(playersSnap => {
+      const players = playersSnap.val() || {};
+      const names = Object.entries(players).map(([id,p]) => ({id, ...p}));
+      renderPlayers(names);
+    });
+  });
 
   // 플레이어 목록 실시간 감시
   const pOff = playersRef.on('value', snap => {
     const players = snap.val() || {};
     const names = Object.entries(players).map(([id,p]) => ({id, ...p}));
-    renderLobbyPlayers(names, asHost);
+    renderPlayers(names);
   });
 
   // 게임 phase 실시간 감시
@@ -716,12 +729,13 @@ function listenLobby(asHost) {
   });
 
   gameListeners.push(() => {
+    hostRef.off('value', hOff);
     playersRef.off('value', pOff);
     phaseRef.off('value', phOff);
   });
 }
 
-function renderLobbyPlayers(players, asHost) {
+function renderLobbyPlayers(players, asHost, hostId) {
   // 호스트/참가자 양쪽 리스트 모두 업데이트
   const targets = [
     { listId:'lobby-players-list', countId:'lobby-count' },
@@ -731,11 +745,11 @@ function renderLobbyPlayers(players, asHost) {
     const list = document.getElementById(listId);
     const count = document.getElementById(countId);
     if (!list) return;
-    list.innerHTML = players.map((p, i) => `
+    list.innerHTML = players.map((p) => `
       <div class="lobby-player">
-        <span class="lobby-player-icon">${i === 0 ? '👑' : '🙋'}</span>
+        <span class="lobby-player-icon">${p.id === hostId ? '👑' : '🙋'}</span>
         <span class="lobby-player-name">${p.name}</span>
-        ${i === 0 ? '<span class="lobby-player-host">호스트</span>' : ''}
+        ${p.id === hostId ? '<span class="lobby-player-host">호스트</span>' : ''}
       </div>
     `).join('');
     if (count) count.textContent = `${players.length}명 참가 중`;
