@@ -1,0 +1,105 @@
+.wrap {
+  min-height: 100vh;
+  background: #faf6f0;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* 헤더 */
+.header {
+  background: linear-gradient(160deg, #e8dcc8 0%, #d4c4a8 100%);
+  padding: 32px 20px 24px;
+  border-bottom: 1px solid #c8b898;
+  position: relative;
+  overflow: hidden;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+}
+.headerSub  { font-size: 10px; color: #8b6e4e; letter-spacing: 0.2em; font-weight: 600; margin: 0 0 6px; }
+.headerTitle { font-family: 'Gowun Batang', serif; font-size: 24px; color: #4a3520; font-weight: 700; margin: 0 0 4px; }
+.headerDesc  { font-size: 12px; color: #8b6e4e; margin: 0; }
+
+.container { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; }
+
+/* 로딩/에러 */
+.center { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 60px 0; color: #b8a090; }
+.spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid #e8dcc8; border-top-color: #a0784e; animation: spin 0.9s linear infinite; }
+.err { color: #c0392b; font-size: 13px; }
+
+/* 주차 선택 */
+.weekList { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.weekGroup {}
+.weekLabel { font-size: 11px; color: #a08060; font-weight: 700; margin: 0 0 8px; letter-spacing: 0.05em; }
+.serviceRow { display: flex; gap: 8px; }
+.serviceBtn {
+  flex: 1; padding: 10px; border-radius: 12px;
+  border: 2px solid #e8dcc8; background: #fff;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: 13px; font-weight: 700; color: #b8a090;
+  font-family: 'Noto Sans KR', sans-serif; transition: all 0.2s;
+}
+.selMorn { border-color: #f6a623; background: #fff8ec; color: #e8901a; }
+.selAftn { border-color: #7a6e9e; background: #f5f3fa; color: #5a5080; }
+
+/* 말씀 정보 */
+.sermonInfo { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid #e8d8c0; margin-bottom: 14px; }
+.badge { border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; color: #fff; display: inline-block; margin-bottom: 8px; }
+.badgeMorn { background: linear-gradient(135deg, #f6a623, #e8901a); }
+.badgeAftn { background: linear-gradient(135deg, #7a6e9e, #5a5080); }
+.sermonRef   { font-family: 'Gowun Batang', serif; font-size: 18px; color: #4a3520; font-weight: 700; margin: 0 0 4px; }
+.sermonTitle { font-size: 13px; color: #8b6e4e; margin: 0; }
+
+/* 탭 */
+.tabBar { display: flex; background: #fff; border-top: 1px solid #e8dcc8; border-bottom: 1px solid #e8dcc8; margin-bottom: 16px; position: sticky; top: 0; z-index: 10; }
+.tab { flex: 1; padding: 13px 8px; border: none; background: none; font-size: 13px; font-family: 'Gowun Batang', serif; color: #bba888; font-weight: 400; cursor: pointer; border-bottom: 2.5px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.tabActive { color: #8b6e4e; font-weight: 700; border-bottom-color: #a0784e; }
+
+/* 콘텐츠 */
+.section { display: flex; flex-direction: column; gap: 12px; }
+.sectionTitle { font-family: 'Gowun Batang', serif; font-size: 13px; color: #8b6e4e; margin: 0; }
+
+/* 본문 */
+.passageBox { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid #e8d8c0; }
+.passageLabel { font-size: 11px; color: #a0784e; font-weight: 700; letter-spacing: 0.08em; margin: 0 0 8px; }
+.passageText { color: #4a3520; font-family: 'Gowun Batang', serif; font-size: 13px; line-height: 2.1; margin: 0; white-space: pre-line; }
+
+/* 나눔 질문 */
+.qCard { border-radius: 14px; padding: 16px 18px; animation: fadeUp 0.4s ease both; }
+.qType { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; margin: 0 0 7px; }
+.qEx   { font-size: 12px; color: #6b5040; margin: 0 0 8px; line-height: 1.8; background: rgba(255,255,255,0.65); border-radius: 6px; padding: 8px 12px; }
+.qText { font-family: 'Gowun Batang', serif; font-size: 15px; color: #4a3520; line-height: 1.85; margin: 0; font-weight: 700; }
+
+/* 주간 묵상 */
+.medCard { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid #e8d8c0; animation: fadeUp 0.3s ease both; }
+.medHead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.dayBadge { background: linear-gradient(135deg, #a0784e, #c4956a); color: #fff; border-radius: 8px; padding: 3px 12px; font-size: 12px; font-weight: 700; }
+.focus    { color: #a0784e; font-size: 13px; font-family: 'Gowun Batang', serif; font-style: italic; }
+.medText  { color: #4a3728; font-family: 'Gowun Batang', serif; font-size: 14px; line-height: 1.9; margin: 0; }
+
+/* 말씀카드 */
+.wordCard { background: linear-gradient(135deg, #a0784e, #7a5c38, #c4956a); border-radius: 20px; padding: 36px 28px; position: relative; overflow: hidden; box-shadow: 0 12px 40px rgba(160,120,78,0.35); }
+.wordCard::before { content: ''; position: absolute; top: -30px; right: -30px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255,255,255,0.07); }
+.wordCardLabel { color: rgba(245,230,208,0.8); font-size: 10px; letter-spacing: 0.2em; margin: 0 0 14px; }
+.wordCardVerse { color: #fff; font-family: 'Gowun Batang', serif; font-size: 19px; line-height: 1.95; margin: 0 0 18px; font-style: italic; }
+.wordCardRef   { color: rgba(245,230,208,0.8); font-family: 'Gowun Batang', serif; font-size: 12px; margin: 0; }
+
+/* 복사 버튼 */
+.copyBtn {
+  width: 100%; background: #fff; border: 1.5px solid #ddd0ba;
+  border-radius: 12px; padding: 13px; font-size: 13px;
+  color: #8b6e4e; font-weight: 700; font-family: 'Gowun Batang', serif;
+  cursor: pointer; transition: all 0.2s;
+}
+.copyBtn:active { background: #f5f0ea; }
+
+/* 애니메이션 */
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes fadeUp  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 탭바 스크롤바 숨김 */
+.tabBar::-webkit-scrollbar { display: none; }
