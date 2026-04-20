@@ -1,0 +1,244 @@
+{
+  "name": "WORD & LIFE - 말씀 나눔 자료 자동 생성",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "seconds", "secondsInterval": 30 }]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "30초마다 실행",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "sermons",
+        "returnAll": false,
+        "limit": 5,
+        "filterByFormula": "={{ `status=eq.pending` }}",
+        "options": {
+          "orderBy": "created_at",
+          "ascending": true
+        }
+      },
+      "id": "get-pending",
+      "name": "Pending 조회",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase - Ghchurch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-pending",
+      "name": "Pending 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sermons",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "status",     "fieldValue": "processing" },
+            { "fieldId": "updated_at", "fieldValue": "={{ new Date().toISOString() }}" }
+          ]
+        },
+        "filterByFormula": "={{ `id=eq.${$json.id}` }}"
+      },
+      "id": "set-processing",
+      "name": "status → processing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase - Ghchurch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Pending 조회').first().json;\n\nconst reference  = item.reference       || '';\nconst passage    = item.passage         || '';\nconst sTitle     = item.sermon_title    || '';\nconst sPoints    = item.sermon_points   || '';\n\nconst lines = [\n  '다음 말씀으로 개혁주의 청년부 나눔 자료를 JSON으로만 만들어주세요.',\n  '',\n  `성경 구절: ${reference}`,\n  sTitle  ? `설교 제목: ${sTitle}`   : '',\n  sPoints ? `설교 요지:\\n${sPoints}` : '',\n  '말씀 본문(개역개정):',\n  passage,\n  '',\n  '나눔 질문 4개(삶의 언어, 자연스럽게):',\n  'Q1[말씀 속으로]: 본문 느낌/인상 나누기',\n  'Q2[내 이야기]: 실제 삶 연결. 신학 개념 있으면 2~3문장 해설 후 질문',\n  'Q3[함께 나눔]: 서로 공감/격려',\n  'Q4[이번 주 실천]: 일상 속 구체적 한 가지',\n  '',\n  '월~토 주간 묵상(각 2~3문장, 하나님 중심, 따뜻한 권면)',\n  '말씀카드 핵심 구절(50자 이내, 개역개정)',\n  '',\n  '{\"questions\":[{\"explanation\":\"\",\"question\":\"Q1\"},{\"explanation\":\"해설or빈값\",\"question\":\"Q2\"},{\"explanation\":\"\",\"question\":\"Q3\"},{\"explanation\":\"\",\"question\":\"Q4\"}],\"meditations\":[{\"day\":\"월\",\"focus\":\"구절\",\"message\":\"묵상\"},{\"day\":\"화\",\"focus\":\"구절\",\"message\":\"묵상\"},{\"day\":\"수\",\"focus\":\"구절\",\"message\":\"묵상\"},{\"day\":\"목\",\"focus\":\"구절\",\"message\":\"묵상\"},{\"day\":\"금\",\"focus\":\"구절\",\"message\":\"묵상\"},{\"day\":\"토\",\"focus\":\"구절\",\"message\":\"묵상\"}],\"cardVerse\":\"핵심구절\"}'\n];\n\nreturn [{\n  json: {\n    id: item.id,\n    userMsg: lines.filter(l => l !== '').join('\\n')\n  }\n}];"
+      },
+      "id": "build-prompt",
+      "name": "프롬프트 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",        "value": "={{ $vars.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": {
+          "model": "claude-haiku-4-5-20251001",
+          "max_tokens": 4000,
+          "system": "당신은 개혁주의(Reformed) 칼빈주의 신앙 노선을 따르는 한국 보수 교회 청년부 사역 도우미입니다. Sola Scriptura, Sola Gratia, Solus Christus, Soli Deo Gloria 원칙을 따르며 번영신학/신사도운동/은사주의 표현을 지양합니다. 하나님 중심적 관점을 유지하고 말씀에 기반한 권면을 합니다. 반드시 순수 JSON만 반환하고 마크다운 코드블록 없이 JSON 객체만 반환하세요.",
+          "messages": [
+            {
+              "role": "user",
+              "content": "={{ $json.userMsg }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "claude-api",
+      "name": "Claude AI 호출",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content[0].text.trim();\n\n// 코드블록 제거\nlet cleaned = raw\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```\\s*$/i, '')\n  .trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  throw new Error('JSON 파싱 실패: ' + e.message);\n}\n\nif (!parsed.questions || !parsed.meditations || !parsed.cardVerse) {\n  throw new Error('필수 필드 누락: questions, meditations, cardVerse 필요');\n}\n\nconst id = $('프롬프트 생성').first().json.id;\n\nreturn [{\n  json: {\n    id,\n    questions:   parsed.questions,\n    meditations: parsed.meditations,\n    card_verse:  parsed.cardVerse\n  }\n}];"
+      },
+      "id": "parse-json",
+      "name": "JSON 파싱",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 340]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sermons",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "status",      "fieldValue": "done" },
+            { "fieldId": "questions",   "fieldValue": "={{ JSON.stringify($json.questions) }}" },
+            { "fieldId": "meditations", "fieldValue": "={{ JSON.stringify($json.meditations) }}" },
+            { "fieldId": "card_verse",  "fieldValue": "={{ $json.card_verse }}" },
+            { "fieldId": "error_msg",   "fieldValue": "" },
+            { "fieldId": "updated_at",  "fieldValue": "={{ new Date().toISOString() }}" }
+          ]
+        },
+        "filterByFormula": "={{ `id=eq.${$json.id}` }}"
+      },
+      "id": "save-done",
+      "name": "status → done 저장",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 340],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase - Ghchurch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 에러 발생 시 id 가져오기\nlet id = '';\ntry { id = $('프롬프트 생성').first().json.id; } catch(e) {}\ntry { if (!id) id = $('Pending 조회').first().json.id; } catch(e) {}\n\nconst errMsg = $input.first().json.message || '알 수 없는 오류';\n\nreturn [{ json: { id, errMsg } }];"
+      },
+      "id": "handle-error",
+      "name": "에러 처리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 520]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sermons",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "status",     "fieldValue": "error" },
+            { "fieldId": "error_msg",  "fieldValue": "={{ $json.errMsg }}" },
+            { "fieldId": "updated_at", "fieldValue": "={{ new Date().toISOString() }}" }
+          ]
+        },
+        "filterByFormula": "={{ `id=eq.${$json.id}` }}"
+      },
+      "id": "save-error",
+      "name": "status → error 저장",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1560, 520],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-cred",
+          "name": "Supabase - Ghchurch"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "30초마다 실행": {
+      "main": [[{ "node": "Pending 조회", "type": "main", "index": 0 }]]
+    },
+    "Pending 조회": {
+      "main": [[{ "node": "Pending 있음?", "type": "main", "index": 0 }]]
+    },
+    "Pending 있음?": {
+      "main": [
+        [
+          { "node": "status → processing", "type": "main", "index": 0 },
+          { "node": "프롬프트 생성", "type": "main", "index": 0 }
+        ],
+        []
+      ]
+    },
+    "프롬프트 생성": {
+      "main": [[{ "node": "Claude AI 호출", "type": "main", "index": 0 }]]
+    },
+    "Claude AI 호출": {
+      "main": [[{ "node": "JSON 파싱", "type": "main", "index": 0 }]]
+    },
+    "JSON 파싱": {
+      "main": [[{ "node": "status → done 저장", "type": "main", "index": 0 }]]
+    },
+    "에러 처리": {
+      "main": [[{ "node": "status → error 저장", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "handle-error"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "1",
+  "tags": [{ "name": "wordlife" }]
+}
