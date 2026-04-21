@@ -51,8 +51,18 @@ export default function Home() {
   function copy(text,key) { doCopy(text); setCk(key); setTimeout(()=>setCk(''),2000) }
 
   const TABS = ['나눔 질문','주간 묵상','말씀카드']
-  const qs   = selected?.questions   || []
-  const meds = selected?.meditations || []
+
+  // Supabase에서 JSON string으로 올 수 있어서 파싱 처리
+  const parseField = (val) => {
+    if (!val) return []
+    if (Array.isArray(val)) return val
+    if (typeof val === 'string') {
+      try { return JSON.parse(val) } catch(e) { return [] }
+    }
+    return []
+  }
+  const qs   = parseField(selected?.questions)
+  const meds = parseField(selected?.meditations)
 
   const grouped = sermons.reduce((acc,s)=>{
     if(!acc[s.week]) acc[s.week]=[]
