@@ -50,7 +50,7 @@ export default function Home() {
 
   function copy(text,key) { doCopy(text); setCk(key); setTimeout(()=>setCk(''),2000) }
 
-  const TABS = ['나눔 질문','주간 묵상','말씀카드']
+  const TABS = ['말씀 요약','나눔 질문','주간 묵상','말씀카드']
 
   // Supabase에서 JSON string으로 올 수 있어서 파싱 처리
   const parseField = (val) => {
@@ -61,8 +61,14 @@ export default function Home() {
     }
     return []
   }
-  const qs   = parseField(selected?.questions)
-  const meds = parseField(selected?.meditations)
+  const qs      = parseField(selected?.questions)
+  const meds    = parseField(selected?.meditations)
+  const summary = (() => {
+    const s = selected?.sermon_summary
+    if (!s) return null
+    if (typeof s === 'object') return s
+    try { return JSON.parse(s) } catch(e) { return null }
+  })()
 
   const grouped = sermons.reduce((acc,s)=>{
     if(!acc[s.week]) acc[s.week]=[]
@@ -152,8 +158,40 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {/* 탭 0: 나눔 질문 */}
+                  {/* 탭 0: 말씀 요약 */}
                   {tab===0 && (
+                    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                      {!summary ? (
+                        <div style={{textAlign:'center',padding:'40px 20px',color:'#b8a090'}}>
+                          <p style={{fontSize:13}}>말씀 요약을 불러오는 중...</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* 핵심 메시지 */}
+                          <div style={{background:'linear-gradient(135deg,#a0784e,#c4956a)',borderRadius:16,padding:'20px 22px',position:'relative',overflow:'hidden'}}>
+                            <div style={{position:'absolute',top:-20,right:-20,width:100,height:100,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
+                            <p style={{color:'rgba(245,230,208,0.85)',fontSize:10,letterSpacing:'0.15em',margin:'0 0 10px',fontWeight:600}}>✦ 핵심 메시지</p>
+                            <p style={{color:'#fff',fontFamily:"'Gowun Batang',serif",fontSize:16,lineHeight:1.85,margin:0,fontWeight:700}}>{summary.key_point}</p>
+                          </div>
+                          {/* 전체 흐름 */}
+                          <div style={{background:'#fff',borderRadius:14,padding:'18px 20px',border:'1px solid #e8d8c0'}}>
+                            <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 10px'}}>📖 전체 흐름</p>
+                            <p style={{color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:14,lineHeight:1.95,margin:0}}>{summary.overview}</p>
+                          </div>
+                          {/* 단락별 요약 */}
+                          {summary.sections && summary.sections.map((sec,i) => (
+                            <div key={i} style={{background:'#fdf5ec',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0',borderLeft:'4px solid #c4956a',animation:`fadeUp 0.3s ease ${i*0.1}s both`}}>
+                              <p style={{fontSize:12,color:'#a0784e',fontWeight:700,margin:'0 0 8px'}}>{sec.title}</p>
+                              <p style={{color:'#4a3728',fontFamily:"'Gowun Batang',serif",fontSize:14,lineHeight:1.9,margin:0}}>{sec.content}</p>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 탭 1: 나눔 질문 */}
+                  {tab===1 && (
                     <div style={{display:'flex',flexDirection:'column',gap:12}}>
                       {selected.passage && (
                         <div style={S.card}>
@@ -181,8 +219,8 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 탭 1: 주간 묵상 */}
-                  {tab===1 && (
+                  {/* 탭 2: 주간 묵상 */}
+                  {tab===2 && (
                     <div style={{display:'flex',flexDirection:'column',gap:12}}>
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0 8px'}}>✦ {selected.reference} 주간 묵상</p>
                       {meds.map((m,i)=>(
@@ -201,8 +239,8 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 탭 2: 말씀카드 */}
-                  {tab===2 && (
+                  {/* 탭 3: 말씀카드 */}
+                  {tab===3 && (
                     <div style={{display:'flex',flexDirection:'column',gap:16}}>
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0'}}>✦ 이번 주 말씀카드</p>
                       <div style={{background:'linear-gradient(135deg,#a0784e,#7a5c38,#c4956a)',borderRadius:20,padding:'36px 28px',position:'relative',overflow:'hidden',boxShadow:'0 12px 40px rgba(160,120,78,0.35)'}}>

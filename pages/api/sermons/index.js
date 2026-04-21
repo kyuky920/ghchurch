@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await supabase
         .from('sermons')
-        .select('id,week,service,reference,sermon_title,passage,questions,meditations,card_verse,status,created_at')
+        .select('id,week,service,reference,sermon_title,passage,questions,meditations,card_verse,sermon_summary,status,created_at')
         .eq('status', 'done')
         .order('week', { ascending: false })
         .order('service', { ascending: true })
@@ -19,8 +19,9 @@ export default async function handler(req, res) {
       // questions/meditations가 문자열로 저장된 경우 파싱
       const parsed = (data || []).map(s => ({
         ...s,
-        questions:   typeof s.questions   === 'string' ? JSON.parse(s.questions)   : s.questions,
-        meditations: typeof s.meditations === 'string' ? JSON.parse(s.meditations) : s.meditations,
+        questions:     typeof s.questions     === 'string' ? JSON.parse(s.questions)     : s.questions,
+        meditations:   typeof s.meditations   === 'string' ? JSON.parse(s.meditations)   : s.meditations,
+        sermon_summary: typeof s.sermon_summary === 'string' ? JSON.parse(s.sermon_summary) : s.sermon_summary,
       }))
       return res.status(200).json({ ok: true, data: parsed })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
