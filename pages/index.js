@@ -41,10 +41,22 @@ export default function Home() {
   const [tab, setTab]           = useState(0)
   const [ck, setCk]             = useState('')
 
+  const [selectedWeek, setSelectedWeek] = useState(null)
+
   useEffect(() => {
     fetch('/api/sermons').then(r=>r.json()).then(d=>{
-      if (d.ok) { setSermons(d.data||[]); if(d.data?.length) setSelected(d.data[0]) }
-      else setError(d.error)
+      if (d.ok) {
+        const list = d.data || []
+        setSermons(list)
+        // 가장 최신 주차 기본 선택
+        if (list.length) {
+          const latestWeek = list[0].week
+          setSelectedWeek(latestWeek)
+          // 최신 주차의 첫번째 (오전) 기본 선택
+          const first = list.find(s => s.week === latestWeek && s.service === 'morning') || list[0]
+          setSelected(first)
+        }
+      } else setError(d.error)
     }).catch(e=>setError(e.message)).finally(()=>setLoading(false))
   },[])
 
@@ -74,6 +86,10 @@ export default function Home() {
     if(!acc[s.week]) acc[s.week]=[]
     acc[s.week].push(s); return acc
   },{})
+  // 각 주차 내에서 오전→오후 순으로 정렬
+  Object.keys(grouped).forEach(wk => {
+    grouped[wk].sort((a,b) => a.service === 'morning' ? -1 : 1)
+  })
 
   const CopyBtn = ({text,id,label}) => (
     <button onClick={()=>copy(text,id)} style={{width:'100%',background:'#fff',border:'1.5px solid #ddd0ba',borderRadius:12,padding:'13px',fontSize:13,color:'#8b6e4e',fontWeight:700,fontFamily:"'Gowun Batang',serif",cursor:'pointer'}}>
@@ -115,27 +131,50 @@ export default function Home() {
 
           {!loading && !error && (
             <>
-              {/* 주차/예배 선택 */}
-              <div style={{marginBottom:14}}>
-                {Object.entries(grouped).map(([wk,items])=>(
-                  <div key={wk} style={{marginBottom:12}}>
-                    <p style={{fontSize:11,color:'#a08060',fontWeight:700,margin:'0 0 8px'}}>{weekLabel(wk)}</p>
+              {/* 주차 선택 드롭다운 */}
+              {Object.keys(grouped).length > 0 && (
+                <div style={{marginBottom:14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                    <label style={{fontSize:12,color:'#8b6e4e',fontWeight:700,whiteSpace:'nowrap'}}>주차 선택</label>
+                    <select
+                      value={selectedWeek || ''}
+                      onChange={e => {
+                        const wk = e.target.value
+                        setSelectedWeek(wk)
+                        setTab(0)
+                        const items = grouped[wk] || []
+                        const first = items.find(s=>s.service==='morning') || items[0]
+                        if (first) setSelected(first)
+                      }}
+                      style={{flex:1,padding:'10px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:14,background:'#fff',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}
+                    >
+                      {Object.keys(grouped).map(wk=>(
+                        <option key={wk} value={wk}>{weekLabel(wk)}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 선택된 주차의 오전/오후 버튼 */}
+                  {selectedWeek && grouped[selectedWeek] && (
                     <div style={{display:'flex',gap:8}}>
-                      {items.map(s=>{
-                        const isMorn=s.service==='morning'
-                        const isSel=selected?.id===s.id
+                      {grouped[selectedWeek].map(s=>{
+                        const isMorn = s.service==='morning'
+                        const isSel  = selected?.id===s.id
                         return (
                           <button key={s.id} onClick={()=>{setSelected(s);setTab(0)}}
-                            style={{flex:1,padding:'10px 12px',borderRadius:12,border:`2px solid ${isSel?(isMorn?'#f6a623':'#7a6e9e'):'#e8dcc8'}`,background:isSel?(isMorn?'#fff8ec':'#f5f3fa'):'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:"'Noto Sans KR',sans-serif"}}>
-                            <span>{isMorn?'☀️':'🌙'}</span>
-                            <span style={{fontSize:12,fontWeight:700,color:isSel?(isMorn?'#e8901a':'#7a6e9e'):'#b8a090'}}>{isMorn?'오전':'오후'}</span>
+                            style={{flex:1,padding:'11px 12px',borderRadius:12,border:`2px solid ${isSel?(isMorn?'#f6a623':'#7a6e9e'):'#e8dcc8'}`,background:isSel?(isMorn?'#fff8ec':'#f5f3fa'):'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,fontFamily:"'Noto Sans KR',sans-serif",transition:'all 0.2s'}}>
+                            <span style={{fontSize:16}}>{isMorn?'☀️':'🌙'}</span>
+                            <div style={{textAlign:'left'}}>
+                              <p style={{fontSize:12,fontWeight:700,color:isSel?(isMorn?'#e8901a':'#7a6e9e'):'#b8a090',margin:0}}>{isMorn?'주일 오전':'주일 오후'}</p>
+                              <p style={{fontSize:10,color:'#c4a882',margin:0}}>{s.reference}</p>
+                            </div>
                           </button>
                         )
                       })}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
 
               {selected && (
                 <>
