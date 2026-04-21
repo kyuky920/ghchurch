@@ -16,7 +16,13 @@ export default async function handler(req, res) {
         .order('week', { ascending: false })
         .order('service', { ascending: true })
       if (error) throw error
-      return res.status(200).json({ ok: true, data })
+      // questions/meditations가 문자열로 저장된 경우 파싱
+      const parsed = (data || []).map(s => ({
+        ...s,
+        questions:   typeof s.questions   === 'string' ? JSON.parse(s.questions)   : s.questions,
+        meditations: typeof s.meditations === 'string' ? JSON.parse(s.meditations) : s.meditations,
+      }))
+      return res.status(200).json({ ok: true, data: parsed })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
   }
 
