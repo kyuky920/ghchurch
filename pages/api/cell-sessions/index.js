@@ -77,10 +77,10 @@ export default async function handler(req, res) {
   }
 
   // POST — 조별 세션 시작
-  // body: { week, service, group_no, group_name, sermon_week, sermon_service, sermon_reference, sermon_title }
+  // body: { week, service, group_no, group_name, sermon_week, sermon_service }
   if (req.method === 'POST') {
     const secret = req.headers['authorization']?.replace('Bearer ', '')
-    const { week, service, group_no, group_name, sermon_week, sermon_service, sermon_reference, sermon_title, device_id } = req.body
+    const { week, service, group_no, group_name, sermon_week, sermon_service, device_id } = req.body
     if (!week || !group_no) return res.status(400).json({ ok: false, error: 'week, group_no 필수' })
     try {
       const authorized = secret === process.env.LEADER_API_SECRET
@@ -104,8 +104,6 @@ export default async function handler(req, res) {
           group_name: group_name || `${group_no}조`,
           sermon_week: sermon_week || week,
           sermon_service: sermon_service || 'morning',
-          sermon_reference: sermon_reference || '',
-          sermon_title: sermon_title || '',
           is_active: true,
           notice: '',
           started_at: new Date().toISOString()

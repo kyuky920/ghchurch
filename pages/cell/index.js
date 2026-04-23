@@ -50,6 +50,7 @@ export default function CellPage() {
 
   // 조별 세션 상태
   const [groupSessions, setGroupSessions] = useState({}) // { group_no: sessionData }
+  const [sermonLookup, setSermonLookup] = useState({})
 
   // 셀 리더 모임 시작 모달
   const [showStartModal, setShowStartModal] = useState(false)
@@ -207,13 +208,29 @@ export default function CellPage() {
     } catch(e) {}
   }
 
+  async function loadSermonLookup() {
+    try {
+      const res = await fetch('/api/sermons')
+      const d = await res.json()
+      if (!d.ok || !Array.isArray(d.data)) return
+      const lookup = {}
+      d.data.forEach(s => {
+        lookup[`${s.week}:${s.service}`] = s
+      })
+      setSermonLookup(lookup)
+    } catch(e) {}
+  }
+
+  useEffect(() => {
+    loadSermonLookup()
+  }, [])
+
   // ── 셀 리더: 모임 시작 ──
   async function handleStartSession() {
     if (!selWeek) { alert('말씀을 선택해주세요.'); return }
     if (!myGroup) { alert('내 조를 찾을 수 없어요.'); return }
     setSessionStarting(true)
     try {
-      const chosenSermon = sermons.find(s => s.week === selWeek && s.service === selService)
       const res = await fetch('/api/cell-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -224,8 +241,6 @@ export default function CellPage() {
           group_name: myGroup.name,
           sermon_week: selWeek,
           sermon_service: selService,
-          sermon_reference: chosenSermon?.reference || '',
-          sermon_title: chosenSermon?.sermon_title || '',
           device_id: deviceId.current,
         })
       })
@@ -418,6 +433,7 @@ export default function CellPage() {
                       const color     = GROUP_COLORS[gi % GROUP_COLORS.length]
                       const bg        = GROUP_BGS[gi % GROUP_BGS.length]
                       const session   = groupSessions[String(g.group_no)]
+                      const sessionSermon = session ? sermonLookup[`${session.sermon_week}:${session.sermon_service}`] : null
                       const alreadyInGroup = groups.groups.some(gg => gg.members?.some(m => m.device_id === deviceId.current))
 
                       return (
@@ -440,10 +456,10 @@ export default function CellPage() {
                                   모임 진행 중
                                 </p>
                                 <p style={{fontSize:11,color:'#2e7d32',fontWeight:600,margin:0}}>
-                                  {session.sermon_reference || (session.sermon_week && weekLabel(session.sermon_week))}
+                                  {sessionSermon?.reference || (session.sermon_week && weekLabel(session.sermon_week))}
                                   {session.sermon_service==='morning'?' · ☀️ 오전':session.sermon_service==='afternoon'?' · 🌙 오후':''}
                                 </p>
-                                {session.sermon_title && <p style={{fontSize:10,color:'#5d8a60',margin:'2px 0 0'}}>{session.sermon_title}</p>}
+                                {sessionSermon?.sermon_title && <p style={{fontSize:10,color:'#5d8a60',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
                               </div>
                             </div>
                           )}

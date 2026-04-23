@@ -245,6 +245,7 @@ function CellTab() {
 
   const [activeSession, setActiveSession] = useState(null)
   const [groupSessions, setGroupSessions] = useState({})
+  const [sermonLookup, setSermonLookup] = useState({})
   const [notice, setNotice]           = useState('')
   const [noticeSending, setNoticeSending] = useState(false)
   const [noticeMsg, setNoticeMsg]     = useState('')
@@ -281,6 +282,24 @@ function CellTab() {
       alive = false
       if (pollRef.current) clearInterval(pollRef.current)
     }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    async function loadSermons() {
+      try {
+        const res = await fetch('/api/sermons')
+        const d = await res.json()
+        if (!alive || !d.ok || !Array.isArray(d.data)) return
+        const lookup = {}
+        d.data.forEach(s => {
+          lookup[`${s.week}:${s.service}`] = s
+        })
+        setSermonLookup(lookup)
+      } catch(e) {}
+    }
+    loadSermons()
+    return () => { alive = false }
   }, [])
 
   async function sendNotice() {
@@ -650,6 +669,7 @@ function CellTab() {
             <p style={{fontSize:11,color:activeSession?'#558b2f':'#a08060',fontWeight:700,margin:'0 0 4px'}}>조별 모임 현황</p>
             {groups.map((g) => {
               const session  = groupSessions[String(g.group_no)]
+              const sessionSermon = session ? sermonLookup[`${session.sermon_week}:${session.sermon_service}`] : null
               // is_active=true → 진행중, ended_at 있고 is_active=false → 종료, session 없음 → 대기
               const hasStatus = !!session
               const ended    = !!session && !session.is_active && !!session.ended_at
@@ -671,13 +691,13 @@ function CellTab() {
                       <>
                         <span style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>✅ 종료</span>
                         {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>{new Date(endedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</p>}
-                        {(session?.sermon_reference || session?.sermon_week) && <p style={{fontSize:10,color:'#a08060',margin:'2px 0 0'}}>{session.sermon_reference || weekLabel(session.sermon_week)}</p>}
+                        {(sessionSermon?.reference || session?.sermon_week) && <p style={{fontSize:10,color:'#a08060',margin:'2px 0 0'}}>{sessionSermon?.reference || weekLabel(session.sermon_week)}</p>}
                       </>
                     ) : isActive ? (
                       <>
                         <span style={{background:'#fff8e1',color:'#f57f17',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>⏳ 진행 중</span>
-                        {(session?.sermon_reference || session?.sermon_week) && <p style={{fontSize:10,color:'#a08060',margin:'3px 0 0'}}>{session.sermon_reference || weekLabel(session.sermon_week)}</p>}
-                        {session?.sermon_title && <p style={{fontSize:10,color:'#b08d5d',margin:'2px 0 0'}}>{session.sermon_title}</p>}
+                        {(sessionSermon?.reference || session?.sermon_week) && <p style={{fontSize:10,color:'#a08060',margin:'3px 0 0'}}>{sessionSermon?.reference || weekLabel(session.sermon_week)}</p>}
+                        {sessionSermon?.sermon_title && <p style={{fontSize:10,color:'#b08d5d',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
                       </>
                     ) : (
                       <span style={{background:'#f5f5f5',color:'#9e9e9e',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>— 대기</span>
