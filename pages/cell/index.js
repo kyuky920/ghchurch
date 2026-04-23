@@ -45,7 +45,9 @@ export default function CellPage() {
 
   // 셀 모임 시작 관련
   const [showStartModal, setShowStartModal] = useState(false)
-  const [selectedTab, setSelectedTab]   = useState(1) // 기본: 나눔 질문
+  const [sermons, setSermons]           = useState([])  // 사용 가능한 말씀 목록
+  const [selectedSermonWeek, setSelectedSermonWeek] = useState('')
+  const [selectedSermonService, setSelectedSermonService] = useState('morning')
   const [sessionStarting, setSessionStarting] = useState(false)
   const [activeSession, setActiveSession] = useState(null)
   const [redirecting, setRedirecting]   = useState(false)
@@ -150,19 +152,33 @@ export default function CellPage() {
     finally { setLoadingGroups(false) }
   }
 
+  async function loadSermons() {
+    try {
+      const res = await fetch('/api/sermons')
+      const d = await res.json()
+      if (d.ok && d.data?.length) {
+        setSermons(d.data)
+        // 기본값: 가장 최신 주차/예배
+        setSelectedSermonWeek(d.data[0].week)
+        setSelectedSermonService(d.data[0].service)
+      }
+    } catch(e) {}
+  }
+
   async function handleStartSession() {
+    if (!selectedSermonWeek) { alert('말씀을 선택해주세요.'); return }
     setSessionStarting(true)
     try {
       const res = await fetch('/api/cell-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer wordlife-leader-2025' },
-        body: JSON.stringify({ week, service, active_tab: selectedTab })
+        body: JSON.stringify({ week: selectedSermonWeek, service: selectedSermonService, active_tab: 0 })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
       setShowStartModal(false)
       // 셀 리더는 직접 이동
-      router.push(`/?week=${week}&service=${service}&tab=${selectedTab}`)
+      router.push(`/?week=${selectedSermonWeek}&service=${selectedSermonService}&tab=0`)
     } catch(e) { alert('오류: ' + e.message) }
     finally { setSessionStarting(false) }
   }
@@ -273,7 +289,7 @@ export default function CellPage() {
                       <p style={{fontSize:11,color:'rgba(150,220,150,0.7)',margin:0}}>모임을 시작해서 멤버들을 말씀 나눔으로 이끌어주세요</p>
                     </div>
                   </div>
-                  <button onClick={()=>setShowStartModal(true)}
+                  <button onClick={()=>{ setShowStartModal(true); loadSermons() }}
                     style={{width:'100%',background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'15px',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:'pointer',boxShadow:'0 4px 20px rgba(46,125,50,0.5)',animation:'glow 2s ease-in-out infinite',marginTop:4}}>
                     🙏 셀 모임 시작하기
                   </button>
@@ -285,7 +301,7 @@ export default function CellPage() {
                 <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'16px 20px',border:'1px solid #4a8a4a',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                   <div>
                     <p style={{fontSize:13,color:'#7adf7a',fontWeight:700,margin:'0 0 2px'}}>🟢 셀 모임 진행 중</p>
-                    <p style={{fontSize:11,color:'rgba(150,220,150,0.6)',margin:0}}>현재 탭: {TAB_LABELS[activeSession.active_tab]}</p>
+                    <p style={{fontSize:11,color:'rgba(150,220,150,0.6)',margin:0}}>{activeSession.week && (() => { const d=new Date(activeSession.week+'T00:00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일 주` })()} · {activeSession.service==='morning'?'오전':'오후'}</p>
                   </div>
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={()=>router.push(`/?week=${activeSession.week}&service=${activeSession.service}&tab=${activeSession.active_tab}`)}
@@ -394,34 +410,66 @@ export default function CellPage() {
 
         {/* ── 셀 모임 시작 모달 ── */}
         {showStartModal && (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:1000,display:'flex',alignItems:'flex-end',justifyContent:'center',padding:'0 0 0 0'}}
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',zIndex:1000,display:'flex',alignItems:'flex-end',justifyContent:'center'}}
             onClick={()=>setShowStartModal(false)}>
             <div style={{background:'#fff',borderRadius:'24px 24px 0 0',padding:'28px 24px 40px',width:'100%',maxWidth:640,boxShadow:'0 -10px 60px rgba(0,0,0,0.3)',animation:'fadeUp 0.3s ease'}}
               onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:'#e8dcc8',borderRadius:2,margin:'0 auto 24px'}}/>
               <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>🙏 셀 모임 시작</p>
-              <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>멤버들이 자동으로 이동할 말씀 나눔 탭을 선택해주세요.</p>
+              <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>함께 나눌 말씀을 선택해주세요. 멤버들이 자동으로 이동해요.</p>
 
-              <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
-                {TAB_LABELS.map((t,i)=>(
-                  <button key={i} onClick={()=>setSelectedTab(i)}
-                    style={{padding:'14px 18px',borderRadius:12,border:`2px solid ${selectedTab===i?'#2e7d32':'#e8dcc8'}`,background:selectedTab===i?'#e8f5e9':'#fff',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:selectedTab===i?700:400,color:selectedTab===i?'#2e7d32':'#8b6e4e',textAlign:'left',display:'flex',alignItems:'center',gap:12,transition:'all 0.15s'}}>
-                    <span style={{width:28,height:28,borderRadius:'50%',background:selectedTab===i?'#2e7d32':'#e8dcc8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:selectedTab===i?'#fff':'#8b6e4e',fontWeight:700,flexShrink:0}}>{i+1}</span>
-                    <div style={{textAlign:'left'}}>
-                      <p style={{margin:0,fontSize:14,fontWeight:selectedTab===i?700:400}}>{t}</p>
-                      <p style={{margin:0,fontSize:11,color:selectedTab===i?'#43a047':'#b8a090',fontFamily:"'Noto Sans KR',sans-serif",fontWeight:400}}>
-                        {['말씀 내용을 함께 살펴봐요','나눔 질문으로 이야기 나눠요','이번 주 묵상을 확인해요','이번 주 핵심 말씀이에요'][i]}
-                      </p>
-                    </div>
-                    {selectedTab===i && <span style={{marginLeft:'auto',fontSize:18}}>✓</span>}
-                  </button>
-                ))}
+              {sermons.length === 0 ? (
+                <div style={{textAlign:'center',padding:'32px 0',color:'#b8a090'}}>
+                  <p style={{fontSize:32,margin:'0 0 8px'}}>📖</p>
+                  <p style={{fontSize:13,fontFamily:"'Gowun Batang',serif"}}>등록된 말씀이 없어요</p>
+                  <p style={{fontSize:11,margin:'4px 0 0'}}>리더 도구에서 말씀을 먼저 등록해주세요</p>
+                </div>
+              ) : (
+                <>
+                  {/* 말씀 목록 — 주차별 그룹 */}
+                  {(() => {
+                    const grouped = sermons.reduce((acc,s)=>{ if(!acc[s.week]) acc[s.week]=[]; acc[s.week].push(s); return acc },{})
+                    return Object.entries(grouped).map(([wk, items]) => (
+                      <div key={wk} style={{marginBottom:16}}>
+                        <p style={{fontSize:11,color:'#a08060',fontWeight:700,margin:'0 0 8px',letterSpacing:'0.05em'}}>
+                          {(() => { const d=new Date(wk+'T00:00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일 주` })()}
+                        </p>
+                        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                          {items.map(s => {
+                            const isSel = selectedSermonWeek===s.week && selectedSermonService===s.service
+                            const isMorn = s.service==='morning'
+                            return (
+                              <button key={s.id}
+                                onClick={()=>{ setSelectedSermonWeek(s.week); setSelectedSermonService(s.service) }}
+                                style={{padding:'14px 18px',borderRadius:14,border:`2px solid ${isSel?'#2e7d32':'#e8dcc8'}`,background:isSel?'#e8f5e9':'#fff',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,transition:'all 0.15s'}}>
+                                <span style={{width:36,height:36,borderRadius:10,background:isSel?(isMorn?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)'):(isMorn?'#fff8ec':'#f5f3fa'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>
+                                  {isMorn?'☀️':'🌙'}
+                                </span>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <p style={{margin:'0 0 2px',fontSize:13,fontFamily:"'Gowun Batang',serif",fontWeight:700,color:isSel?'#2e7d32':'#4a3520'}}>{s.reference}</p>
+                                  <p style={{margin:0,fontSize:11,color:isSel?'#43a047':'#8b6e4e',fontWeight:500}}>{isMorn?'주일 오전':'주일 오후'}{s.sermon_title ? ' · '+s.sermon_title : ''}</p>
+                                </div>
+                                {isSel && <span style={{fontSize:20,color:'#2e7d32',flexShrink:0}}>✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  })()}
+                </>
+              )}
+
+              <div style={{display:'flex',gap:8,marginTop:8}}>
+                <button onClick={()=>setShowStartModal(false)}
+                  style={{flex:1,padding:'14px',borderRadius:14,border:'1px solid #e8dcc8',background:'#fff',cursor:'pointer',fontSize:13,color:'#8b6e4e',fontWeight:600}}>
+                  취소
+                </button>
+                <button onClick={handleStartSession} disabled={sessionStarting||!selectedSermonWeek}
+                  style={{flex:2,padding:'14px',borderRadius:14,background:(!selectedSermonWeek||sessionStarting)?'#c4a882':'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',cursor:(!selectedSermonWeek||sessionStarting)?'not-allowed':'pointer',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700,boxShadow:selectedSermonWeek&&!sessionStarting?'0 6px 24px rgba(46,125,50,0.4)':'none'}}>
+                  {sessionStarting ? '시작 중...' : '🙏 모임 시작하기'}
+                </button>
               </div>
-
-              <button onClick={handleStartSession} disabled={sessionStarting}
-                style={{width:'100%',background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:14,padding:'16px',fontSize:16,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:sessionStarting?'not-allowed':'pointer',boxShadow:'0 6px 24px rgba(46,125,50,0.4)',opacity:sessionStarting?0.7:1}}>
-                {sessionStarting ? '시작 중...' : '🙏 모임 시작하기'}
-              </button>
             </div>
           </div>
         )}
