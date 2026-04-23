@@ -76,8 +76,15 @@ export default function CellWord() {
     const did = getDeviceId()
     try {
       const { group_no, week } = router.query
-      const gno = group_no || ''
-      const sRes = await fetch(gno ? `/api/cell-sessions?group_no=${gno}` : '/api/cell-sessions')
+      const gno = Array.isArray(group_no) ? group_no[0] : group_no
+      if (!gno) {
+        setActiveSession(null)
+        setMyGroup(null)
+        setAmLeader(false)
+        return
+      }
+
+      const sRes = await fetch(`/api/cell-sessions?group_no=${gno}`)
       const sData = await sRes.json()
 
       if (!sData.ok || !sData.data) {
@@ -118,14 +125,16 @@ export default function CellWord() {
   // ── 세션 폴링 시작 ──
   useEffect(() => {
     if (!router.isReady) return
-    const { week } = router.query
+    const { week, group_no } = router.query
+    const gno = Array.isArray(group_no) ? group_no[0] : group_no
     if (!week) return
+    if (!gno) return
 
     // 즉시 + 5초마다 폴링
     pollFn.current()
     pollRef.current = setInterval(() => pollFn.current(), 5000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [router.isReady])
+  }, [router.isReady, router.query.week, router.query.group_no])
 
   // ── 말씀 로드 ──
   useEffect(() => {
@@ -137,8 +146,10 @@ export default function CellWord() {
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.data?.length) {
-          const sw = normalizeWeek(activeSession?.sermon_week || week)
-          const ss = activeSession?.sermon_service || service || 'morning'
+          // URL로 들어온 조별 선택값을 최우선으로 사용하고,
+          // 쿼리가 없을 때만 세션 정보를 fallback으로 사용한다.
+          const sw = normalizeWeek(week || activeSession?.sermon_week)
+          const ss = service || activeSession?.sermon_service || 'morning'
           const nw = normalizeWeek(week)
           const target = d.data.find(s => s.week === sw && s.service === ss)
             || d.data.find(s => s.week === sw)
@@ -153,6 +164,14 @@ export default function CellWord() {
       })
       .finally(() => setLoading(false))
   }, [router.isReady, router.query.week, router.query.service, router.query.tab, activeSession?.sermon_week, activeSession?.sermon_service])
+
+  useEffect(() => {
+    if (!activeSession) {
+      setGroupEnded(false)
+      return
+    }
+    setGroupEnded(!activeSession.is_active && !!activeSession.ended_at)
+  }, [activeSession?.is_active, activeSession?.ended_at])
 
   // ── 모임 종료 ──
   async function handleGroupEnd() {
@@ -172,7 +191,8 @@ export default function CellWord() {
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
       setGroupEnded(true)
-      pollFn.current()
+      await pollFn.current()
+      router.push('/cell')
     } catch(e) { alert('오류: ' + e.message) }
     finally { setGroupEnding(false) }
   }
