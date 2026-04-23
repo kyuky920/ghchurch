@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Head from 'next/head'
 
 const QMETA = [
@@ -9,11 +10,8 @@ const QMETA = [
 ]
 
 function weekLabel(week) {
-  const [y,w] = week.split('-W').map(Number)
-  const jan1 = new Date(y,0,1)
-  const sun = new Date(jan1)
-  sun.setDate(jan1.getDate()+(w-1)*7-(jan1.getDay()||7)+7)
-  return `${sun.getMonth()+1}월 ${sun.getDate()}일 주`
+  const d = new Date(week + 'T00:00:00')
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
 }
 function doCopy(text) {
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(()=>fbCopy(text))
@@ -43,22 +41,32 @@ export default function Home() {
 
   const [selectedWeek, setSelectedWeek] = useState(null)
 
+  const router = useRouter()
+
   useEffect(() => {
     fetch('/api/sermons').then(r=>r.json()).then(d=>{
       if (d.ok) {
         const list = d.data || []
         setSermons(list)
-        // 가장 최신 주차 기본 선택
         if (list.length) {
-          const latestWeek = list[0].week
-          setSelectedWeek(latestWeek)
-          // 최신 주차의 첫번째 (오전) 기본 선택
-          const first = list.find(s => s.week === latestWeek && s.service === 'morning') || list[0]
-          setSelected(first)
+          // URL 파라미터로 주차/예배/탭 설정 (셀 모임 시작 시)
+          const qWeek    = router.query.week
+          const qService = router.query.service
+          const qTab     = router.query.tab
+
+          const targetWeek = qWeek || list[0].week
+          setSelectedWeek(targetWeek)
+
+          const target = (qWeek && qService)
+            ? list.find(s => s.week === qWeek && s.service === qService)
+            : list.find(s => s.week === targetWeek && s.service === 'morning')
+          setSelected(target || list[0])
+
+          if (qTab !== undefined) setTab(Number(qTab))
         }
       } else setError(d.error)
     }).catch(e=>setError(e.message)).finally(()=>setLoading(false))
-  },[])
+  },[router.query])
 
   function copy(text,key) { doCopy(text); setCk(key); setTimeout(()=>setCk(''),2000) }
 
