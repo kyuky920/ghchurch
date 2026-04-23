@@ -100,9 +100,10 @@ export default function CellPage() {
       const d = await res.json()
       if (d.ok && d.data) {
         setActiveSession(d.data)
-        setActiveSession(d.data)
-        // 내가 시작한 세션이 아니고, 아직 이동 안 했으면 → 자동 이동
-        if (!redirecting) {
+        // 세션이 최근 5분 이내에 시작된 것만 자동 이동
+        const startedAt = new Date(d.data.started_at)
+        const ageMin = (Date.now() - startedAt.getTime()) / 60000
+        if (!redirecting && ageMin < 5) {
           setRedirecting(true)
           setTimeout(() => {
             router.push(`/cell-word?week=${d.data.week}&service=${d.data.service}&tab=${d.data.active_tab}`)

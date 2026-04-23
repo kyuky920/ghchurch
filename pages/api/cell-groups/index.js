@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await supabase
         .from('cell_groups')
-        .upsert({ week, groups }, { onConflict: 'week' })
+        .upsert({ week, service: 'all', groups }, { onConflict: 'week' })
         .select().single()
       if (error) throw error
       return res.status(200).json({ ok: true, data })

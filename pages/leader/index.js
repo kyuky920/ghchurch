@@ -369,8 +369,12 @@ function CellTab() {
     } catch(e) { setErrMsg('초기화 오류: '+e.message) }
   }
 
-  const assignedIds = groups.flatMap(g=>g.members.map(m=>m.device_id))
-  const unassigned  = members.filter(m=>!assignedIds.includes(m.device_id))
+  const assignedIds    = groups.flatMap(g=>g.members.map(m=>m.device_id))
+  // 접속 중인 미배정 멤버
+  const unassigned     = members.filter(m=>!assignedIds.includes(m.device_id))
+  // 미접속 미배정 멤버 (전체 등록 멤버 중 접속 안 한 사람)
+  const onlineIds      = new Set(members.map(m=>m.device_id))
+  const offlineUnassigned = allMembers.filter(m=>!onlineIds.has(m.device_id)&&!assignedIds.includes(m.device_id))
 
   return (
     <div style={S.cont}>
@@ -467,14 +471,31 @@ function CellTab() {
         </div>
       </div>
 
-      {/* 미배정 멤버 */}
-      {groups.length>0 && unassigned.length>0 && (
+      {/* 미배정 멤버 (접속 중 + 미접속) */}
+      {groups.length>0 && (unassigned.length>0||offlineUnassigned.length>0) && (
         <div style={{background:'#fff8e1',borderRadius:12,padding:'14px 16px',border:'1px solid #ffe082'}}>
-          <p style={{fontSize:12,color:'#f57f17',fontWeight:700,margin:'0 0 10px'}}>⚠ 미배정 {unassigned.length}명 — 조를 선택해서 배정하세요</p>
+          <p style={{fontSize:12,color:'#f57f17',fontWeight:700,margin:'0 0 10px'}}>
+            ⚠ 미배정 {unassigned.length+offlineUnassigned.length}명 — 조를 선택해서 배정하세요
+          </p>
           <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
+            {/* 접속 중 미배정 */}
             {unassigned.map(m=>(
               <div key={m.device_id} style={{display:'flex',alignItems:'center',gap:6,background:'#fff',borderRadius:10,padding:'6px 10px',border:'1px solid #ffe082'}}>
+                <span style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0}}/>
                 <span style={{fontSize:13,color:'#4a3520',fontWeight:600}}>{m.name}</span>
+                <select onChange={e=>{ if(e.target.value){ addToGroup(m,Number(e.target.value)); e.target.value='' } }}
+                  style={{fontSize:11,padding:'3px 6px',border:'1px solid #ddd0ba',borderRadius:6,color:'#8b6e4e',cursor:'pointer',background:'#fdf5ec'}}>
+                  <option value="">→ 배정</option>
+                  {groups.map(g=><option key={g.group_no} value={g.group_no}>{g.name}</option>)}
+                </select>
+              </div>
+            ))}
+            {/* 미접속 미배정 */}
+            {offlineUnassigned.map(m=>(
+              <div key={m.device_id} style={{display:'flex',alignItems:'center',gap:6,background:'#f5f5f5',borderRadius:10,padding:'6px 10px',border:'1px solid #e0e0e0'}}>
+                <span style={{width:6,height:6,borderRadius:'50%',background:'#bdbdbd',flexShrink:0}}/>
+                <span style={{fontSize:13,color:'#757575',fontWeight:600}}>{m.name}</span>
+                <span style={{fontSize:10,color:'#bdbdbd'}}>미접속</span>
                 <select onChange={e=>{ if(e.target.value){ addToGroup(m,Number(e.target.value)); e.target.value='' } }}
                   style={{fontSize:11,padding:'3px 6px',border:'1px solid #ddd0ba',borderRadius:6,color:'#8b6e4e',cursor:'pointer',background:'#fdf5ec'}}>
                   <option value="">→ 배정</option>
