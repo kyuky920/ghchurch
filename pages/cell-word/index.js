@@ -63,9 +63,14 @@ export default function CellWord() {
   const [amLeader, setAmLeader]           = useState(false)
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
+  const [noticeAcknowledged, setNoticeAcknowledged] = useState(false)
 
   const pollRef      = useRef(null)
   const captureRef   = useRef(null)
+
+  const activeNoticeKey = activeSession?.notice
+    ? `${activeSession.group_no || ''}:${activeSession.notice}`
+    : ''
 
   // ── 폴링 함수 (ref로 감싸서 stale closure 방지) ──
   const pollFn = useRef(null)
@@ -186,6 +191,22 @@ export default function CellWord() {
     setGroupEnded(!activeSession.is_active && !!activeSession.ended_at)
   }, [activeSession?.is_active, activeSession?.ended_at])
 
+  useEffect(() => {
+    if (!activeNoticeKey) {
+      setNoticeAcknowledged(false)
+      return
+    }
+    if (typeof window === 'undefined') return
+    const saved = localStorage.getItem(`wl_notice_ack:${activeNoticeKey}`)
+    setNoticeAcknowledged(saved === 'true')
+  }, [activeNoticeKey])
+
+  function handleNoticeConfirm() {
+    if (!activeNoticeKey || typeof window === 'undefined') return
+    localStorage.setItem(`wl_notice_ack:${activeNoticeKey}`, 'true')
+    setNoticeAcknowledged(true)
+  }
+
   // ── 모임 종료 ──
   async function handleGroupEnd() {
     if (!myGroup) return
@@ -246,6 +267,15 @@ export default function CellWord() {
       setSavingImage(false)
     }
   }
+
+  const isSessionLeader = !!(
+    amLeader &&
+    myGroup &&
+    activeSession &&
+    String(myGroup.group_no) === String(activeSession.group_no) &&
+    activeSession.notice &&
+    !noticeAcknowledged
+  )
 
   return (
     <>
@@ -324,7 +354,7 @@ export default function CellWord() {
             </div>
           ) : (
             <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
-              {amLeader && activeSession?.notice && (
+              {isSessionLeader && (
                 <div style={{
                   background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
                   borderRadius:16,
@@ -334,7 +364,13 @@ export default function CellWord() {
                   animation:'slideDown 0.4s ease',
                 }}>
                   <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
-                  <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:0, lineHeight:1.65 }}>{activeSession.notice}</p>
+                  <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{activeSession.notice}</p>
+                  <button
+                    onClick={handleNoticeConfirm}
+                    style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                  >
+                    확인
+                  </button>
                 </div>
               )}
 
