@@ -62,6 +62,7 @@ export default function CellPage() {
   // 그룹 종료
   const [groupEnding, setGroupEnding] = useState(false)
   const [groupEnded, setGroupEnded]   = useState(false)
+  const [noticeAcknowledged, setNoticeAcknowledged] = useState(false)
 
   const heartbeatRef = useRef(null)
   const pollRef      = useRef(null)
@@ -261,7 +262,7 @@ export default function CellPage() {
     if (!myGroup) return
     setGroupEnding(true)
     try {
-      await fetch('/api/cell-sessions', {
+      const res = await fetch('/api/cell-sessions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -282,6 +283,17 @@ export default function CellPage() {
   // ── 내 조 세션 ──
   const latestMySession = myGroup ? groupSessions[String(myGroup.group_no)] : null
   const mySession = latestMySession?.is_active ? latestMySession : null
+  const activeNoticeKey = latestMySession?.notice
+    ? `${latestMySession.group_no || ''}:${latestMySession.notice}`
+    : ''
+  const isLeaderNoticeVisible = !!(
+    amLeader &&
+    myGroup &&
+    latestMySession &&
+    String(myGroup.group_no) === String(latestMySession.group_no) &&
+    latestMySession.notice &&
+    !noticeAcknowledged
+  )
 
   useEffect(() => {
     if (!latestMySession) {
@@ -290,6 +302,27 @@ export default function CellPage() {
     }
     setGroupEnded(!latestMySession.is_active && !!latestMySession.ended_at)
   }, [latestMySession?.is_active, latestMySession?.ended_at])
+
+  useEffect(() => {
+    if (!activeNoticeKey) {
+      setNoticeAcknowledged(false)
+      return
+    }
+    if (typeof window === 'undefined') return
+    const saved = localStorage.getItem(`wl_notice_ack:${activeNoticeKey}`)
+    setNoticeAcknowledged(saved === 'true')
+  }, [activeNoticeKey])
+
+  useEffect(() => {
+    if (!isLeaderNoticeVisible || typeof window === 'undefined') return
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [isLeaderNoticeVisible, activeNoticeKey])
+
+  function handleNoticeConfirm() {
+    if (!activeNoticeKey || typeof window === 'undefined') return
+    localStorage.setItem(`wl_notice_ack:${activeNoticeKey}`, 'true')
+    setNoticeAcknowledged(true)
+  }
 
   return (
     <>
@@ -369,6 +402,29 @@ export default function CellPage() {
                   {groupEnding?'전송중...':'🙏 종료'}
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {isLeaderNoticeVisible && (
+          <div style={{padding:'12px 16px 0'}}>
+            <div style={{
+              maxWidth:640,
+              margin:'0 auto',
+              background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
+              borderRadius:16,
+              padding:'16px 18px',
+              boxShadow:'0 8px 24px rgba(27,94,32,0.22)',
+              animation:'fadeUp 0.25s ease'
+            }}>
+              <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
+              <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{latestMySession.notice}</p>
+              <button
+                onClick={handleNoticeConfirm}
+                style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+              >
+                확인
+              </button>
             </div>
           </div>
         )}

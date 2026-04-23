@@ -685,19 +685,27 @@ function CellTab() {
                     <p style={{fontSize:11,color:'#8b6e4e',margin:0}}>
                       {g.leader ? `👑 ${g.leader.name}` : '리더 미지정'} · {g.members.length}명
                     </p>
+                    {(sessionSermon?.reference || session?.sermon_week) && (
+                      <p style={{fontSize:10,color:isActive?'#8f6a2a':ended?'#5b8a60':'#a08060',margin:'3px 0 0',fontWeight:600}}>
+                        📖 {sessionSermon?.reference || weekLabel(session.sermon_week)}
+                        {session.sermon_service==='morning'?' · 오전':session.sermon_service==='afternoon'?' · 오후':''}
+                      </p>
+                    )}
+                    {sessionSermon?.sermon_title && (
+                      <p style={{fontSize:10,color:'#b08d5d',margin:'2px 0 0'}}>
+                        {sessionSermon.sermon_title}
+                      </p>
+                    )}
                   </div>
                   <div style={{textAlign:'right'}}>
                     {ended ? (
                       <>
                         <span style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>✅ 종료</span>
                         {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>{new Date(endedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</p>}
-                        {(sessionSermon?.reference || session?.sermon_week) && <p style={{fontSize:10,color:'#a08060',margin:'2px 0 0'}}>{sessionSermon?.reference || weekLabel(session.sermon_week)}</p>}
                       </>
                     ) : isActive ? (
                       <>
                         <span style={{background:'#fff8e1',color:'#f57f17',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>⏳ 진행 중</span>
-                        {(sessionSermon?.reference || session?.sermon_week) && <p style={{fontSize:10,color:'#a08060',margin:'3px 0 0'}}>{sessionSermon?.reference || weekLabel(session.sermon_week)}</p>}
-                        {sessionSermon?.sermon_title && <p style={{fontSize:10,color:'#b08d5d',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
                       </>
                     ) : (
                       <span style={{background:'#f5f5f5',color:'#9e9e9e',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>— 대기</span>

@@ -201,6 +201,11 @@ export default function CellWord() {
     setNoticeAcknowledged(saved === 'true')
   }, [activeNoticeKey])
 
+  useEffect(() => {
+    if (!isSessionLeader || typeof window === 'undefined') return
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [isSessionLeader, activeNoticeKey])
+
   function handleNoticeConfirm() {
     if (!activeNoticeKey || typeof window === 'undefined') return
     localStorage.setItem(`wl_notice_ack:${activeNoticeKey}`, 'true')
