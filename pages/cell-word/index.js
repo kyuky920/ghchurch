@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
@@ -51,14 +51,45 @@ export default function CellWord() {
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
 
-  const pollRef   = useRef(null)
-  const deviceRef = useRef('')
+  const pollRef       = useRef(null)
+  const deviceRef     = useRef('')
+  const [noticeVisible, setNoticeVisible] = useState(false)
+  const [prevNotice, setPrevNotice]       = useState('')
 
-  // 초기화
+  // 디바이스 ID 초기화 (최초 1회)
   useEffect(() => {
     deviceRef.current = getDeviceId()
+  }, [])
 
-    // URL 파라미터로 말씀 로드
+  // 세션 폴링 함수
+  const pollSession = useCallback(async () => {
+    const did = deviceRef.current || getDeviceId()
+    try {
+      const res = await fetch('/api/cell-sessions')
+      const d = await res.json()
+      if (d.ok && d.data) {
+        setActiveSession(d.data)
+        // 공지가 새로 바뀌면 팝업 표시
+        if (d.data.notice && d.data.notice !== prevNotice) {
+          setPrevNotice(d.data.notice)
+          setNoticeVisible(true)
+          setTimeout(() => setNoticeVisible(false), 6000)
+        }
+        const gRes = await fetch(`/api/cell-groups?week=${d.data.week}`)
+        const gData = await gRes.json()
+        if (gData.ok && gData.data?.groups) {
+          const found = gData.data.groups.find(g => g.members?.some(m => m.device_id === did))
+          setMyGroup(found || null)
+          setAmLeader(!!(found && found.leader?.device_id === did))
+        }
+      } else {
+        setActiveSession(null); setMyGroup(null); setAmLeader(false)
+      }
+    } catch(e) {}
+  }, [])
+
+  // 말씀 로드 + 폴링 시작
+  useEffect(() => {
     const { week, service, tab: qTab } = router.query
     if (!week) return
 
@@ -73,35 +104,12 @@ export default function CellWord() {
       })
       .finally(() => setLoading(false))
 
-    // 세션 폴링 시작
-    pollSession()
+    // 폴링 시작 (약간 딜레이 줘서 deviceRef 확보 후 실행)
+    setTimeout(() => pollSession(), 300)
+    if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(pollSession, 8000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [router.query])
-
-  // 세션 폴링
-  async function pollSession() {
-    try {
-      const res = await fetch('/api/cell-sessions')
-      const d = await res.json()
-      if (d.ok && d.data) {
-        setActiveSession(d.data)
-        // 내 조 찾기
-        const gRes = await fetch(`/api/cell-groups?week=${d.data.week}`)
-        const gData = await gRes.json()
-        if (gData.ok && gData.data?.groups) {
-          const did = deviceRef.current
-          const found = gData.data.groups.find(g => g.members?.some(m => m.device_id === did))
-          setMyGroup(found || null)
-          setAmLeader(found?.leader?.device_id === did)
-        }
-      } else {
-        setActiveSession(null)
-        setMyGroup(null)
-        setAmLeader(false)
-      }
-    } catch(e) {}
-  }
+  }, [router.query, pollSession])
 
   // 모임 종료
   async function handleGroupEnd() {
@@ -162,20 +170,35 @@ export default function CellWord() {
           @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
           @keyframes spin{to{transform:rotate(360deg)}}
           @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+          @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
           .tab-bar::-webkit-scrollbar{display:none}
           .tab-bar{-ms-overflow-style:none;scrollbar-width:none}
         `}</style>
       </Head>
       <div style={S.wrap}>
 
-        {/* 공지 배너 */}
-        {activeSession?.notice && (
-          <div style={{ background:'linear-gradient(135deg,#2e7d32,#388e3c)', padding:'12px 20px', display:'flex', alignItems:'flex-start', gap:10 }}>
-            <span style={{ fontSize:16, flexShrink:0 }}>📢</span>
-            <div>
-              <p style={{ fontSize:10, color:'rgba(255,255,255,0.75)', margin:'0 0 2px', fontWeight:700, letterSpacing:'0.1em' }}>리더 공지</p>
-              <p style={{ fontSize:13, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:0, lineHeight:1.6 }}>{activeSession.notice}</p>
+        {/* 공지 팝업 — 상단 슬라이드 다운 */}
+        {noticeVisible && activeSession?.notice && (
+          <div style={{
+            position:'fixed', top:0, left:0, right:0, zIndex:999,
+            background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
+            padding:'16px 20px',
+            display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12,
+            boxShadow:'0 4px 24px rgba(0,0,0,0.3)',
+            animation:'slideDown 0.4s ease',
+            maxWidth:640, margin:'0 auto',
+          }}>
+            <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
+              <span style={{ fontSize:22, flexShrink:0 }}>📢</span>
+              <div>
+                <p style={{ fontSize:10, color:'rgba(255,255,255,0.7)', margin:'0 0 4px', fontWeight:700, letterSpacing:'0.12em' }}>리더 공지</p>
+                <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:0, lineHeight:1.65 }}>{activeSession.notice}</p>
+              </div>
             </div>
+            <button onClick={() => setNoticeVisible(false)}
+              style={{ background:'rgba(255,255,255,0.15)', border:'none', borderRadius:8, width:28, height:28, cursor:'pointer', color:'#fff', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              ✕
+            </button>
           </div>
         )}
 

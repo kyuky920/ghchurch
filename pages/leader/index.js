@@ -13,7 +13,13 @@ function getWeekStr(date) {
   return `${y}-${m}-${dd}`
 }
 function weekLabel(week) {
+  if (!week) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+    const [, m, d] = week.split('-').map(Number)
+    return `${m}월 ${d}일 주`
+  }
   const d = new Date(week + 'T00:00:00')
+  if (isNaN(d.getTime())) return week
   return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
 }
 
@@ -602,7 +608,7 @@ function CellTab() {
                 🟢 셀 모임 진행 중
               </p>
               <p style={{fontSize:11,color:'#558b2f',margin:0}}>
-                {(()=>{const d=new Date(activeSession.week+'T00:00:00');return `${d.getMonth()+1}월 ${d.getDate()}일 주`})()} · {activeSession.service==='morning'?'오전':'오후'}
+                {weekLabel(activeSession.week)} · {activeSession.service==='morning'?'오전':'오후'}
               </p>
             </div>
             <button onClick={endAllSession}
@@ -620,11 +626,18 @@ function CellTab() {
                   ? JSON.parse(activeSession.group_statuses||'{}')
                   : (activeSession.group_statuses || {})
                 const status = st[g.group_no]
-                const ended = status?.ended
+                // status가 있고 ended=true → 종료
+                // status가 있고 ended=false → 진행중
+                // status 없음 → 아직 시작 안 함
+                const hasStatus = status !== undefined
+                const ended = status?.ended === true
                 const endedAt = status?.ended_at
+                const isActive = hasStatus && !ended
+                const borderColor = ended ? '#a5d6a7' : isActive ? '#ffe082' : '#e8dcc8'
+                const dotColor    = ended ? '#4caf50' : isActive ? '#ff9800' : '#bdbdbd'
                 return (
-                  <div key={g.group_no} style={{display:'flex',alignItems:'center',gap:10,background:'#fff',borderRadius:10,padding:'10px 14px',border:`1px solid ${ended?'#a5d6a7':'#e8dcc8'}`}}>
-                    <div style={{width:10,height:10,borderRadius:'50%',background:ended?'#4caf50':'#ffb74d',flexShrink:0}}/>
+                  <div key={g.group_no} style={{display:'flex',alignItems:'center',gap:10,background:'#fff',borderRadius:10,padding:'10px 14px',border:`1px solid ${borderColor}`}}>
+                    <div style={{width:10,height:10,borderRadius:'50%',background:dotColor,flexShrink:0}}/>
                     <div style={{flex:1}}>
                       <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 1px'}}>{g.name}</p>
                       <p style={{fontSize:11,color:'#8b6e4e',margin:0}}>
@@ -637,8 +650,10 @@ function CellTab() {
                           <span style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>✅ 종료</span>
                           {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>{new Date(endedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</p>}
                         </>
-                      ) : (
+                      ) : isActive ? (
                         <span style={{background:'#fff8e1',color:'#f57f17',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>⏳ 진행 중</span>
+                      ) : (
+                        <span style={{background:'#f5f5f5',color:'#9e9e9e',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>— 대기</span>
                       )}
                     </div>
                   </div>
