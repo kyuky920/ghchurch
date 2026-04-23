@@ -16,6 +16,10 @@ function normalizeWeek(week) {
   return week
 }
 
+function pickQueryValue(value) {
+  return Array.isArray(value) ? value[0] : value
+}
+
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
   let id = localStorage.getItem('wl_device_id')
@@ -139,23 +143,39 @@ export default function CellWord() {
   // ── 말씀 로드 ──
   useEffect(() => {
     if (!router.isReady) return
-    const { week, service, tab: qTab } = router.query
-    if (!week) return
+    const week = pickQueryValue(router.query.week)
+    const service = pickQueryValue(router.query.service)
+    const qTab = pickQueryValue(router.query.tab)
+    if (!week && !activeSession?.sermon_week) return
 
     fetch('/api/sermons')
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.data?.length) {
-          // URL로 들어온 조별 선택값을 최우선으로 사용하고,
-          // 쿼리가 없을 때만 세션 정보를 fallback으로 사용한다.
-          const sw = normalizeWeek(week || activeSession?.sermon_week)
-          const ss = service || activeSession?.sermon_service || 'morning'
-          const nw = normalizeWeek(week)
-          const target = d.data.find(s => s.week === sw && s.service === ss)
-            || d.data.find(s => s.week === sw)
-            || d.data.find(s => s.week === nw && s.service === ss)
-            || d.data.find(s => s.week === nw)
-            || d.data[0]
+          // 조별 링크의 week/service를 최우선으로 정확히 매칭한다.
+          const requestedWeek = normalizeWeek(week)
+          const requestedService = service || null
+          const sessionWeek = normalizeWeek(activeSession?.sermon_week)
+          const sessionService = activeSession?.sermon_service || null
+
+          let target = null
+
+          if (requestedWeek && requestedService) {
+            target = d.data.find(s => s.week === requestedWeek && s.service === requestedService) || null
+          }
+          if (!target && sessionWeek && sessionService) {
+            target = d.data.find(s => s.week === sessionWeek && s.service === sessionService) || null
+          }
+          if (!target && requestedWeek && !requestedService) {
+            target = d.data.find(s => s.week === requestedWeek) || null
+          }
+          if (!target && sessionWeek && !sessionService) {
+            target = d.data.find(s => s.week === sessionWeek) || null
+          }
+          if (!target && !requestedWeek && !sessionWeek) {
+            target = d.data[0] || null
+          }
+
           setSelected(target)
           if (qTab !== undefined) setTab(Number(qTab))
         } else {
