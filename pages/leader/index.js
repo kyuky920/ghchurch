@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Head from 'next/head'
 
 const LEADER_SECRET = process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
@@ -241,19 +241,23 @@ function CellTab() {
   const pollRef = useRef(null)
 
   // 세션 폴링 (10초마다)
-  useEffect(() => {
-    pollSession()
-    pollRef.current = setInterval(pollSession, 10000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [])
-
-  async function pollSession() {
+  const pollSession = useCallback(async () => {
     try {
       const res = await fetch('/api/cell-sessions')
       const d = await res.json()
-      if (d.ok) setActiveSession(d.data)
+      if (d.ok) {
+        setActiveSession(d.data)
+      }
     } catch(e) {}
-  }
+  }, [])
+
+  useEffect(() => {
+    // 즉시 실행 + 5초마다 폴링
+    pollSession()
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(pollSession, 5000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [pollSession])
 
   async function sendNotice() {
     if (!notice.trim()) return
@@ -629,7 +633,7 @@ function CellTab() {
                 🟢 셀 모임 진행 중
               </p>
               <p style={{fontSize:11,color:'#558b2f',margin:0}}>
-                {weekLabel(activeSession.week)} · {activeSession.service==='morning'?'오전':'오후'}
+                {weekLabel(activeSession.week)}{activeSession.service && activeSession.service !== 'all' ? ` · ${activeSession.service==='morning'?'오전':'오후'}` : ''}
               </p>
             </div>
             <button onClick={endAllSession}
@@ -646,7 +650,8 @@ function CellTab() {
                 const st = typeof activeSession.group_statuses === 'string'
                   ? JSON.parse(activeSession.group_statuses||'{}')
                   : (activeSession.group_statuses || {})
-                const status = st[g.group_no]
+                // JSON key는 항상 문자열 → String()으로 통일
+                const status = st[String(g.group_no)]
                 // status가 있고 ended=true → 종료
                 // status가 있고 ended=false → 진행중
                 // status 없음 → 아직 시작 안 함

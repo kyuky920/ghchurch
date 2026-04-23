@@ -58,8 +58,8 @@ export default async function handler(req, res) {
           ? JSON.parse(session.group_statuses) : (session.group_statuses || {})
         updateData.group_statuses = {
           ...current,
-          [group_no]: {
-            group_name: group_name || `${group_no}조`,
+          [String(group_no)]: {
+            group_name: group_name || `${group_no}조`, group_no: String(group_no),
             ended: ended ?? true,
             ended_at: ended ? new Date().toISOString() : null
           }
