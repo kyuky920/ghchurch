@@ -333,10 +333,10 @@ export default function CellPage() {
                 <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'16px 20px',border:'1px solid #4a8a4a',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                   <div>
                     <p style={{fontSize:13,color:'#7adf7a',fontWeight:700,margin:'0 0 2px'}}>🟢 셀 모임 진행 중</p>
-                    <p style={{fontSize:11,color:'rgba(150,220,150,0.6)',margin:0}}>{activeSession.week && (() => { const d=new Date(activeSession.week+'T00:00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일 주` })()} · {activeSession.service==='morning'?'오전':'오후'}</p>
+                    <p style={{fontSize:11,color:'rgba(150,220,150,0.6)',margin:0}}>{activeSession.week && (() => { const [,m,d]=(activeSession.week||'').split('-'); return m&&d?`${Number(m)}월 ${Number(d)}일 주`:activeSession.week })()}</p>
                   </div>
                   <div style={{display:'flex',gap:8}}>
-                    <button onClick={()=>router.push(`/?week=${activeSession.week}&service=${activeSession.service}&tab=${activeSession.active_tab}`)}
+                    <button onClick={()=>router.push(`/cell-word?week=${activeSession.week}&service=${activeSession.service}&tab=${activeSession.active_tab}`)}
                       style={{background:'rgba(150,220,150,0.2)',border:'1px solid rgba(150,220,150,0.4)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#7adf7a',fontWeight:600}}>
                       참여하기
                     </button>

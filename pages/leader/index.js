@@ -256,7 +256,7 @@ function CellTab() {
       try {
         const res = await fetch('/api/cell-sessions')
         const d = await res.json()
-        if (alive && d.ok) setActiveSession(d.data)
+        if (alive && d.ok) setActiveSession(d.data || null)
       } catch(e) {}
     }
     poll()
