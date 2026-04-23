@@ -191,6 +191,15 @@ export default function CellWord() {
     setGroupEnded(!activeSession.is_active && !!activeSession.ended_at)
   }, [activeSession?.is_active, activeSession?.ended_at])
 
+  const isLeaderNoticeVisible = !!(
+    amLeader &&
+    myGroup &&
+    activeSession &&
+    String(myGroup.group_no) === String(activeSession.group_no) &&
+    activeSession.notice &&
+    !noticeAcknowledged
+  )
+
   useEffect(() => {
     if (!activeNoticeKey) {
       setNoticeAcknowledged(false)
@@ -202,9 +211,9 @@ export default function CellWord() {
   }, [activeNoticeKey])
 
   useEffect(() => {
-    if (!isSessionLeader || typeof window === 'undefined') return
+    if (!isLeaderNoticeVisible || typeof window === 'undefined') return
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [isSessionLeader, activeNoticeKey])
+  }, [isLeaderNoticeVisible, activeNoticeKey])
 
   function handleNoticeConfirm() {
     if (!activeNoticeKey || typeof window === 'undefined') return
@@ -272,15 +281,6 @@ export default function CellWord() {
       setSavingImage(false)
     }
   }
-
-  const isSessionLeader = !!(
-    amLeader &&
-    myGroup &&
-    activeSession &&
-    String(myGroup.group_no) === String(activeSession.group_no) &&
-    activeSession.notice &&
-    !noticeAcknowledged
-  )
 
   return (
     <>
@@ -359,7 +359,7 @@ export default function CellWord() {
             </div>
           ) : (
             <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
-              {isSessionLeader && (
+              {isLeaderNoticeVisible && (
                 <div style={{
                   background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
                   borderRadius:16,

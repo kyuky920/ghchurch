@@ -26,6 +26,13 @@ function getSavedName() {
   return localStorage.getItem('wl_member_name')||''
 }
 
+function getSessionState(session) {
+  if (!session) return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
+  if (session.is_active) return { key:'active', label:'⏳ 진행 중', bg:'#fff8e1', color:'#f57f17' }
+  if (session.ended_at) return { key:'ended', label:'✅ 종료', bg:'#e8f5e9', color:'#2e7d32' }
+  return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
+}
+
 const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
 const GROUP_BGS    = ['#fdf5ec','#f0f7f1','#f5f3fa','#fef8f0','#ffebee','#e3f2fd','#e8f5e9','#efebe9','#e0f7fa','#f1f8e9']
 
@@ -138,9 +145,12 @@ export default function CellPage() {
         setGroups(gData.data)
         // 내 조 찾기
         const did = deviceId.current
-        const found = gData.data.groups?.find(g =>
+        let found = gData.data.groups?.find(g =>
           g.members?.some(m => m.device_id === did)
         )
+        if (!found) {
+          found = gData.data.groups?.find(g => g.leader?.device_id === did)
+        }
         setMyGroup(found || null)
         setAmLeader(!!found && found.leader?.device_id === did)
       } else {
@@ -283,15 +293,16 @@ export default function CellPage() {
   // ── 내 조 세션 ──
   const latestMySession = myGroup ? groupSessions[String(myGroup.group_no)] : null
   const mySession = latestMySession?.is_active ? latestMySession : null
-  const activeNoticeKey = latestMySession?.notice
-    ? `${latestMySession.group_no || ''}:${latestMySession.notice}`
+  const noticeSession = mySession || latestMySession
+  const activeNoticeKey = noticeSession?.notice
+    ? `${noticeSession.group_no || ''}:${noticeSession.notice}`
     : ''
   const isLeaderNoticeVisible = !!(
     amLeader &&
     myGroup &&
-    latestMySession &&
-    String(myGroup.group_no) === String(latestMySession.group_no) &&
-    latestMySession.notice &&
+    noticeSession &&
+    String(myGroup.group_no) === String(noticeSession.group_no) &&
+    noticeSession.notice &&
     !noticeAcknowledged
   )
 
@@ -418,7 +429,7 @@ export default function CellPage() {
               animation:'fadeUp 0.25s ease'
             }}>
               <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
-              <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{latestMySession.notice}</p>
+              <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{noticeSession.notice}</p>
               <button
                 onClick={handleNoticeConfirm}
                 style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}
@@ -490,6 +501,7 @@ export default function CellPage() {
                       const bg        = GROUP_BGS[gi % GROUP_BGS.length]
                       const session   = groupSessions[String(g.group_no)]
                       const sessionSermon = session ? sermonLookup[`${session.sermon_week}:${session.sermon_service}`] : null
+                      const sessionState = getSessionState(session)
                       const alreadyInGroup = groups.groups.some(gg => gg.members?.some(m => m.device_id === deviceId.current))
 
                       return (
@@ -500,6 +512,9 @@ export default function CellPage() {
                             <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color,fontWeight:700,margin:0,flex:1}}>{g.name}</p>
                             {isMyGroup && <span style={{background:color,color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:10,fontWeight:700}}>내 조</span>}
                             {g.leader && <span style={{fontSize:11,color,fontWeight:600}}>👑 {g.leader.name}</span>}
+                            <span style={{background:sessionState.bg,color:sessionState.color,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700}}>
+                              {sessionState.label}
+                            </span>
                             <span style={{fontSize:11,color:'#a08060'}}>({g.members?.length||0}명)</span>
                           </div>
 
