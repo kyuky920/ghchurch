@@ -292,7 +292,7 @@ function CellTab() {
       const res = await fetch('/api/cell-groups', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service: 'all', groups })
+        body: JSON.stringify({ week, groups })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
@@ -309,7 +309,7 @@ function CellTab() {
       await fetch('/api/cell-groups/reset', {
         method: 'DELETE',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service: 'all' })
+        body: JSON.stringify({ week })
       })
       setGroups([]); setIsSaved(false); setSaveMsg(''); setErrMsg('')
     } catch(e) { setErrMsg('초기화 오류: '+e.message) }

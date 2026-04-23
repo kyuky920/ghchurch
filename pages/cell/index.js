@@ -138,29 +138,15 @@ export default function CellPage() {
   async function loadGroups() {
     setLoadingGroups(true)
     try {
-      // 최신 활성 세션 기반으로 조 편성 조회
-      const [sessionRes, mRes] = await Promise.all([
-        fetch('/api/cell-sessions'),
-        fetch('/api/members')
+      const [mRes, gRes] = await Promise.all([
+        fetch('/api/members'),
+        fetch(`/api/cell-groups?week=${getWeekStr()}`)
       ])
-      const sessionData = await sessionRes.json()
       const mData = await mRes.json()
+      const gData = await gRes.json()
       if (mData.ok) setMembers(mData.data || [])
-
-      // 활성 세션이 있으면 해당 주차/예배의 조 편성 로드
-      if (sessionData.ok && sessionData.data) {
-        const { week, service } = sessionData.data
-        const gRes = await fetch(`/api/cell-groups?week=${week}&service=${service}`)
-        const gData = await gRes.json()
-        if (gData.ok) setGroups(gData.data)
-      } else {
-        // 세션 없으면 현재 주차 기본값으로 조회
-        const week = getWeekStr()
-        const gRes = await fetch(`/api/cell-groups?week=${week}`)
-        const gData = await gRes.json()
-        if (gData.ok) setGroups(gData.data)
-        else setGroups(null)
-      }
+      if (gData.ok) setGroups(gData.data)
+      else setGroups(null)
     } catch(e) {}
     finally { setLoadingGroups(false) }
   }
