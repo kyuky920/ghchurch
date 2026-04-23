@@ -213,7 +213,7 @@ export default function CellPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'group_end',
-          group_no: myGroup.group_no,
+          group_no: String(myGroup.group_no),
           group_name: myGroup.name,
           ended: true
         })

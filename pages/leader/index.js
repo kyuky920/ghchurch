@@ -14,9 +14,18 @@ function getWeekStr(date) {
 }
 function weekLabel(week) {
   if (!week) return ''
+  // YYYY-MM-DD 형식
   if (/^\d{4}-\d{2}-\d{2}$/.test(week)) {
     const [, m, d] = week.split('-').map(Number)
     return `${m}월 ${d}일 주`
+  }
+  // 구형식 YYYY-Www → ISO week 계산
+  if (/^\d{4}-W\d{2}$/.test(week)) {
+    const [y, w] = week.split('-W').map(Number)
+    const jan4 = new Date(y, 0, 4)
+    const sun = new Date(jan4)
+    sun.setDate(jan4.getDate() - jan4.getDay() + (w - 1) * 7)
+    return `${sun.getMonth() + 1}월 ${sun.getDate()}일 주`
   }
   const d = new Date(week + 'T00:00:00')
   if (isNaN(d.getTime())) return week
