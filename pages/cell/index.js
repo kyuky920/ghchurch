@@ -55,12 +55,14 @@ export default function CellPage() {
 
   // 셀 모임 시작 관련
   const [showStartModal, setShowStartModal] = useState(false)
-  const [sermons, setSermons]           = useState([])  // 사용 가능한 말씀 목록
+  const [sermons, setSermons]           = useState([])
   const [selectedSermonWeek, setSelectedSermonWeek] = useState('')
   const [selectedSermonService, setSelectedSermonService] = useState('morning')
   const [sessionStarting, setSessionStarting] = useState(false)
   const [activeSession, setActiveSession] = useState(null)
   const [redirecting, setRedirecting]   = useState(false)
+  const [groupEnding, setGroupEnding]   = useState(false)
+  const [groupEnded, setGroupEnded]     = useState(false)
 
   const heartbeatRef = useRef(null)
   const pollRef      = useRef(null)
@@ -98,11 +100,12 @@ export default function CellPage() {
       const d = await res.json()
       if (d.ok && d.data) {
         setActiveSession(d.data)
+        setActiveSession(d.data)
         // 내가 시작한 세션이 아니고, 아직 이동 안 했으면 → 자동 이동
         if (!redirecting) {
           setRedirecting(true)
           setTimeout(() => {
-            router.push(`/?week=${d.data.week}&service=${d.data.service}&tab=${d.data.active_tab}`)
+            router.push(`/cell-word?week=${d.data.week}&service=${d.data.service}&tab=${d.data.active_tab}`)
           }, 1500)
         }
       } else {
@@ -195,9 +198,30 @@ export default function CellPage() {
       if (!d.ok) throw new Error(d.error)
       setShowStartModal(false)
       // 셀 리더는 직접 이동
-      router.push(`/?week=${selectedSermonWeek}&service=${selectedSermonService}&tab=0`)
+      router.push(`/cell-word?week=${selectedSermonWeek}&service=${selectedSermonService}&tab=1`)
     } catch(e) { alert('오류: ' + e.message) }
     finally { setSessionStarting(false) }
+  }
+
+  async function handleGroupEnd() {
+    if (!myGroup) return
+    setGroupEnding(true)
+    try {
+      const res = await fetch('/api/cell-sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'group_end',
+          group_no: myGroup.group_no,
+          group_name: myGroup.name,
+          ended: true
+        })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setGroupEnded(true)
+    } catch(e) { alert('오류: ' + e.message) }
+    finally { setGroupEnding(false) }
   }
 
   // 내가 속한 조 & 셀 리더 여부
@@ -325,6 +349,17 @@ export default function CellPage() {
                 </div>
               )}
 
+              {/* 공지 배너 — 활성 세션 공지 있을 때 */}
+              {activeSession?.notice && (
+                <div style={{background:'linear-gradient(135deg,#e8f5e9,#f1f8e9)',borderRadius:14,padding:'14px 18px',border:'1px solid #a5d6a7',display:'flex',alignItems:'flex-start',gap:10,animation:'fadeUp 0.4s ease'}}>
+                  <span style={{fontSize:18,flexShrink:0}}>📢</span>
+                  <div>
+                    <p style={{fontSize:11,color:'#2e7d32',fontWeight:700,margin:'0 0 3px',letterSpacing:'0.05em'}}>리더 공지</p>
+                    <p style={{fontSize:14,color:'#1b5e20',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0,lineHeight:1.6}}>{activeSession.notice}</p>
+                  </div>
+                </div>
+              )}
+
               {/* 일반 멤버 — 모임 대기 안내 */}
               {!amLeader && !activeSession && myGroup && (
                 <div style={{background:'#fdf5ec',borderRadius:14,padding:'14px 18px',border:'1px solid #e8c9a0',display:'flex',alignItems:'center',gap:12}}>
@@ -335,6 +370,31 @@ export default function CellPage() {
                       {myGroup.leader ? `👑 ${myGroup.leader.name} 리더가 시작할 때까지 기다려주세요` : '셀 리더를 기다리는 중...'}
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* 셀 리더 — 모임 종료 버튼 */}
+              {amLeader && activeSession && myGroup && (
+                <div style={{background:groupEnded?'linear-gradient(135deg,#e8f5e9,#f1f8e9)':'#fff',borderRadius:14,padding:'16px 18px',border:`1px solid ${groupEnded?'#a5d6a7':'#e8d8c0'}`}}>
+                  {groupEnded ? (
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <span style={{fontSize:22}}>✅</span>
+                      <div>
+                        <p style={{fontSize:13,color:'#2e7d32',fontWeight:700,margin:'0 0 2px'}}>{myGroup.name} 모임이 종료됐어요!</p>
+                        <p style={{fontSize:11,color:'#558b2f',margin:0}}>부장집사님께 종료 알림이 전송됐어요</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 12px',lineHeight:1.6}}>
+                        나눔이 마무리됐나요? 종료 버튼을 눌러 부장집사님께 알려주세요.
+                      </p>
+                      <button onClick={handleGroupEnd} disabled={groupEnding}
+                        style={{width:'100%',background:groupEnding?'#c4a882':'linear-gradient(135deg,#c0392b,#e74c3c)',color:'#fff',border:'none',borderRadius:12,padding:'13px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:groupEnding?'not-allowed':'pointer',boxShadow:'0 4px 16px rgba(192,57,43,0.3)'}}>
+                        {groupEnding?'전송 중...':'🙏 셀 모임 종료하기'}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 

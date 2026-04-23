@@ -228,6 +228,54 @@ function CellTab() {
   const [errMsg, setErrMsg]         = useState('')
   const [isSaved, setIsSaved]       = useState(false)
 
+  const [activeSession, setActiveSession] = useState(null)
+  const [notice, setNotice]           = useState('')
+  const [noticeSending, setNoticeSending] = useState(false)
+  const [noticeMsg, setNoticeMsg]     = useState('')
+  const pollRef = useRef(null)
+
+  // 세션 폴링 (10초마다)
+  useEffect(() => {
+    pollSession()
+    pollRef.current = setInterval(pollSession, 10000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
+  async function pollSession() {
+    try {
+      const res = await fetch('/api/cell-sessions')
+      const d = await res.json()
+      if (d.ok) setActiveSession(d.data)
+    } catch(e) {}
+  }
+
+  async function sendNotice() {
+    if (!notice.trim()) return
+    setNoticeSending(true)
+    try {
+      const res = await fetch('/api/cell-sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'notice', notice })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setNoticeMsg('공지가 전송됐어요!')
+      await pollSession()
+      setTimeout(() => setNoticeMsg(''), 2500)
+    } catch(e) { setNoticeMsg('오류: ' + e.message) }
+    finally { setNoticeSending(false) }
+  }
+
+  async function endAllSession() {
+    if (!window.confirm('전체 셀 모임을 종료할까요?')) return
+    try {
+      await fetch('/api/cell-sessions', { method: 'DELETE' })
+      setActiveSession(null)
+    } catch(e) {}
+  }
+
+
   // 주차/예배 — 현재 주 기본값, 변경 가능
     const [week, setWeek] = useState(getWeekStr())
   const weeks = Array.from({length:5},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
@@ -512,6 +560,95 @@ function CellTab() {
           style={{width:'100%',background:'#fff5f5',border:'1px solid #f5c6bb',borderRadius:12,padding:'12px',cursor:'pointer',fontSize:13,color:'#c0392b',fontWeight:700}}>
           🗑 저장된 조 편성 초기화
         </button>
+      )}
+
+      {/* ── 셀 모임 공지 ── */}
+      <div style={{...S.card,border:'1px solid #c8e6c9',background:'#f1f8e9'}}>
+        <p style={{fontSize:13,color:'#2e7d32',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 10px'}}>📢 셀 리더 공지</p>
+        <p style={{fontSize:11,color:'#558b2f',margin:'0 0 10px',lineHeight:1.6}}>
+          모임 중 셀 리더들에게 전달할 공지를 입력하세요. 셀 페이지 상단에 즉시 표시돼요.
+        </p>
+        {activeSession ? (
+          <>
+            <div style={{display:'flex',gap:8,marginBottom:8}}>
+              <input value={notice} onChange={e=>setNotice(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter') sendNotice() }}
+                placeholder="공지 내용을 입력하세요..."
+                style={{...S.input,flex:1,fontSize:13,padding:'10px 14px'}}/>
+              <button onClick={sendNotice} disabled={noticeSending||!notice.trim()}
+                style={{background:notice.trim()?'linear-gradient(135deg,#2e7d32,#43a047)':'#c4a882',color:'#fff',border:'none',borderRadius:10,padding:'10px 16px',cursor:notice.trim()?'pointer':'not-allowed',fontSize:13,fontWeight:700,whiteSpace:'nowrap'}}>
+                {noticeSending?'전송중':'📤 전송'}
+              </button>
+            </div>
+            {noticeMsg&&<p style={{fontSize:11,color:'#2e7d32',margin:0,fontWeight:600}}>✓ {noticeMsg}</p>}
+            {activeSession.notice && (
+              <div style={{background:'#fff',borderRadius:8,padding:'8px 12px',border:'1px solid #a5d6a7',marginTop:4}}>
+                <p style={{fontSize:11,color:'#558b2f',margin:'0 0 2px',fontWeight:600}}>현재 공지</p>
+                <p style={{fontSize:13,color:'#2e7d32',margin:0,fontWeight:700}}>"{activeSession.notice}"</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <p style={{fontSize:12,color:'#9e9e9e',margin:0,fontStyle:'italic'}}>셀 모임이 시작되면 공지를 보낼 수 있어요</p>
+        )}
+      </div>
+
+      {/* ── 셀 모임 현황 모니터링 ── */}
+      {activeSession && (
+        <div style={{...S.card,border:'1px solid #4a8a4a',background:'linear-gradient(135deg,#f1f8e9,#e8f5e9)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+            <div>
+              <p style={{fontSize:13,color:'#2e7d32',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 2px'}}>
+                🟢 셀 모임 진행 중
+              </p>
+              <p style={{fontSize:11,color:'#558b2f',margin:0}}>
+                {(()=>{const d=new Date(activeSession.week+'T00:00:00');return `${d.getMonth()+1}월 ${d.getDate()}일 주`})()} · {activeSession.service==='morning'?'오전':'오후'}
+              </p>
+            </div>
+            <button onClick={endAllSession}
+              style={{background:'#ffebee',border:'1px solid #ef9a9a',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
+              ⏹ 전체 종료
+            </button>
+          </div>
+
+          {/* 조별 종료 현황 */}
+          {groups.length > 0 ? (
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <p style={{fontSize:11,color:'#558b2f',fontWeight:700,margin:'0 0 4px'}}>조별 모임 현황</p>
+              {groups.map((g, gi) => {
+                const st = typeof activeSession.group_statuses === 'string'
+                  ? JSON.parse(activeSession.group_statuses||'{}')
+                  : (activeSession.group_statuses || {})
+                const status = st[g.group_no]
+                const ended = status?.ended
+                const endedAt = status?.ended_at
+                return (
+                  <div key={g.group_no} style={{display:'flex',alignItems:'center',gap:10,background:'#fff',borderRadius:10,padding:'10px 14px',border:`1px solid ${ended?'#a5d6a7':'#e8dcc8'}`}}>
+                    <div style={{width:10,height:10,borderRadius:'50%',background:ended?'#4caf50':'#ffb74d',flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 1px'}}>{g.name}</p>
+                      <p style={{fontSize:11,color:'#8b6e4e',margin:0}}>
+                        {g.leader ? `👑 ${g.leader.name}` : '리더 미지정'} · {g.members.length}명
+                      </p>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      {ended ? (
+                        <>
+                          <span style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>✅ 종료</span>
+                          {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>{new Date(endedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</p>}
+                        </>
+                      ) : (
+                        <span style={{background:'#fff8e1',color:'#f57f17',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>⏳ 진행 중</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p style={{fontSize:12,color:'#9e9e9e',margin:0,fontStyle:'italic'}}>조 편성 후 현황이 표시돼요</p>
+          )}
+        </div>
       )}
     </div>
   )

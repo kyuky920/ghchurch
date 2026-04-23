@@ -82,6 +82,7 @@ export default function Home() {
     }).catch(e=>setError(e.message)).finally(()=>setLoading(false))
   },[router.query])
 
+
   function copy(text,key) { doCopy(text); setCk(key); setTimeout(()=>setCk(''),2000) }
 
   const TABS = ['말씀 요약','나눔 질문','주간 묵상','말씀카드']
