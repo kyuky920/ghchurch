@@ -244,6 +244,7 @@ function CellTab() {
   const [isSaved, setIsSaved]       = useState(false)
 
   const [activeSession, setActiveSession] = useState(null)
+  const [groupSessions, setGroupSessions] = useState({})
   const [notice, setNotice]           = useState('')
   const [noticeSending, setNoticeSending] = useState(false)
   const [noticeMsg, setNoticeMsg]     = useState('')
@@ -254,9 +255,16 @@ function CellTab() {
     let alive = true
     async function poll() {
       try {
-        const res = await fetch('/api/cell-sessions')
+        const res = await fetch('/api/cell-sessions?all=true')
         const d = await res.json()
-        if (alive && d.ok) setActiveSession(d.data || null)
+        if (alive && d.ok) {
+          // 배열을 group_no 키로 변환
+          const map = {}
+          if (Array.isArray(d.data)) d.data.forEach(s => { map[String(s.group_no)] = s })
+          setGroupSessions(map)
+          // 활성 세션 있으면 activeSession = true (공지 전송용)
+          setActiveSession(Array.isArray(d.data) && d.data.length > 0 ? d.data[0] : null)
+        }
       } catch(e) {}
     }
     poll()
@@ -289,6 +297,7 @@ function CellTab() {
     if (!window.confirm('전체 셀 모임을 종료할까요?')) return
     try {
       await fetch('/api/cell-sessions', { method: 'DELETE' })
+      setGroupSessions({})
       setActiveSession(null)
     } catch(e) {}
   }
@@ -609,15 +618,15 @@ function CellTab() {
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
             <div>
               <p style={{fontSize:13,color:activeSession?'#2e7d32':'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 2px'}}>
-                {activeSession ? '🟢 셀 모임 진행 중' : '⏸ 셀 모임 대기 중'}
+                {Object.values(groupSessions).some(s=>s.is_active) ? '🟢 셀 모임 진행 중' : '⏸ 셀 모임 대기 중'}
               </p>
               <p style={{fontSize:11,color:activeSession?'#558b2f':'#8b6e4e',margin:0}}>
                 {activeSession
-                  ? weekLabel(activeSession.week)
+                  ? (()=>{ const s=Object.values(groupSessions).find(s=>s.is_active); return s?weekLabel(s.week):'' })()
                   : '셀 리더가 모임을 시작하면 현황이 업데이트돼요'}
               </p>
             </div>
-            {activeSession && (
+            {(activeSession || Object.keys(groupSessions).length > 0) && (
               <button onClick={endAllSession}
                 style={{background:'#ffebee',border:'1px solid #ef9a9a',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
                 ⏹ 전체 종료
@@ -629,16 +638,11 @@ function CellTab() {
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
             <p style={{fontSize:11,color:activeSession?'#558b2f':'#a08060',fontWeight:700,margin:'0 0 4px'}}>조별 모임 현황</p>
             {groups.map((g) => {
-              const st = activeSession
-                ? (typeof activeSession.group_statuses === 'string'
-                    ? JSON.parse(activeSession.group_statuses||'{}')
-                    : (activeSession.group_statuses || {}))
-                : {}
-              const status   = st[String(g.group_no)]
-              const hasStatus = status !== undefined
-              const ended    = status?.ended === true
-              const endedAt  = status?.ended_at
-              const isActive = hasStatus && !ended
+              const session  = groupSessions[String(g.group_no)]
+              const hasStatus = !!session
+              const ended    = !session?.is_active && session?.ended === true
+              const isActive = !!session?.is_active
+              const endedAt  = session?.ended_at
               const borderColor = ended ? '#a5d6a7' : isActive ? '#ffe082' : '#e8dcc8'
               const dotColor    = ended ? '#4caf50' : isActive ? '#ff9800' : '#bdbdbd'
               return (
@@ -655,6 +659,7 @@ function CellTab() {
                       <>
                         <span style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>✅ 종료</span>
                         {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>{new Date(endedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</p>}
+                      {session?.sermon_week && <p style={{fontSize:10,color:'#a08060',margin:'2px 0 0'}}>{weekLabel(session.sermon_week)}</p>}
                       </>
                     ) : isActive ? (
                       <span style={{background:'#fff8e1',color:'#f57f17',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>⏳ 진행 중</span>

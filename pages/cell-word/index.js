@@ -61,7 +61,8 @@ export default function CellWord() {
   pollFn.current = async function poll() {
     const did = getDeviceId()
     try {
-      const sRes = await fetch('/api/cell-sessions')
+      const gno = group_no || ''
+      const sRes = await fetch(gno ? `/api/cell-sessions?group_no=${gno}` : '/api/cell-sessions')
       const sData = await sRes.json()
 
       if (!sData.ok || !sData.data) {
@@ -80,7 +81,7 @@ export default function CellWord() {
       }
 
       // 내 조 찾기 — device_id로 매칭
-      const gRes = await fetch(`/api/cell-groups?week=${session.week}`)
+      const gRes = await fetch(`/api/cell-groups?week=${session.week || week}`)
       const gData = await gRes.json()
       if (gData.ok && gData.data?.groups) {
         const groups = gData.data.groups
@@ -122,7 +123,7 @@ export default function CellWord() {
   // ── 말씀 로드 + 폴링 시작 ──
   useEffect(() => {
     if (!router.isReady) return
-    const { week, service, tab: qTab } = router.query
+    const { week, service, tab: qTab, group_no } = router.query
     if (!week) return
 
     // 말씀 로드
@@ -130,8 +131,12 @@ export default function CellWord() {
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.data?.length) {
-          const target = d.data.find(s => s.week === week && s.service === service)
-            || d.data.find(s => s.week === week)
+          // sermon_week/sermon_service 우선, 없으면 URL 파라미터
+          const sw = session?.sermon_week || week
+          const ss = session?.sermon_service || service
+          const target = d.data.find(s => s.week === sw && s.service === ss)
+            || d.data.find(s => s.week === sw)
+            || d.data.find(s => s.week === week && s.service === service)
             || d.data[0]
           setSelected(target)
           if (qTab !== undefined) setTab(Number(qTab))
@@ -154,10 +159,8 @@ export default function CellWord() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'group_end',
-          group_no: String(myGroup.group_no),
-          group_name: myGroup.name,
-          ended: true
+          action: 'end',
+          group_no: String(myGroup.group_no)
         })
       })
       const d = await res.json()
