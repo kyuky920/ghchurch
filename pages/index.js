@@ -10,8 +10,22 @@ const QMETA = [
 ]
 
 function weekLabel(week) {
-  const d = new Date(week + 'T00:00:00')
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
+  if (!week) return ''
+  // YYYY-MM-DD 형식
+  if (/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+    const d = new Date(week + 'T00:00:00')
+    if (isNaN(d.getTime())) return week
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
+  }
+  // 구형식 YYYY-Www 처리 (하위 호환)
+  if (/^\d{4}-W\d{2}$/.test(week)) {
+    const [y, w] = week.split('-W').map(Number)
+    const jan1 = new Date(y, 0, 1)
+    const sun = new Date(jan1)
+    sun.setDate(jan1.getDate() + (w - 1) * 7 - (jan1.getDay() || 7) + 7)
+    return `${sun.getMonth() + 1}월 ${sun.getDate()}일 주`
+  }
+  return week
 }
 function doCopy(text) {
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(()=>fbCopy(text))
