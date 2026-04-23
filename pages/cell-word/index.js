@@ -32,48 +32,71 @@ function fbCopy(text) {
 }
 
 const S = {
-  wrap: { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
+  wrap:   { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header: { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'20px 20px 16px', borderBottom:'1px solid #c8b898', position:'relative', overflow:'hidden' },
-  cont: { maxWidth:640, margin:'0 auto', padding:'16px 16px 80px' },
-  card: { background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0' },
+  cont:   { maxWidth:640, margin:'0 auto', padding:'16px 16px 80px' },
+  card:   { background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0' },
 }
 
 export default function CellWord() {
   const router = useRouter()
 
-  // 말씀
-  const [selected, setSelected]   = useState(null)
-  const [loading, setLoading]     = useState(true)
-  const [tab, setTab]             = useState(1) // 기본: 나눔 질문
-  const [ck, setCk]               = useState('')
+  const [selected, setSelected]         = useState(null)
+  const [loading, setLoading]           = useState(true)
+  const [tab, setTab]                   = useState(1)
+  const [ck, setCk]                     = useState('')
 
-  // 세션 / 내 조
   const [activeSession, setActiveSession] = useState(null)
   const [myGroup, setMyGroup]             = useState(null)
   const [amLeader, setAmLeader]           = useState(false)
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
-
-  // 공지 팝업
   const [noticeVisible, setNoticeVisible] = useState(false)
-  const [shownNotice, setShownNotice]     = useState('')
 
-  const pollRef    = useRef(null)
-  const deviceId   = useRef('')
-  const initialized = useRef(false)
+  const pollRef      = useRef(null)
+  const noticeRef    = useRef('')   // 마지막으로 표시한 공지 추적
 
-  // 디바이스 ID는 한 번만 초기화
-  useEffect(() => {
-    deviceId.current = getDeviceId()
-  }, [])
+  // ── 폴링 함수 (ref로 감싸서 stale closure 방지) ──
+  const pollFn = useRef(null)
+  pollFn.current = async function poll() {
+    const did = getDeviceId()
+    try {
+      const sRes = await fetch('/api/cell-sessions')
+      const sData = await sRes.json()
 
-  // 라우터 쿼리가 준비되면 말씀 로드 + 폴링 시작
+      if (!sData.ok || !sData.data) {
+        setActiveSession(null); setMyGroup(null); setAmLeader(false)
+        return
+      }
+
+      const session = sData.data
+      setActiveSession(session)
+
+      // 공지 새로 들어오면 팝업
+      if (session.notice && session.notice !== noticeRef.current) {
+        noticeRef.current = session.notice
+        setNoticeVisible(true)
+        setTimeout(() => setNoticeVisible(false), 6000)
+      }
+
+      // 내 조 찾기
+      const gRes = await fetch(`/api/cell-groups?week=${session.week}`)
+      const gData = await gRes.json()
+      if (gData.ok && gData.data?.groups) {
+        const found = gData.data.groups.find(g =>
+          g.members?.some(m => m.device_id === did)
+        )
+        setMyGroup(found || null)
+        setAmLeader(!!(found?.leader?.device_id === did))
+      }
+    } catch(e) {}
+  }
+
+  // ── 말씀 로드 + 폴링 시작 ──
   useEffect(() => {
     if (!router.isReady) return
     const { week, service, tab: qTab } = router.query
     if (!week) return
-    if (initialized.current) return
-    initialized.current = true
 
     // 말씀 로드
     fetch('/api/sermons')
@@ -89,105 +112,15 @@ export default function CellWord() {
       })
       .finally(() => setLoading(false))
 
-    // 폴링 시작 (즉시 + 5초마다)
-    doPoll()
-    pollRef.current = setInterval(doPool_wrapper, 5000)
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-      initialized.current = false
-    }
+    // 즉시 + 5초마다 폴링
+    pollFn.current()
+    pollRef.current = setInterval(() => pollFn.current(), 5000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [router.isReady])
 
-  // 폴링 wrapper (ref 필요 없이 일반 함수로)
-  function doPool_wrapper() { doPool_ref.current && doPool_ref.current() }
-  const doPool_ref = useRef(null)
-
-  async function doPool() {
-    const did = deviceId.current || getDeviceId()
-    try {
-      // 세션 조회
-      const sRes = await fetch('/api/cell-sessions')
-      const sData = await sRes.json()
-
-      if (!sData.ok || !sData.data) {
-        setActiveSession(null); setMyGroup(null); setAmLeader(false)
-        return
-      }
-
-      const session = sData.data
-      setActiveSession(session)
-
-      // 공지 변경 시 팝업
-      if (session.notice && session.notice !== shownNotice) {
-        setShownNotice(session.notice)
-        setNoticeVisible(true)
-        setTimeout(() => setNoticeVisible(false), 6000)
-      }
-
-      // 조 편성 조회
-      const gRes = await fetch(`/api/cell-groups?week=${session.week}`)
-      const gData = await gRes.json()
-
-      if (gData.ok && gData.data?.groups) {
-        const found = gData.data.groups.find(g =>
-          g.members?.some(m => m.device_id === did)
-        )
-        setMyGroup(found || null)
-        setAmLeader(!!(found?.leader?.device_id === did))
-      }
-    } catch(e) {}
-  }
-
-  // doPool을 ref에 저장해서 setInterval에서 항상 최신 버전 호출
-  useEffect(() => { doPool_ref.current = doPool }, [shownNotice])
-
-  function doPool() {
-    const did = deviceId.current || getDeviceId()
-    fetch('/api/cell-sessions')
-      .then(r => r.json())
-      .then(sData => {
-        if (!sData.ok || !sData.data) {
-          setActiveSession(null); setMyGroup(null); setAmLeader(false)
-          return
-        }
-        const session = sData.data
-        setActiveSession(session)
-
-        // 공지 팝업
-        setShownNotice(prev => {
-          if (session.notice && session.notice !== prev) {
-            setNoticeVisible(true)
-            setTimeout(() => setNoticeVisible(false), 6000)
-            return session.notice
-          }
-          return prev
-        })
-
-        // 조 편성 조회
-        fetch(`/api/cell-groups?week=${session.week}`)
-          .then(r => r.json())
-          .then(gData => {
-            if (gData.ok && gData.data?.groups) {
-              const found = gData.data.groups.find(g =>
-                g.members?.some(m => m.device_id === did)
-              )
-              setMyGroup(found || null)
-              setAmLeader(!!(found?.leader?.device_id === did))
-            }
-          })
-          .catch(() => {})
-      })
-      .catch(() => {})
-  }
-
-  // doPool 참조를 ref에 저장
-  doPool_ref.current = doPool
-
-  // 모임 종료
+  // ── 모임 종료 ──
   async function handleGroupEnd() {
     if (!myGroup) return
-    const groupNo = String(myGroup.group_no)
     setGroupEnding(true)
     try {
       const res = await fetch('/api/cell-sessions', {
@@ -195,7 +128,7 @@ export default function CellWord() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'group_end',
-          group_no: groupNo,
+          group_no: String(myGroup.group_no),
           group_name: myGroup.name,
           ended: true
         })
@@ -203,7 +136,7 @@ export default function CellWord() {
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
       setGroupEnded(true)
-      doPool()
+      pollFn.current()
     } catch(e) { alert('오류: ' + e.message) }
     finally { setGroupEnding(false) }
   }
@@ -332,6 +265,7 @@ export default function CellWord() {
           </div>
         )}
 
+        {/* ── 컨텐츠 ── */}
         <div style={S.cont}>
           {loading ? (
             <div style={{ textAlign:'center', padding:48, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
