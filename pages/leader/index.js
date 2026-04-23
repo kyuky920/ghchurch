@@ -63,6 +63,19 @@ function getTreeGroupName(index) {
   return round === 0 ? base : `${base} ${round + 1}`
 }
 
+function getTreeGroupLabel(index) {
+  return `${index + 1}조 - ${getTreeGroupName(index)}`
+}
+
+function formatGroupName(group) {
+  if (!group) return ''
+  const groupNo = typeof group === 'object' ? group.group_no : null
+  const name = typeof group === 'object' ? group.name : group
+  if (!name) return groupNo ? `${groupNo}조` : ''
+  if (name.includes('조 - ')) return name
+  return groupNo ? `${groupNo}조 - ${name}` : name
+}
+
 const S = {
   wrap:    { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header:  { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'20px 20px 0', borderBottom:'1px solid #c8b898' },
@@ -397,14 +410,14 @@ function CellTab() {
     if (members.length === 0) { setErrMsg('접속 중인 멤버가 없어요.'); return }
     setErrMsg('')
     const shuffled = [...members].sort(() => Math.random() - 0.5)
-    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupName(i), leader:null, members:[] }))
+    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupLabel(i), leader:null, members:[] }))
     shuffled.forEach((m,i) => { result[i%groupCount].members.push({name:m.name, device_id:m.device_id}) })
     setGroups(result)
   }
 
   function handleManualInit() {
     setErrMsg('')
-    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupName(i), leader:null, members:[] })))
+    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupLabel(i), leader:null, members:[] })))
   }
 
   function moveMember(member, fromGroupNo, toGroupNo) {
@@ -568,7 +581,7 @@ function CellTab() {
                 <select onChange={e=>{ if(e.target.value){ addToGroup(m,Number(e.target.value)); e.target.value='' } }}
                   style={{fontSize:11,padding:'3px 6px',border:'1px solid #ddd0ba',borderRadius:6,color:'#8b6e4e',cursor:'pointer',background:'#fdf5ec'}}>
                   <option value="">→ 배정</option>
-                  {groups.map(g=><option key={g.group_no} value={g.group_no}>{g.name}</option>)}
+                  {groups.map(g=><option key={g.group_no} value={g.group_no}>{formatGroupName(g)}</option>)}
                 </select>
               </div>
             ))}
@@ -581,7 +594,7 @@ function CellTab() {
                 <select onChange={e=>{ if(e.target.value){ addToGroup(m,Number(e.target.value)); e.target.value='' } }}
                   style={{fontSize:11,padding:'3px 6px',border:'1px solid #ddd0ba',borderRadius:6,color:'#8b6e4e',cursor:'pointer',background:'#fdf5ec'}}>
                   <option value="">→ 배정</option>
-                  {groups.map(g=><option key={g.group_no} value={g.group_no}>{g.name}</option>)}
+                  {groups.map(g=><option key={g.group_no} value={g.group_no}>{formatGroupName(g)}</option>)}
                 </select>
               </div>
             ))}
@@ -600,9 +613,9 @@ function CellTab() {
               {/* 조 이름 + 리더 랜덤 버튼 */}
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                 <div style={{width:10,height:10,borderRadius:'50%',background:GROUP_COLORS[gi%GROUP_COLORS.length],flexShrink:0}}/>
-                <input value={g.name}
+                <input value={formatGroupName(g)}
                   onChange={e=>setGroups(prev=>prev.map(pg=>pg.group_no===g.group_no?{...pg,name:e.target.value}:pg))}
-                  style={{fontSize:15,fontWeight:700,color:'#4a3520',border:'none',background:'transparent',outline:'none',fontFamily:"'Gowun Batang',serif",width:80}}/>
+                  style={{fontSize:15,fontWeight:700,color:'#4a3520',border:'none',background:'transparent',outline:'none',fontFamily:"'Gowun Batang',serif",width:170}}/>
                 <span style={{fontSize:12,color:'#a08060'}}>({g.members.length}명)</span>
                 <button onClick={()=>{
                   if(g.members.length===0) return
@@ -638,7 +651,7 @@ function CellTab() {
                       <select onChange={e=>{ if(e.target.value){ moveMember(m,g.group_no,Number(e.target.value)); e.target.value='' } }}
                         style={{fontSize:11,padding:'2px 4px',border:'none',background:'transparent',color:GROUP_COLORS[gi%GROUP_COLORS.length],cursor:'pointer'}}>
                         <option value="">↔</option>
-                        {groups.filter(og=>og.group_no!==g.group_no).map(og=><option key={og.group_no} value={og.group_no}>→ {og.name}</option>)}
+                        {groups.filter(og=>og.group_no!==g.group_no).map(og=><option key={og.group_no} value={og.group_no}>→ {formatGroupName(og)}</option>)}
                       </select>
                     </div>
                   ))
@@ -712,7 +725,7 @@ function CellTab() {
                 <div key={g.group_no} style={{display:'flex',alignItems:'center',gap:10,background:'#fff',borderRadius:10,padding:'10px 14px',border:`1px solid ${borderColor}`}}>
                   <div style={{width:10,height:10,borderRadius:'50%',background:dotColor,flexShrink:0}}/>
                   <div style={{flex:1}}>
-                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 1px'}}>{g.name}</p>
+                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 1px'}}>{formatGroupName(g)}</p>
                     <p style={{fontSize:11,color:'#8b6e4e',margin:0}}>
                       {g.leader ? `👑 ${g.leader.name}` : '리더 미지정'} · {g.members.length}명
                     </p>
@@ -926,7 +939,7 @@ export default function Leader() {
   return (
     <>
       <Head>
-        <title>광흥교회 청년부 · 시냇가에 심은 나무 리더 도구</title>
+        <title>광흥교회 청년부 · 시냇가에 심은 나무 WORD &amp; LIFE · 리더 도구</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
@@ -938,7 +951,7 @@ export default function Leader() {
       </Head>
       <div style={S.wrap}>
         <div style={S.header}>
-          <p style={S.sub}>WORD &amp; LIFE · 리더 도구</p>
+          <p style={S.sub}>시냇가에 심은 나무 WORD &amp; LIFE</p>
           <h1 style={S.h1}>리더 도구</h1>
           <div style={{display:'flex'}}>
             {['📖 말씀 자료','👥 셀 조 편성','🃏 딕싯'].map((t,i)=>(

@@ -27,6 +27,14 @@ function formatSessionPeriod(session) {
   const end = formatSessionTime(session.ended_at)
   return end ? `${start} ~ ${end}` : `${start} 시작`
 }
+function formatGroupName(group) {
+  if (!group) return ''
+  const groupNo = typeof group === 'object' ? group.group_no : null
+  const name = typeof group === 'object' ? group.name : group
+  if (!name) return groupNo ? `${groupNo}조` : ''
+  if (name.includes('조 - ')) return name
+  return groupNo ? `${groupNo}조 - ${name}` : name
+}
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
   let id = localStorage.getItem('wl_device_id')
@@ -261,7 +269,7 @@ export default function CellPage() {
           week: getWeekStr(),
           service: 'all',
           group_no: String(myGroup.group_no),
-          group_name: myGroup.name,
+          group_name: formatGroupName(myGroup),
           sermon_week: selWeek,
           sermon_service: selService,
           device_id: deviceId.current,
@@ -351,7 +359,7 @@ export default function CellPage() {
   return (
     <>
       <Head>
-        <title>광흥교회 청년부 · 말씀 나눔 광흥 청년 시내</title>
+        <title>광흥교회 청년부 · 시냇가에 심은 나무 WORD &amp; LIFE · 광흥교회 청년시냇가</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
@@ -371,14 +379,15 @@ export default function CellPage() {
           background: amLeader ? 'linear-gradient(160deg,#1a4a1a,#2a6a2a)' : 'linear-gradient(160deg,#e8dcc8,#d4c4a8)',
           padding:'24px 20px', borderBottom: amLeader?'1px solid #3a7a3a':'1px solid #c8b898', transition:'all 0.4s'
         }}>
-          <p style={{fontSize:10,color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무</p>
-          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 10px'}}>말씀 나눔 광흥 청년 시내</h1>
+          <p style={{fontSize:10,color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
+          <p style={{fontSize:11,color:amLeader?'rgba(150,230,150,0.78)':'#8b6e4e',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
           {registered && amLeader ? (
             <div style={{background:'linear-gradient(135deg,#ffd700,#ffab00)',borderRadius:16,padding:'10px 18px',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(255,180,0,0.5)',animation:'glow 2s ease-in-out infinite',width:'fit-content'}}>
               <span style={{fontSize:26}}>👑</span>
               <div>
                 <p style={{fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,color:'#1a1000',margin:'0 0 1px'}}>셀 리더</p>
-                <p style={{fontSize:12,color:'rgba(26,16,0,0.7)',margin:0,fontWeight:600}}>{name} · {myGroup?.name}</p>
+                <p style={{fontSize:12,color:'rgba(26,16,0,0.7)',margin:0,fontWeight:600}}>{name} · {formatGroupName(myGroup)}</p>
               </div>
             </div>
           ) : registered ? (
@@ -393,7 +402,7 @@ export default function CellPage() {
           <div style={{background:mySessionViewTarget.is_active?'linear-gradient(135deg,#2e7d32,#43a047)':'linear-gradient(135deg,#546e7a,#78909c)',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
             <div>
               <p style={{fontSize:13,color:'#fff',fontWeight:700,margin:'0 0 2px'}}>
-                {mySessionViewTarget.is_active ? `🟢 ${myGroup?.name} 셀 모임이 시작됐어요!` : `✅ ${myGroup?.name} 셀 모임이 종료됐어요`}
+                {mySessionViewTarget.is_active ? `🟢 ${formatGroupName(myGroup)} 셀 모임이 시작됐어요!` : `✅ ${formatGroupName(myGroup)} 셀 모임이 종료됐어요`}
               </p>
               <p style={{fontSize:11,color:'rgba(255,255,255,0.8)',margin:0}}>
                 {mySessionViewTarget.is_active ? '버튼을 눌러 말씀 나눔에 참여하세요' : '함께 나눈 말씀은 계속 확인할 수 있어요'}
@@ -411,7 +420,7 @@ export default function CellPage() {
           <div style={{background:groupEnded?'#e8f5e9':'#fff3e0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${groupEnded?'#a5d6a7':'#ffcc80'}`}}>
             <div>
               <p style={{fontSize:12,color:groupEnded?'#2e7d32':'#e65100',fontWeight:700,margin:'0 0 1px'}}>
-                {groupEnded?`✅ ${myGroup?.name} 모임 종료됨`:`👑 ${myGroup?.name} 모임 진행 중`}
+                {groupEnded?`✅ ${formatGroupName(myGroup)} 모임 종료됨`:`👑 ${formatGroupName(myGroup)} 모임 진행 중`}
               </p>
               <p style={{fontSize:10,color:groupEnded?'#558b2f':'#bf360c',margin:0}}>
                 {groupEnded?'함께 나눈 말씀은 계속 볼 수 있어요':'말씀 나눔 중이에요'}
@@ -531,7 +540,7 @@ export default function CellPage() {
                           {/* 조 헤더 */}
                           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                             <div style={{width:10,height:10,borderRadius:'50%',background:color,flexShrink:0}}/>
-                            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color,fontWeight:700,margin:0,flex:1}}>{g.name}</p>
+                            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color,fontWeight:700,margin:0,flex:1}}>{formatGroupName(g)}</p>
                             {isMyGroup && <span style={{background:color,color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:10,fontWeight:700}}>내 조</span>}
                             {g.leader && <span style={{fontSize:11,color,fontWeight:600}}>👑 {g.leader.name}</span>}
                             <span style={{background:sessionState.bg,color:sessionState.color,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700}}>

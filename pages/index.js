@@ -126,7 +126,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>광흥교회 청년부 · 시냇가에 심은 나무</title>
+        <title>광흥교회 청년부 · 시냇가에 심은 나무 WORD &amp; LIFE</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
@@ -141,7 +141,7 @@ export default function Home() {
         {/* 헤더 */}
         <div style={S.header}>
           <div style={{position:'absolute',top:-40,right:-40,width:200,height:200,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
-          <p style={{fontSize:10,color:'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>WORD &amp; LIFE</p>
+          <p style={{fontSize:10,color:'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
           <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:24,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>말씀 나눔</h1>
           <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>청년부 주간 말씀 &amp; 묵상 가이드</p>
         </div>

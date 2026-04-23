@@ -20,6 +20,10 @@ function getTreeGroupName(groupNo) {
   return round === 0 ? base : `${base} ${round + 1}`
 }
 
+function getTreeGroupLabel(groupNo) {
+  return `${groupNo}조 - ${getTreeGroupName(groupNo)}`
+}
+
 async function isLeaderForGroup({ week, group_no, device_id }) {
   if (!week || !group_no || !device_id) return false
 
@@ -120,7 +124,7 @@ export default async function handler(req, res) {
           week,
           service: service || 'all',
           group_no: String(group_no),
-          group_name: group_name || getTreeGroupName(group_no),
+          group_name: group_name || getTreeGroupLabel(group_no),
           sermon_week: sermon_week || week,
           sermon_service: sermon_service || 'morning',
           is_active: true,

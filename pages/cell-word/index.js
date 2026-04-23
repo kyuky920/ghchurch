@@ -37,6 +37,14 @@ function formatSessionPeriod(session) {
   const end = formatSessionTime(session.ended_at)
   return end ? `${start} ~ ${end}` : `${start} 시작`
 }
+function formatGroupName(group) {
+  if (!group) return ''
+  const groupNo = typeof group === 'object' ? group.group_no : null
+  const name = typeof group === 'object' ? group.name : group
+  if (!name) return groupNo ? `${groupNo}조` : ''
+  if (name.includes('조 - ')) return name
+  return groupNo ? `${groupNo}조 - ${name}` : name
+}
 
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
@@ -297,7 +305,7 @@ export default function CellWord() {
   return (
     <>
       <Head>
-        <title>광흥교회 청년부 · 시냇가에 심은 나무 셀 모임</title>
+        <title>광흥교회 청년부 · 시냇가에 심은 나무 WORD &amp; LIFE · 셀 모임</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
@@ -321,7 +329,7 @@ export default function CellWord() {
           }}>
             <div>
               <p style={{ fontSize:12, color: groupEnded ? '#2e7d32' : '#e65100', fontWeight:700, margin:'0 0 1px' }}>
-                {groupEnded ? `✅ ${myGroup.name} 모임 종료됨` : `👑 ${myGroup.name} 셀 리더`}
+                {groupEnded ? `✅ ${formatGroupName(myGroup)} 모임 종료됨` : `👑 ${formatGroupName(myGroup)} 셀 리더`}
               </p>
               <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:0 }}>
                 {groupEnded ? '함께 나눈 말씀은 계속 볼 수 있어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
@@ -346,7 +354,7 @@ export default function CellWord() {
           <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <div>
-              <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 · 셀 모임</p>
+              <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
               {selected
                 ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:'0 0 2px' }}>{selected.reference}</h1>
                 : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:0 }}>말씀 나눔</h1>
@@ -361,7 +369,7 @@ export default function CellWord() {
             {myGroup && (
               <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
                 <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 1px', fontWeight:600 }}>{amLeader ? '👑 리더' : '내 조'}</p>
-                <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{myGroup.name}</p>
+                <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{formatGroupName(myGroup)}</p>
               </div>
             )}
           </div>
