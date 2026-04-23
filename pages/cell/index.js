@@ -190,14 +190,27 @@ export default function CellPage() {
       <div style={{minHeight:'100vh',background:'#faf6f0'}}>
 
         {/* 헤더 */}
-        <div style={{background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)',padding:'24px 20px',borderBottom:'1px solid #c8b898'}}>
-          <p style={{fontSize:10,color:'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>WORD &amp; LIFE</p>
-          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>셀 나눔 조 편성</h1>
+        <div style={{background: amLeader
+            ? 'linear-gradient(160deg,#1a4a1a,#2a6a2a)'
+            : 'linear-gradient(160deg,#e8dcc8,#d4c4a8)',
+          padding:'24px 20px', borderBottom: amLeader ? '1px solid #3a7a3a' : '1px solid #c8b898',
+          transition:'all 0.4s ease'}}>
+          <p style={{fontSize:10, color: amLeader ? 'rgba(150,230,150,0.7)' : '#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 6px'}}>WORD &amp; LIFE</p>
+          <h1 style={{fontFamily:"'Gowun Batang',serif", fontSize:22, color: amLeader ? '#7adf7a' : '#4a3520', fontWeight:700, margin:'0 0 10px'}}>셀 나눔 조 편성</h1>
           {registered
-            ? <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>
-                안녕하세요, <strong>{name}</strong>님! 🙏
-                {amLeader && <span style={{marginLeft:8,background:'#a0784e',color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:10,fontWeight:700}}>👑 셀 리더</span>}
-              </p>
+            ? amLeader
+              ? (
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{background:'linear-gradient(135deg,#ffd700,#ffab00)',borderRadius:16,padding:'10px 18px',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(255,180,0,0.5)',animation:'glow 2s ease-in-out infinite'}}>
+                    <span style={{fontSize:26}}>👑</span>
+                    <div>
+                      <p style={{fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,color:'#1a1000',margin:'0 0 1px'}}>셀 리더</p>
+                      <p style={{fontSize:12,color:'rgba(26,16,0,0.7)',margin:0,fontWeight:600}}>{name}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+              : <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>안녕하세요, <strong>{name}</strong>님! 🙏</p>
             : <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>이름을 입력하고 조 편성을 확인하세요</p>
           }
         </div>
