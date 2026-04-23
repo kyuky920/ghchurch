@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import html2canvas from 'html2canvas'
 
 // 구형식(YYYY-Www) → YYYY-MM-DD 변환
 function normalizeWeek(week) {
@@ -42,18 +43,6 @@ const QMETA = [
   { type:'이번 주 실천', color:'#6b8f71', bg:'#edf4ee' },
 ]
 
-function doCopy(text) {
-  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => fbCopy(text))
-  else fbCopy(text)
-}
-function fbCopy(text) {
-  const t = document.createElement('textarea')
-  t.value = text; t.style.cssText = 'position:fixed;opacity:0;'
-  document.body.appendChild(t); t.focus(); t.select()
-  try { document.execCommand('copy') } catch(e) {}
-  document.body.removeChild(t)
-}
-
 const S = {
   wrap:   { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header: { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'20px 20px 16px', borderBottom:'1px solid #c8b898', position:'relative', overflow:'hidden' },
@@ -67,17 +56,16 @@ export default function CellWord() {
   const [selected, setSelected]         = useState(null)
   const [loading, setLoading]           = useState(true)
   const [tab, setTab]                   = useState(1)
-  const [ck, setCk]                     = useState('')
+  const [savingImage, setSavingImage]   = useState(false)
 
   const [activeSession, setActiveSession] = useState(null)
   const [myGroup, setMyGroup]             = useState(null)
   const [amLeader, setAmLeader]           = useState(false)
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
-  const [noticeVisible, setNoticeVisible] = useState(false)
 
   const pollRef      = useRef(null)
-  const noticeRef    = useRef('')   // 마지막으로 표시한 공지 추적
+  const captureRef   = useRef(null)
 
   // ── 폴링 함수 (ref로 감싸서 stale closure 방지) ──
   const pollFn = useRef(null)
@@ -103,13 +91,6 @@ export default function CellWord() {
 
       const session = sData.data
       setActiveSession(session)
-
-      // 공지 새로 들어오면 팝업
-      if (session.notice && session.notice !== noticeRef.current) {
-        noticeRef.current = session.notice
-        setNoticeVisible(true)
-        setTimeout(() => setNoticeVisible(false), 6000)
-      }
 
       // 내 조 찾기 — device_id로 매칭
       const gRes = await fetch(`/api/cell-groups?week=${session.week || week}`)
@@ -229,9 +210,7 @@ export default function CellWord() {
     finally { setGroupEnding(false) }
   }
 
-  function copy(text, key) { doCopy(text); setCk(key); setTimeout(() => setCk(''), 2000) }
-
-  const TABS = ['말씀 요약', '나눔 질문', '주간 묵상', '말씀카드']
+  const TABS = ['말씀 요약', '나눔 질문']
 
   const parseField = (val) => {
     if (!val) return []
@@ -239,7 +218,6 @@ export default function CellWord() {
     try { return JSON.parse(val) } catch(e) { return [] }
   }
   const qs   = parseField(selected?.questions)
-  const meds = parseField(selected?.meditations)
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
@@ -247,12 +225,27 @@ export default function CellWord() {
     try { return JSON.parse(s) } catch(e) { return null }
   })()
 
-  const CopyBtn = ({ text, id, label }) => (
-    <button onClick={() => copy(text, id)}
-      style={{ width:'100%', background:'#fff', border:'1.5px solid #ddd0ba', borderRadius:12, padding:'13px', fontSize:13, color:'#8b6e4e', fontWeight:700, fontFamily:"'Gowun Batang',serif", cursor:'pointer' }}>
-      {ck === id ? '✓ 복사됨!' : label}
-    </button>
-  )
+  async function saveCurrentViewAsImage() {
+    if (!captureRef.current || !selected) return
+    setSavingImage(true)
+    try {
+      const canvas = await html2canvas(captureRef.current, {
+        backgroundColor: '#faf6f0',
+        scale: 2,
+        useCORS: true,
+      })
+      const link = document.createElement('a')
+      const safeRef = (selected.reference || 'cell-word').replace(/[^\w\-가-힣]+/g, '_')
+      const tabName = tab === 0 ? 'summary' : 'questions'
+      link.download = `${safeRef}_${tabName}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (e) {
+      alert('이미지 저장 중 오류가 발생했어요.')
+    } finally {
+      setSavingImage(false)
+    }
+  }
 
   return (
     <>
@@ -270,30 +263,6 @@ export default function CellWord() {
         `}</style>
       </Head>
       <div style={S.wrap}>
-
-        {/* ── 공지 팝업 ── */}
-        {noticeVisible && activeSession?.notice && (
-          <div style={{
-            position:'fixed', top:0, left:0, right:0, zIndex:999,
-            background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
-            padding:'16px 20px',
-            display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12,
-            boxShadow:'0 4px 24px rgba(0,0,0,0.35)',
-            animation:'slideDown 0.4s ease',
-          }}>
-            <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
-              <span style={{ fontSize:22, flexShrink:0 }}>📢</span>
-              <div>
-                <p style={{ fontSize:10, color:'rgba(255,255,255,0.7)', margin:'0 0 4px', fontWeight:700, letterSpacing:'0.12em' }}>리더 공지</p>
-                <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:0, lineHeight:1.65 }}>{activeSession.notice}</p>
-              </div>
-            </div>
-            <button onClick={() => setNoticeVisible(false)}
-              style={{ background:'rgba(255,255,255,0.15)', border:'none', borderRadius:8, width:28, height:28, cursor:'pointer', color:'#fff', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* ── 셀 리더 종료 바 ── */}
         {amLeader && myGroup && (
@@ -341,18 +310,6 @@ export default function CellWord() {
           </div>
         </div>
 
-        {/* ── 탭바 ── */}
-        {selected && (
-          <div className="tab-bar" style={{ background:'#fff', display:'flex', borderBottom:'1px solid #e8dcc8', position:'sticky', top:0, zIndex:10 }}>
-            {TABS.map((t, i) => (
-              <button key={i} onClick={() => setTab(i)}
-                style={{ flex:1, padding:'13px 8px', border:'none', background:'none', fontSize:13, fontFamily:"'Gowun Batang',serif", color: tab===i ? '#8b6e4e' : '#bba888', fontWeight: tab===i ? 700 : 400, borderBottom: tab===i ? '2.5px solid #a0784e' : '2.5px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
-                {t}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* ── 컨텐츠 ── */}
         <div style={S.cont}>
           {loading ? (
@@ -366,8 +323,31 @@ export default function CellWord() {
               <p style={{ fontFamily:"'Gowun Batang',serif", fontSize:15 }}>말씀을 찾을 수 없어요</p>
             </div>
           ) : (
-            <>
-              {/* 탭 0: 말씀 요약 */}
+            <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
+              {amLeader && activeSession?.notice && (
+                <div style={{
+                  background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
+                  borderRadius:16,
+                  padding:'16px 18px',
+                  marginBottom:16,
+                  boxShadow:'0 8px 24px rgba(27,94,32,0.22)',
+                  animation:'slideDown 0.4s ease',
+                }}>
+                  <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
+                  <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:0, lineHeight:1.65 }}>{activeSession.notice}</p>
+                </div>
+              )}
+
+              <div className="tab-bar" style={{ background:'#fff', display:'flex', borderBottom:'1px solid #e8dcc8', marginBottom:16, position:'sticky', top:0, zIndex:10 }}>
+                {TABS.map((t, i) => (
+                  <button key={i} onClick={() => setTab(i)}
+                    style={{ flex:1, padding:'13px 8px', border:'none', background:'none', fontSize:13, fontFamily:"'Gowun Batang',serif", color: tab===i ? '#8b6e4e' : '#bba888', fontWeight: tab===i ? 700 : 400, borderBottom: tab===i ? '2.5px solid #a0784e' : '2.5px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+            {/* 탭 0: 말씀 요약 */}
               {tab===0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                   {!summary ? (
@@ -417,48 +397,16 @@ export default function CellWord() {
                       </div>
                     )
                   })}
-                  <CopyBtn
-                    text={`✦ ${selected.reference} 나눔 질문\n\n${qs.map((item,i)=>{const q=typeof item==='string'?item:item.question;const ex=typeof item==='object'&&item.explanation?item.explanation+'\n':'';return `[${(QMETA[i]||QMETA[0]).type}]\n${ex}Q${i+1}. ${q}`}).join('\n\n')}`}
-                    id="q" label="📋 전체 복사 (카톡 공유용)"
-                  />
                 </div>
               )}
-
-              {/* 탭 2: 주간 묵상 */}
-              {tab===2 && (
-                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                  {meds.map((m, i) => (
-                    <div key={i} style={{ ...S.card, animation:`fadeUp 0.3s ease ${i*0.07}s both` }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                        <span style={{ background:'linear-gradient(135deg,#a0784e,#c4956a)', color:'#fff', borderRadius:8, padding:'3px 12px', fontSize:12, fontWeight:700 }}>{m.day}요일</span>
-                        <span style={{ color:'#a0784e', fontSize:13, fontFamily:"'Gowun Batang',serif", fontStyle:'italic' }}>"{m.focus}"</span>
-                      </div>
-                      <p style={{ margin:0, color:'#4a3728', fontFamily:"'Gowun Batang',serif", fontSize:14, lineHeight:1.9 }}>{m.message}</p>
-                    </div>
-                  ))}
-                  <CopyBtn
-                    text={`✦ ${selected.reference} 주간 묵상\n\n${meds.map(m=>`[${m.day}요일]\n"${m.focus}"\n\n${m.message}`).join('\n\n─────\n\n')}`}
-                    id="med" label="📋 전체 복사 (카톡 공유용)"
-                  />
-                </div>
-              )}
-
-              {/* 탭 3: 말씀카드 */}
-              {tab===3 && (
-                <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-                  <div style={{ background:'linear-gradient(135deg,#a0784e,#7a5c38,#c4956a)', borderRadius:20, padding:'36px 28px', position:'relative', overflow:'hidden', boxShadow:'0 12px 40px rgba(160,120,78,0.35)' }}>
-                    <div style={{ position:'absolute', top:-30, right:-30, width:140, height:140, borderRadius:'50%', background:'rgba(255,255,255,0.07)' }}/>
-                    <p style={{ color:'rgba(245,230,208,0.8)', fontSize:10, letterSpacing:'0.2em', margin:'0 0 14px' }}>✦ 이번 주 말씀 · 개역개정</p>
-                    <p style={{ color:'#fff', fontFamily:"'Gowun Batang',serif", fontSize:19, lineHeight:1.95, margin:'0 0 18px', fontStyle:'italic' }}>"{selected.card_verse}"</p>
-                    <p style={{ color:'rgba(245,230,208,0.8)', fontSize:12, margin:0, fontFamily:"'Gowun Batang',serif" }}>{selected.reference} · 개역개정</p>
-                  </div>
-                  <CopyBtn
-                    text={`✦ 이번 주 말씀 (개역개정)\n\n"${selected.card_verse}"\n\n— ${selected.reference}`}
-                    id="card" label="📋 말씀카드 복사"
-                  />
-                </div>
-              )}
-            </>
+              <button
+                onClick={saveCurrentViewAsImage}
+                disabled={savingImage}
+                style={{width:'100%',marginTop:16,background:savingImage?'#c4a882':'linear-gradient(135deg,#4a3520,#7a5c38)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+              >
+                {savingImage ? '이미지 저장 중...' : '🖼 현재 화면 이미지로 저장'}
+              </button>
+            </div>
           )}
         </div>
       </div>

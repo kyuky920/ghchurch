@@ -213,6 +213,7 @@ export default function CellPage() {
     if (!myGroup) { alert('내 조를 찾을 수 없어요.'); return }
     setSessionStarting(true)
     try {
+      const chosenSermon = sermons.find(s => s.week === selWeek && s.service === selService)
       const res = await fetch('/api/cell-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,6 +224,8 @@ export default function CellPage() {
           group_name: myGroup.name,
           sermon_week: selWeek,
           sermon_service: selService,
+          sermon_reference: chosenSermon?.reference || '',
+          sermon_title: chosenSermon?.sermon_title || '',
           device_id: deviceId.current,
         })
       })
@@ -430,12 +433,18 @@ export default function CellPage() {
 
                           {/* 세션 상태 */}
                           {session?.is_active && (
-                            <div style={{background:'rgba(46,125,50,0.08)',borderRadius:8,padding:'6px 10px',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
-                              <div style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0}}/>
-                              <p style={{fontSize:11,color:'#2e7d32',fontWeight:600,margin:0}}>
-                                모임 진행 중 · {session.sermon_week && weekLabel(session.sermon_week)}
-                                {session.sermon_service==='morning'?' ☀️ 오전':session.sermon_service==='afternoon'?' 🌙 오후':''}
-                              </p>
+                            <div style={{background:'rgba(46,125,50,0.08)',borderRadius:8,padding:'8px 10px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}>
+                              <div style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0,marginTop:5}}/>
+                              <div>
+                                <p style={{fontSize:11,color:'#2e7d32',fontWeight:700,margin:'0 0 2px'}}>
+                                  모임 진행 중
+                                </p>
+                                <p style={{fontSize:11,color:'#2e7d32',fontWeight:600,margin:0}}>
+                                  {session.sermon_reference || (session.sermon_week && weekLabel(session.sermon_week))}
+                                  {session.sermon_service==='morning'?' · ☀️ 오전':session.sermon_service==='afternoon'?' · 🌙 오후':''}
+                                </p>
+                                {session.sermon_title && <p style={{fontSize:10,color:'#5d8a60',margin:'2px 0 0'}}>{session.sermon_title}</p>}
+                              </div>
                             </div>
                           )}
 

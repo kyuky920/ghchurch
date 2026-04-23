@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import html2canvas from 'html2canvas'
 
 const QMETA = [
   { type:'말씀 속으로',  color:'#a0784e', bg:'#fdf5ec' },
@@ -27,17 +28,6 @@ function weekLabel(week) {
   }
   return week
 }
-function doCopy(text) {
-  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(()=>fbCopy(text))
-  else fbCopy(text)
-}
-function fbCopy(text) {
-  const t=document.createElement('textarea'); t.value=text; t.style.cssText='position:fixed;opacity:0;'
-  document.body.appendChild(t); t.focus(); t.select()
-  try{document.execCommand('copy')}catch(e){}
-  document.body.removeChild(t)
-}
-
 const S = {
   wrap:   { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header: { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'28px 20px 22px', borderBottom:'1px solid #c8b898', position:'relative', overflow:'hidden' },
@@ -51,11 +41,12 @@ export default function Home() {
   const [error, setError]       = useState('')
   const [selected, setSelected] = useState(null)
   const [tab, setTab]           = useState(0)
-  const [ck, setCk]             = useState('')
+  const [savingImage, setSavingImage] = useState(false)
 
   const [selectedWeek, setSelectedWeek] = useState(null)
 
   const router = useRouter()
+  const captureRef = useRef(null)
 
   useEffect(() => {
     fetch('/api/sermons').then(r=>r.json()).then(d=>{
@@ -82,10 +73,7 @@ export default function Home() {
     }).catch(e=>setError(e.message)).finally(()=>setLoading(false))
   },[router.query])
 
-
-  function copy(text,key) { doCopy(text); setCk(key); setTimeout(()=>setCk(''),2000) }
-
-  const TABS = ['말씀 요약','나눔 질문','주간 묵상','말씀카드']
+  const TABS = ['말씀 요약','나눔 질문']
 
   // Supabase에서 JSON string으로 올 수 있어서 파싱 처리
   const parseField = (val) => {
@@ -97,7 +85,6 @@ export default function Home() {
     return []
   }
   const qs      = parseField(selected?.questions)
-  const meds    = parseField(selected?.meditations)
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
@@ -114,11 +101,27 @@ export default function Home() {
     grouped[wk].sort((a,b) => a.service === 'morning' ? -1 : 1)
   })
 
-  const CopyBtn = ({text,id,label}) => (
-    <button onClick={()=>copy(text,id)} style={{width:'100%',background:'#fff',border:'1.5px solid #ddd0ba',borderRadius:12,padding:'13px',fontSize:13,color:'#8b6e4e',fontWeight:700,fontFamily:"'Gowun Batang',serif",cursor:'pointer'}}>
-      {ck===id ? '✓ 복사됨!' : label}
-    </button>
-  )
+  async function saveCurrentViewAsImage() {
+    if (!captureRef.current || !selected) return
+    setSavingImage(true)
+    try {
+      const canvas = await html2canvas(captureRef.current, {
+        backgroundColor: '#faf6f0',
+        scale: 2,
+        useCORS: true,
+      })
+      const link = document.createElement('a')
+      const safeRef = (selected.reference || 'wordlife').replace(/[^\w\-가-힣]+/g, '_')
+      const tabName = tab === 0 ? 'summary' : 'questions'
+      link.download = `${safeRef}_${tabName}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (e) {
+      alert('이미지 저장 중 오류가 발생했어요.')
+    } finally {
+      setSavingImage(false)
+    }
+  }
 
   return (
     <>
@@ -200,7 +203,7 @@ export default function Home() {
               )}
 
               {selected && (
-                <>
+                <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
                   {/* 말씀 정보 */}
                   <div style={{...S.card,marginBottom:14}}>
                     <span style={{background:selected.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:11,fontWeight:700,display:'inline-block',marginBottom:8}}>
@@ -274,51 +277,16 @@ export default function Home() {
                           </div>
                         )
                       })}
-                      <CopyBtn
-                        text={`✦ ${selected.reference} 나눔 질문\n\n${qs.map((item,i)=>{const q=typeof item==='string'?item:item.question;const ex=typeof item==='object'&&item.explanation?item.explanation+'\n':'';return `[${(QMETA[i]||QMETA[0]).type}]\n${ex}Q${i+1}. ${q}`}).join('\n\n')}`}
-                        id="q" label="📋 전체 복사 (카톡 공유용)"
-                      />
                     </div>
                   )}
-
-                  {/* 탭 2: 주간 묵상 */}
-                  {tab===2 && (
-                    <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                      <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0 8px'}}>✦ {selected.reference} 주간 묵상</p>
-                      {meds.map((m,i)=>(
-                        <div key={i} style={{...S.card,animation:`fadeUp 0.3s ease ${i*0.07}s both`}}>
-                          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-                            <span style={{background:'linear-gradient(135deg,#a0784e,#c4956a)',color:'#fff',borderRadius:8,padding:'3px 12px',fontSize:12,fontWeight:700}}>{m.day}요일</span>
-                            <span style={{color:'#a0784e',fontSize:13,fontFamily:"'Gowun Batang',serif",fontStyle:'italic'}}>"{m.focus}"</span>
-                          </div>
-                          <p style={{margin:0,color:'#4a3728',fontFamily:"'Gowun Batang',serif",fontSize:14,lineHeight:1.9}}>{m.message}</p>
-                        </div>
-                      ))}
-                      <CopyBtn
-                        text={`✦ ${selected.reference} 주간 묵상\n\n${meds.map(m=>`[${m.day}요일]\n"${m.focus}"\n\n${m.message}`).join('\n\n─────\n\n')}`}
-                        id="med" label="📋 전체 복사 (카톡 공유용)"
-                      />
-                    </div>
-                  )}
-
-                  {/* 탭 3: 말씀카드 */}
-                  {tab===3 && (
-                    <div style={{display:'flex',flexDirection:'column',gap:16}}>
-                      <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0'}}>✦ 이번 주 말씀카드</p>
-                      <div style={{background:'linear-gradient(135deg,#a0784e,#7a5c38,#c4956a)',borderRadius:20,padding:'36px 28px',position:'relative',overflow:'hidden',boxShadow:'0 12px 40px rgba(160,120,78,0.35)'}}>
-                        <div style={{position:'absolute',top:-30,right:-30,width:140,height:140,borderRadius:'50%',background:'rgba(255,255,255,0.07)'}}/>
-                        <div style={{position:'absolute',bottom:-20,left:-20,width:90,height:90,borderRadius:'50%',background:'rgba(255,255,255,0.05)'}}/>
-                        <p style={{color:'rgba(245,230,208,0.8)',fontSize:10,letterSpacing:'0.2em',margin:'0 0 14px'}}>✦ 이번 주 말씀 · 개역개정</p>
-                        <p style={{color:'#fff',fontFamily:"'Gowun Batang',serif",fontSize:19,lineHeight:1.95,margin:'0 0 18px',fontStyle:'italic'}}>"{selected.card_verse}"</p>
-                        <p style={{color:'rgba(245,230,208,0.8)',fontSize:12,margin:0,fontFamily:"'Gowun Batang',serif"}}>{selected.reference} · 개역개정</p>
-                      </div>
-                      <CopyBtn
-                        text={`✦ 이번 주 말씀 (개역개정)\n\n"${selected.card_verse}"\n\n— ${selected.reference}`}
-                        id="card" label="📋 말씀카드 복사"
-                      />
-                    </div>
-                  )}
-                </>
+                  <button
+                    onClick={saveCurrentViewAsImage}
+                    disabled={savingImage}
+                    style={{width:'100%',marginTop:16,background:savingImage?'#c4a882':'linear-gradient(135deg,#4a3520,#7a5c38)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                  >
+                    {savingImage ? '이미지 저장 중...' : '🖼 현재 화면 이미지로 저장'}
+                  </button>
+                </div>
               )}
 
               {sermons.length===0 && (
