@@ -37,8 +37,6 @@ export default function CellPage() {
   const [registered, setRegistered]   = useState(false)
   const [saving, setSaving]           = useState(false)
   const [errMsg, setErrMsg]           = useState('')
-  const [week, setWeek]               = useState(getWeekStr())
-  const [service, setService]         = useState('morning')
   const [groups, setGroups]           = useState(null)
   const [members, setMembers]         = useState([])
   const [loadingGroups, setLoadingGroups] = useState(false)
@@ -74,7 +72,7 @@ export default function CellPage() {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       startHeartbeat(name)
     }
-  }, [week, service, registered])
+  }, [registered])
 
   // 세션 폴링 — 30초마다 활성 세션 확인
   function startSessionPoll() {
@@ -84,7 +82,7 @@ export default function CellPage() {
 
   const checkSession = useCallback(async () => {
     try {
-      const res = await fetch(`/api/cell-sessions?week=${week}&service=${service}`)
+      const res = await fetch('/api/cell-sessions')
       const d = await res.json()
       if (d.ok && d.data) {
         setActiveSession(d.data)
@@ -100,7 +98,7 @@ export default function CellPage() {
         setRedirecting(false)
       }
     } catch(e) {}
-  }, [week, service, redirecting, router])
+  }, [redirecting, router])
 
   function startHeartbeat(memberName) {
     sendHeartbeat(memberName)
@@ -112,7 +110,7 @@ export default function CellPage() {
       await fetch('/api/members', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_id: deviceId.current, week, service, name: memberName })
+        body: JSON.stringify({ device_id: deviceId.current, name: memberName })
       })
     } catch(e) {}
   }
@@ -124,7 +122,7 @@ export default function CellPage() {
       const res = await fetch('/api/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_id: deviceId.current, name: inputName.trim(), week, service })
+        body: JSON.stringify({ device_id: deviceId.current, name: inputName.trim() })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
@@ -140,14 +138,29 @@ export default function CellPage() {
   async function loadGroups() {
     setLoadingGroups(true)
     try {
-      const [gRes, mRes] = await Promise.all([
-        fetch(`/api/cell-groups?week=${week}&service=${service}`),
-        fetch(`/api/members?week=${week}&service=${service}`)
+      // 최신 활성 세션 기반으로 조 편성 조회
+      const [sessionRes, mRes] = await Promise.all([
+        fetch('/api/cell-sessions'),
+        fetch('/api/members')
       ])
-      const gData = await gRes.json()
+      const sessionData = await sessionRes.json()
       const mData = await mRes.json()
-      if (gData.ok) setGroups(gData.data)
       if (mData.ok) setMembers(mData.data || [])
+
+      // 활성 세션이 있으면 해당 주차/예배의 조 편성 로드
+      if (sessionData.ok && sessionData.data) {
+        const { week, service } = sessionData.data
+        const gRes = await fetch(`/api/cell-groups?week=${week}&service=${service}`)
+        const gData = await gRes.json()
+        if (gData.ok) setGroups(gData.data)
+      } else {
+        // 세션 없으면 현재 주차 기본값으로 조회
+        const week = getWeekStr()
+        const gRes = await fetch(`/api/cell-groups?week=${week}&service=morning`)
+        const gData = await gRes.json()
+        if (gData.ok) setGroups(gData.data)
+        else setGroups(null)
+      }
     } catch(e) {}
     finally { setLoadingGroups(false) }
   }
@@ -262,21 +275,11 @@ export default function CellPage() {
             </div>
           ) : (
             <>
-              {/* 예배 선택 */}
-              <div style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0'}}>
-                <p style={{fontSize:12,color:'#8b6e4e',fontWeight:700,margin:'0 0 10px'}}>참석 예배</p>
-                <div style={{display:'flex',gap:8,marginBottom:12}}>
-                  {['morning','afternoon'].map(sv=>(
-                    <button key={sv} onClick={()=>setService(sv)}
-                      style={{flex:1,padding:'10px',borderRadius:10,border:`2px solid ${service===sv?(sv==='morning'?'#f6a623':'#7a6e9e'):'#e8dcc8'}`,background:service===sv?(sv==='morning'?'#fff8ec':'#f5f3fa'):'#fff',cursor:'pointer',fontSize:13,fontWeight:700,color:service===sv?(sv==='morning'?'#e8901a':'#5a5080'):'#b8a090'}}>
-                      {sv==='morning'?'☀️ 주일 오전':'🌙 주일 오후'}
-                    </button>
-                  ))}
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite'}}/>
-                  <p style={{fontSize:11,color:'#7a9e7e',margin:0,fontWeight:600}}>접속 중 · {members.length}명 함께 있어요</p>
-                </div>
+              {/* 접속 현황 */}
+              <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',border:'1px solid #e8d8c0',display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite',flexShrink:0}}/>
+                <p style={{fontSize:12,color:'#7a9e7e',margin:0,fontWeight:600}}>접속 중 · {members.length}명 함께 있어요</p>
+                <button onClick={loadGroups} style={{marginLeft:'auto',background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#8b6e4e',fontWeight:600}}>🔄</button>
               </div>
 
               {/* ── 셀 리더 전용: 모임 시작 버튼 ── */}
@@ -359,8 +362,7 @@ export default function CellPage() {
               {/* 전체 조 편성 */}
               <div style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                  <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>전체 조 편성 — {weekLabel(week)}</p>
-                  <button onClick={loadGroups} style={{background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,color:'#8b6e4e',fontWeight:600}}>🔄 새로고침</button>
+                  <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>전체 조 편성</p>
                 </div>
                 {loadingGroups ? (
                   <p style={{color:'#a0784e',fontSize:13,textAlign:'center',padding:'20px 0'}}>불러오는 중...</p>
