@@ -12,8 +12,20 @@ function getWeekStr(date) {
   return `${y}-${m}-${dd}`
 }
 function weekLabel(week) {
-  const d = new Date(week + 'T00:00:00')
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
+  if (!week) return ''
+  // YYYY-MM-DD 형식
+  if (/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+    const [y, m, d] = week.split('-').map(Number)
+    if (!y || !m || !d) return week
+    return `${m}월 ${d}일 주`
+  }
+  // 구형식 YYYY-Www
+  if (/^\d{4}-W\d{2}$/.test(week)) {
+    const d = new Date(week + '-1') // ISO week Monday
+    if (isNaN(d.getTime())) return week
+    return `${d.getMonth()+1}월 ${d.getDate()}일 주`
+  }
+  return week
 }
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
@@ -156,10 +168,16 @@ export default function CellPage() {
       const res = await fetch('/api/sermons')
       const d = await res.json()
       if (d.ok && d.data?.length) {
-        setSermons(d.data)
-        // 기본값: 가장 최신 주차/예배
-        setSelectedSermonWeek(d.data[0].week)
-        setSelectedSermonService(d.data[0].service)
+        // 최근 2주 데이터만 필터
+        const sorted = d.data.sort((a, b) => b.week.localeCompare(a.week))
+        const weeks = [...new Set(sorted.map(s => s.week))].slice(0, 2)
+        const recent = sorted.filter(s => weeks.includes(s.week))
+        setSermons(recent)
+        // 기본값: 가장 최신
+        if (recent.length) {
+          setSelectedSermonWeek(recent[0].week)
+          setSelectedSermonService(recent[0].service)
+        }
       }
     } catch(e) {}
   }
@@ -420,7 +438,7 @@ export default function CellPage() {
                     return Object.entries(grouped).map(([wk, items]) => (
                       <div key={wk} style={{marginBottom:16}}>
                         <p style={{fontSize:11,color:'#a08060',fontWeight:700,margin:'0 0 8px',letterSpacing:'0.05em'}}>
-                          {(() => { const d=new Date(wk+'T00:00:00'); return `${d.getMonth()+1}월 ${d.getDate()}일 주` })()}
+                          {weekLabel(wk)}
                         </p>
                         <div style={{display:'flex',flexDirection:'column',gap:8}}>
                           {items.map(s => {
