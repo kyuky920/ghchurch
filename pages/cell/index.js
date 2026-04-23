@@ -60,7 +60,6 @@ export default function CellPage() {
   const [selectedSermonService, setSelectedSermonService] = useState('morning')
   const [sessionStarting, setSessionStarting] = useState(false)
   const [activeSession, setActiveSession] = useState(null)
-  const [redirecting, setRedirecting]   = useState(false)
   const [groupEnding, setGroupEnding]   = useState(false)
   const [groupEnded, setGroupEnded]     = useState(false)
 
@@ -100,21 +99,11 @@ export default function CellPage() {
       const d = await res.json()
       if (d.ok && d.data) {
         setActiveSession(d.data)
-        // 세션이 최근 2분 이내에 시작된 것만 자동 이동 (이전 세션 방지)
-        const startedAt = new Date(d.data.started_at)
-        const ageSec = (Date.now() - startedAt.getTime()) / 1000
-        if (!redirecting && ageSec < 120) {
-          setRedirecting(true)
-          setTimeout(() => {
-            router.push(`/cell-word?week=${d.data.week}&service=${d.data.service}&tab=${d.data.active_tab}`)
-          }, 1500)
-        }
       } else {
         setActiveSession(null)
-        setRedirecting(false)
       }
     } catch(e) {}
-  }, [redirecting, router])
+  }, [])
 
   function startHeartbeat(memberName) {
     sendHeartbeat(memberName)
@@ -287,14 +276,17 @@ export default function CellPage() {
           }
         </div>
 
-        {/* 세션 시작됨 — 자동 이동 안내 */}
-        {redirecting && (
-          <div style={{background:'linear-gradient(135deg,#2e7d32,#43a047)',padding:'16px 20px',display:'flex',alignItems:'center',gap:12}}>
-            <div style={{width:20,height:20,borderRadius:'50%',border:'2.5px solid rgba(255,255,255,0.4)',borderTop:'2.5px solid #fff',animation:'spin 0.8s linear infinite',flexShrink:0}}/>
+        {/* 세션 시작됨 — 참여하기 버튼 안내 */}
+        {!amLeader && activeSession && (
+          <div style={{background:'linear-gradient(135deg,#2e7d32,#43a047)',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
             <div>
-              <p style={{fontSize:13,color:'#fff',fontWeight:700,margin:'0 0 2px'}}>셀 모임이 시작됐어요!</p>
-              <p style={{fontSize:11,color:'rgba(255,255,255,0.8)',margin:0}}>말씀 나눔 페이지로 이동 중...</p>
+              <p style={{fontSize:13,color:'#fff',fontWeight:700,margin:'0 0 2px'}}>🟢 셀 모임이 시작됐어요!</p>
+              <p style={{fontSize:11,color:'rgba(255,255,255,0.8)',margin:0}}>아래 버튼을 눌러 말씀 나눔에 참여하세요</p>
             </div>
+            <button onClick={()=>router.push(`/cell-word?week=${activeSession.week}&service=${activeSession.service}&tab=${activeSession.active_tab}`)}
+              style={{background:'#fff',color:'#2e7d32',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:13,fontWeight:700,flexShrink:0,boxShadow:'0 2px 8px rgba(0,0,0,0.15)'}}>
+              참여하기 →
+            </button>
           </div>
         )}
 
@@ -380,9 +372,9 @@ export default function CellPage() {
                 <div style={{background:'#fdf5ec',borderRadius:14,padding:'14px 18px',border:'1px solid #e8c9a0',display:'flex',alignItems:'center',gap:12}}>
                   <div style={{width:8,height:8,borderRadius:'50%',background:'#a0784e',animation:'pulse 2s infinite',flexShrink:0}}/>
                   <div>
-                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>셀 리더가 모임을 시작하면 자동으로 이동해요</p>
+                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>셀 리더가 모임을 시작하면 상단에 알림이 나타나요</p>
                     <p style={{fontSize:11,color:'#8b6e4e',margin:0}}>
-                      {myGroup.leader ? `👑 ${myGroup.leader.name} 리더가 시작할 때까지 기다려주세요` : '셀 리더를 기다리는 중...'}
+                      {myGroup.leader ? `👑 ${myGroup.leader.name} 리더를 기다리는 중...` : '셀 리더를 기다리는 중...'}
                     </p>
                   </div>
                 </div>
@@ -497,7 +489,7 @@ export default function CellPage() {
               onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:'#e8dcc8',borderRadius:2,margin:'0 auto 24px'}}/>
               <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>🙏 셀 모임 시작</p>
-              <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>함께 나눌 말씀을 선택해주세요. 멤버들이 자동으로 이동해요.</p>
+              <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>함께 나눌 말씀을 선택해주세요. 멤버들에게 상단 알림이 나타나요.</p>
 
               {sermons.length === 0 ? (
                 <div style={{textAlign:'center',padding:'32px 0',color:'#b8a090'}}>
