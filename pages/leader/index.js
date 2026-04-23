@@ -907,7 +907,7 @@ export default function Leader() {
   return (
     <>
       <Head>
-        <title>리더 도구 · WORD &amp; LIFE</title>
+        <title>광흥교회 청년부 · 리더 도구</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`

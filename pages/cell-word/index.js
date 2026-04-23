@@ -297,7 +297,7 @@ export default function CellWord() {
   return (
     <>
       <Head>
-        <title>셀 나눔 · WORD &amp; LIFE</title>
+        <title>광흥교회 청년부 · 말씀 나눔 셀 모임</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
