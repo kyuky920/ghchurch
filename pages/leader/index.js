@@ -31,6 +31,18 @@ function weekLabel(week) {
   if (isNaN(d.getTime())) return week
   return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
 }
+function formatSessionTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })
+}
+function formatSessionPeriod(session) {
+  if (!session?.started_at) return ''
+  const start = formatSessionTime(session.started_at)
+  const end = formatSessionTime(session.ended_at)
+  return end ? `${start} ~ ${end}` : `${start} 시작`
+}
 
 const S = {
   wrap:    { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
@@ -696,16 +708,22 @@ function CellTab() {
                         {sessionSermon.sermon_title}
                       </p>
                     )}
+                    {session?.started_at && (
+                      <p style={{fontSize:10,color:isActive?'#8f6a2a':ended?'#5b8a60':'#a08060',margin:'2px 0 0'}}>
+                        ⏰ {formatSessionPeriod(session)}
+                      </p>
+                    )}
                   </div>
                   <div style={{textAlign:'right'}}>
                     {ended ? (
                       <>
                         <span style={{background:'#e8f5e9',color:'#2e7d32',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>✅ 종료</span>
-                        {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>{new Date(endedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</p>}
+                        {endedAt && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>종료 {formatSessionTime(endedAt)}</p>}
                       </>
                     ) : isActive ? (
                       <>
                         <span style={{background:'#fff8e1',color:'#f57f17',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>⏳ 진행 중</span>
+                        {session?.started_at && <p style={{fontSize:10,color:'#9e9e9e',margin:'3px 0 0'}}>시작 {formatSessionTime(session.started_at)}</p>}
                       </>
                     ) : (
                       <span style={{background:'#f5f5f5',color:'#9e9e9e',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>— 대기</span>

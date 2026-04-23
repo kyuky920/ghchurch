@@ -25,6 +25,18 @@ function sameWeek(candidate, requested) {
   if (!candidate || !requested) return false
   return candidate === requested || normalizeWeek(candidate) === normalizeWeek(requested)
 }
+function formatSessionTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })
+}
+function formatSessionPeriod(session) {
+  if (!session?.started_at) return ''
+  const start = formatSessionTime(session.started_at)
+  const end = formatSessionTime(session.ended_at)
+  return end ? `${start} ~ ${end}` : `${start} 시작`
+}
 
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
@@ -314,6 +326,11 @@ export default function CellWord() {
               <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:0 }}>
                 {groupEnded ? '함께 나눈 말씀은 계속 볼 수 있어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
               </p>
+              {activeSession?.started_at && (
+                <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:'3px 0 0' }}>
+                  ⏰ {formatSessionPeriod(activeSession)}
+                </p>
+              )}
             </div>
             {!groupEnded && activeSession && (
               <button onClick={handleGroupEnd} disabled={groupEnding}
@@ -335,6 +352,11 @@ export default function CellWord() {
                 : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:0 }}>말씀 나눔</h1>
               }
               {selected?.sermon_title && <p style={{ fontSize:11, color:'#8b6e4e', margin:0 }}>{selected.sermon_title}</p>}
+              {activeSession?.started_at && (
+                <p style={{ fontSize:10, color:'#8b6e4e', margin:'4px 0 0' }}>
+                  ⏰ {formatSessionPeriod(activeSession)}
+                </p>
+              )}
             </div>
             {myGroup && (
               <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>

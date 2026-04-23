@@ -15,6 +15,18 @@ function weekLabel(week) {
   }
   return week
 }
+function formatSessionTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })
+}
+function formatSessionPeriod(session) {
+  if (!session?.started_at) return ''
+  const start = formatSessionTime(session.started_at)
+  const end = formatSessionTime(session.ended_at)
+  return end ? `${start} ~ ${end}` : `${start} 시작`
+}
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
   let id = localStorage.getItem('wl_device_id')
@@ -404,6 +416,11 @@ export default function CellPage() {
               <p style={{fontSize:10,color:groupEnded?'#558b2f':'#bf360c',margin:0}}>
                 {groupEnded?'함께 나눈 말씀은 계속 볼 수 있어요':'말씀 나눔 중이에요'}
               </p>
+              {latestMySession?.started_at && (
+                <p style={{fontSize:10,color:groupEnded?'#558b2f':'#bf360c',margin:'3px 0 0'}}>
+                  {formatSessionPeriod(latestMySession)}
+                </p>
+              )}
             </div>
             <div style={{display:'flex',gap:8}}>
               {latestMySession && (
@@ -536,6 +553,11 @@ export default function CellPage() {
                                   {session.sermon_service==='morning'?' · ☀️ 오전':session.sermon_service==='afternoon'?' · 🌙 오후':''}
                                 </p>
                                 {sessionSermon?.sermon_title && <p style={{fontSize:10,color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
+                                {session.started_at && (
+                                  <p style={{fontSize:10,color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>
+                                    ⏰ {formatSessionPeriod(session)}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           )}
