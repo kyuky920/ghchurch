@@ -14,14 +14,22 @@ export default async function handler(req, res) {
     const { group_no, all } = req.query
     try {
       if (all === 'true') {
-        // 리더 대시보드: 전체 활성 세션 목록
+        // 리더 대시보드: 오늘 시작된 세션 전체 (종료된 것 포함)
+        const todayStart = new Date()
+        todayStart.setHours(0,0,0,0)
         const { data, error } = await supabase
           .from('cell_sessions')
           .select('*')
-          .eq('is_active', true)
+          .gte('started_at', todayStart.toISOString())
           .order('started_at', { ascending: true })
         if (error) throw error
-        return res.status(200).json({ ok: true, data: data || [] })
+        // group_no별 가장 최신 세션만 (중복 제거)
+        const latest = {}
+        ;(data || []).forEach(s => {
+          const key = String(s.group_no)
+          if (!latest[key] || s.started_at > latest[key].started_at) latest[key] = s
+        })
+        return res.status(200).json({ ok: true, data: Object.values(latest) })
       }
 
       if (group_no) {
@@ -77,7 +85,6 @@ export default async function handler(req, res) {
           sermon_week: sermon_week || week,
           sermon_service: sermon_service || 'morning',
           is_active: true,
-          ended: false,
           notice: '',
           started_at: new Date().toISOString()
         })
@@ -108,7 +115,7 @@ export default async function handler(req, res) {
         if (!group_no) return res.status(400).json({ ok: false, error: 'group_no 필수' })
         const { error } = await supabase
           .from('cell_sessions')
-          .update({ is_active: false, ended: true, ended_at: new Date().toISOString() })
+          .update({ is_active: false, ended_at: new Date().toISOString() })
           .eq('is_active', true)
           .eq('group_no', String(group_no))
         if (error) throw error
@@ -123,7 +130,7 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     const { group_no } = req.query
     try {
-      let q = supabase.from('cell_sessions').update({ is_active: false, ended: true, ended_at: new Date().toISOString() }).eq('is_active', true)
+      let q = supabase.from('cell_sessions').update({ is_active: false, ended_at: new Date().toISOString() }).eq('is_active', true)
       if (group_no) q = q.eq('group_no', String(group_no))
       const { error } = await q
       if (error) throw error

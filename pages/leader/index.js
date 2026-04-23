@@ -255,20 +255,28 @@ function CellTab() {
     let alive = true
     async function poll() {
       try {
-        const res = await fetch('/api/cell-sessions?all=true')
-        const d = await res.json()
-        if (alive && d.ok) {
-          // 배열을 group_no 키로 변환
+        // 세션 + 멤버 동시 갱신
+        const [sRes, mRes, aRes] = await Promise.all([
+          fetch('/api/cell-sessions?all=true'),
+          fetch('/api/members'),
+          fetch('/api/members?all=true'),
+        ])
+        const sData = await sRes.json()
+        const mData = await mRes.json()
+        const aData = await aRes.json()
+        if (!alive) return
+        if (sData.ok) {
           const map = {}
-          if (Array.isArray(d.data)) d.data.forEach(s => { map[String(s.group_no)] = s })
+          if (Array.isArray(sData.data)) sData.data.forEach(s => { map[String(s.group_no)] = s })
           setGroupSessions(map)
-          // 활성 세션 있으면 activeSession = true (공지 전송용)
-          setActiveSession(Array.isArray(d.data) && d.data.length > 0 ? d.data[0] : null)
+          setActiveSession(Array.isArray(sData.data) && sData.data.some(s=>s.is_active) ? sData.data.find(s=>s.is_active) : null)
         }
+        if (mData.ok) setMembers(mData.data || [])
+        if (aData.ok) setAllMembers(aData.data || [])
       } catch(e) {}
     }
     poll()
-    pollRef.current = setInterval(poll, 5000)
+    pollRef.current = setInterval(poll, 8000)
     return () => {
       alive = false
       if (pollRef.current) clearInterval(pollRef.current)
@@ -639,8 +647,9 @@ function CellTab() {
             <p style={{fontSize:11,color:activeSession?'#558b2f':'#a08060',fontWeight:700,margin:'0 0 4px'}}>조별 모임 현황</p>
             {groups.map((g) => {
               const session  = groupSessions[String(g.group_no)]
+              // is_active=true → 진행중, ended_at 있고 is_active=false → 종료, session 없음 → 대기
               const hasStatus = !!session
-              const ended    = !session?.is_active && session?.ended === true
+              const ended    = !!session && !session.is_active && !!session.ended_at
               const isActive = !!session?.is_active
               const endedAt  = session?.ended_at
               const borderColor = ended ? '#a5d6a7' : isActive ? '#ffe082' : '#e8dcc8'

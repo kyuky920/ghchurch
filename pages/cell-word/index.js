@@ -2,6 +2,20 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
+// 구형식(YYYY-Www) → YYYY-MM-DD 변환
+function normalizeWeek(week) {
+  if (!week) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(week)) return week
+  if (/^\d{4}-W\d{2}$/.test(week)) {
+    const [y, w] = week.split('-W').map(Number)
+    const jan4 = new Date(y, 0, 4)
+    const sun = new Date(jan4)
+    sun.setDate(jan4.getDate() - jan4.getDay() + (w - 1) * 7)
+    return `${sun.getFullYear()}-${String(sun.getMonth()+1).padStart(2,'0')}-${String(sun.getDate()).padStart(2,'0')}`
+  }
+  return week
+}
+
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
   let id = localStorage.getItem('wl_device_id')
@@ -131,12 +145,14 @@ export default function CellWord() {
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.data?.length) {
-          // sermon_week/sermon_service 우선, 없으면 URL 파라미터
-          const sw = session?.sermon_week || week
-          const ss = session?.sermon_service || service
+          // sermon_week/sermon_service 우선, 없으면 URL 파라미터 (구형식 변환 포함)
+          const sw = normalizeWeek(session?.sermon_week || week)
+          const ss = session?.sermon_service || service || 'morning'
+          const nw = normalizeWeek(week)
           const target = d.data.find(s => s.week === sw && s.service === ss)
             || d.data.find(s => s.week === sw)
-            || d.data.find(s => s.week === week && s.service === service)
+            || d.data.find(s => s.week === nw && s.service === ss)
+            || d.data.find(s => s.week === nw)
             || d.data[0]
           setSelected(target)
           if (qTab !== undefined) setTab(Number(qTab))
