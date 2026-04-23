@@ -29,7 +29,7 @@ function getSavedName() {
 function getSessionState(session) {
   if (!session) return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
   if (session.is_active) return { key:'active', label:'⏳ 진행 중', bg:'#fff8e1', color:'#f57f17' }
-  if (session.ended_at) return { key:'ended', label:'✅ 종료', bg:'#e8f5e9', color:'#2e7d32' }
+  if (session.ended_at) return { key:'ended', label:'✅ 종료됨', bg:'#e8f5e9', color:'#2e7d32' }
   return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
 }
 
@@ -294,6 +294,7 @@ export default function CellPage() {
   const latestMySession = myGroup ? groupSessions[String(myGroup.group_no)] : null
   const mySession = latestMySession?.is_active ? latestMySession : null
   const noticeSession = mySession || latestMySession
+  const mySessionViewTarget = latestMySession || mySession
   const activeNoticeKey = noticeSession?.notice
     ? `${noticeSession.group_no || ''}:${noticeSession.notice}`
     : ''
@@ -376,15 +377,19 @@ export default function CellPage() {
         </div>
 
         {/* ── 내 조 세션 알림 배너 ── */}
-        {mySession && !amLeader && (
-          <div style={{background:'linear-gradient(135deg,#2e7d32,#43a047)',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+        {mySessionViewTarget && !amLeader && (
+          <div style={{background:mySessionViewTarget.is_active?'linear-gradient(135deg,#2e7d32,#43a047)':'linear-gradient(135deg,#546e7a,#78909c)',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
             <div>
-              <p style={{fontSize:13,color:'#fff',fontWeight:700,margin:'0 0 2px'}}>🟢 {myGroup?.name} 셀 모임이 시작됐어요!</p>
-              <p style={{fontSize:11,color:'rgba(255,255,255,0.8)',margin:0}}>버튼을 눌러 말씀 나눔에 참여하세요</p>
+              <p style={{fontSize:13,color:'#fff',fontWeight:700,margin:'0 0 2px'}}>
+                {mySessionViewTarget.is_active ? `🟢 ${myGroup?.name} 셀 모임이 시작됐어요!` : `✅ ${myGroup?.name} 셀 모임이 종료됐어요`}
+              </p>
+              <p style={{fontSize:11,color:'rgba(255,255,255,0.8)',margin:0}}>
+                {mySessionViewTarget.is_active ? '버튼을 눌러 말씀 나눔에 참여하세요' : '함께 나눈 말씀은 계속 확인할 수 있어요'}
+              </p>
             </div>
-            <button onClick={()=>router.push(`/cell-word?week=${mySession.sermon_week}&service=${mySession.sermon_service}&group_no=${mySession.group_no}&tab=1`)}
-              style={{background:'#fff',color:'#2e7d32',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:13,fontWeight:700,flexShrink:0}}>
-              참여하기 →
+            <button onClick={()=>router.push(`/cell-word?week=${mySessionViewTarget.sermon_week}&service=${mySessionViewTarget.sermon_service}&group_no=${mySessionViewTarget.group_no}&tab=1`)}
+              style={{background:'#fff',color:mySessionViewTarget.is_active?'#2e7d32':'#455a64',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:13,fontWeight:700,flexShrink:0}}>
+              {mySessionViewTarget.is_active ? '참여하기 →' : '말씀 보기 →'}
             </button>
           </div>
         )}
@@ -394,17 +399,17 @@ export default function CellPage() {
           <div style={{background:groupEnded?'#e8f5e9':'#fff3e0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${groupEnded?'#a5d6a7':'#ffcc80'}`}}>
             <div>
               <p style={{fontSize:12,color:groupEnded?'#2e7d32':'#e65100',fontWeight:700,margin:'0 0 1px'}}>
-                {groupEnded?'✅ 모임 종료 완료':`👑 ${myGroup?.name} 모임 진행 중`}
+                {groupEnded?`✅ ${myGroup?.name} 모임 종료됨`:`👑 ${myGroup?.name} 모임 진행 중`}
               </p>
               <p style={{fontSize:10,color:groupEnded?'#558b2f':'#bf360c',margin:0}}>
-                {groupEnded?'부장집사님께 알림이 전송됐어요':'말씀 나눔 중이에요'}
+                {groupEnded?'함께 나눈 말씀은 계속 볼 수 있어요':'말씀 나눔 중이에요'}
               </p>
             </div>
             <div style={{display:'flex',gap:8}}>
-              {!groupEnded && mySession && (
-                <button onClick={()=>router.push(`/cell-word?week=${mySession.sermon_week}&service=${mySession.sermon_service}&group_no=${mySession.group_no}&tab=1`)}
+              {latestMySession && (
+                <button onClick={()=>router.push(`/cell-word?week=${latestMySession.sermon_week}&service=${latestMySession.sermon_service}&group_no=${latestMySession.group_no}&tab=1`)}
                   style={{background:'rgba(255,200,0,0.2)',border:'1px solid rgba(255,200,0,0.5)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#e65100',fontWeight:600}}>
-                  나눔 보기
+                  {groupEnded ? '말씀 보기' : '나눔 보기'}
                 </button>
               )}
               {!groupEnded && mySession && (
@@ -519,18 +524,18 @@ export default function CellPage() {
                           </div>
 
                           {/* 세션 상태 */}
-                          {session?.is_active && (
-                            <div style={{background:'rgba(46,125,50,0.08)',borderRadius:8,padding:'8px 10px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}>
-                              <div style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0,marginTop:5}}/>
+                          {session && (
+                            <div style={{background:session.is_active?'rgba(46,125,50,0.08)':'rgba(84,110,122,0.08)',borderRadius:8,padding:'8px 10px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}>
+                              <div style={{width:6,height:6,borderRadius:'50%',background:session.is_active?'#4caf50':'#78909c',flexShrink:0,marginTop:5}}/>
                               <div>
-                                <p style={{fontSize:11,color:'#2e7d32',fontWeight:700,margin:'0 0 2px'}}>
-                                  모임 진행 중
+                                <p style={{fontSize:11,color:session.is_active?'#2e7d32':'#546e7a',fontWeight:700,margin:'0 0 2px'}}>
+                                  {session.is_active ? '모임 진행 중' : '모임 종료됨'}
                                 </p>
-                                <p style={{fontSize:11,color:'#2e7d32',fontWeight:600,margin:0}}>
+                                <p style={{fontSize:11,color:session.is_active?'#2e7d32':'#546e7a',fontWeight:600,margin:0}}>
                                   {sessionSermon?.reference || (session.sermon_week && weekLabel(session.sermon_week))}
                                   {session.sermon_service==='morning'?' · ☀️ 오전':session.sermon_service==='afternoon'?' · 🌙 오후':''}
                                 </p>
-                                {sessionSermon?.sermon_title && <p style={{fontSize:10,color:'#5d8a60',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
+                                {sessionSermon?.sermon_title && <p style={{fontSize:10,color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
                               </div>
                             </div>
                           )}
@@ -556,10 +561,10 @@ export default function CellPage() {
                               </button>
                             )}
                             {/* 이 조 세션이 있고 내 조인 경우: 나눔 참여 버튼 */}
-                            {isMyGroup && session?.is_active && (
+                            {isMyGroup && session && (
                               <button onClick={()=>router.push(`/cell-word?week=${session.sermon_week}&service=${session.sermon_service}&group_no=${session.group_no}&tab=1`)}
                                 style={{flex:1,background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:10,padding:'10px',cursor:'pointer',fontSize:13,fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
-                                📖 말씀 나눔 참여하기 →
+                                {session.is_active ? '📖 말씀 나눔 참여하기 →' : '📖 함께 나눈 말씀 보기 →'}
                               </button>
                             )}
                           </div>

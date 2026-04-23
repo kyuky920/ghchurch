@@ -48,11 +48,10 @@ export default async function handler(req, res) {
       }
 
       if (group_no) {
-        // 특정 조 세션 조회
+        // 특정 조의 가장 최근 세션 조회 (종료된 세션 포함)
         const { data, error } = await supabase
           .from('cell_sessions')
           .select('*')
-          .eq('is_active', true)
           .eq('group_no', String(group_no))
           .order('started_at', { ascending: false })
           .limit(1)

@@ -309,10 +309,10 @@ export default function CellWord() {
           }}>
             <div>
               <p style={{ fontSize:12, color: groupEnded ? '#2e7d32' : '#e65100', fontWeight:700, margin:'0 0 1px' }}>
-                {groupEnded ? '✅ 모임 종료 완료' : `👑 ${myGroup.name} 셀 리더`}
+                {groupEnded ? `✅ ${myGroup.name} 모임 종료됨` : `👑 ${myGroup.name} 셀 리더`}
               </p>
               <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:0 }}>
-                {groupEnded ? '부장집사님께 종료가 알려졌어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
+                {groupEnded ? '함께 나눈 말씀은 계속 볼 수 있어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
               </p>
             </div>
             {!groupEnded && activeSession && (
