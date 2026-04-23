@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { week, service } = req.query
     try {
-      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
       const q = supabase.from('members').select('id,device_id,name,last_seen,week,service')
       const query = (week && service)
         ? q.eq('week', week).eq('service', service).gte('last_seen', since)

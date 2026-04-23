@@ -11,14 +11,12 @@ export default async function handler(req, res) {
     if (secret !== process.env.LEADER_API_SECRET) return res.status(401).json({ ok: false, error: '인증 실패' })
 
     const { week, service } = req.body
-    if (!week || !service) return res.status(400).json({ ok: false, error: 'week, service 필수' })
+    if (!week) return res.status(400).json({ ok: false, error: 'week 필수' })
 
     try {
-      const { error } = await supabase
-        .from('cell_groups')
-        .delete()
-        .eq('week', week)
-        .eq('service', service)
+      let dq = supabase.from('cell_groups').delete().eq('week', week)
+      if (service && service !== 'all') dq = dq.eq('service', service)
+      const { error } = await dq
       if (error) throw error
       return res.status(200).json({ ok: true })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }

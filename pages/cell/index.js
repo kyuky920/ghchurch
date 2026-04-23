@@ -156,7 +156,7 @@ export default function CellPage() {
       } else {
         // 세션 없으면 현재 주차 기본값으로 조회
         const week = getWeekStr()
-        const gRes = await fetch(`/api/cell-groups?week=${week}&service=morning`)
+        const gRes = await fetch(`/api/cell-groups?week=${week}`)
         const gData = await gRes.json()
         if (gData.ok) setGroups(gData.data)
         else setGroups(null)

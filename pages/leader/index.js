@@ -238,22 +238,16 @@ function CellTab() {
   async function loadData() {
     setLoading(true)
     try {
-      // 멤버는 service 무관 전체 접속자 조회
+      // 전체 접속자 (week/service 무관)
       const mRes = await fetch('/api/members')
       const mData = await mRes.json()
       if (mData.ok) setMembers(mData.data || [])
 
-      // 조 편성은 선택한 주차 기준 (오전 기본 — 저장 시 week만 키로 사용)
-      const gRes = await fetch(`/api/cell-groups?week=${week}&service=morning`)
+      // 조 편성은 week만으로 조회
+      const gRes = await fetch(`/api/cell-groups?week=${week}`)
       const gData = await gRes.json()
       if (gData.ok && gData.data) { setGroups(gData.data.groups || []); setIsSaved(true) }
-      else {
-        // 오후도 확인
-        const gRes2 = await fetch(`/api/cell-groups?week=${week}&service=afternoon`)
-        const gData2 = await gRes2.json()
-        if (gData2.ok && gData2.data) { setGroups(gData2.data.groups || []); setIsSaved(true) }
-        else { setGroups([]); setIsSaved(false) }
-      }
+      else { setGroups([]); setIsSaved(false) }
     } catch(e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -293,7 +287,7 @@ function CellTab() {
       const res = await fetch('/api/cell-groups', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service: 'morning', groups })
+        body: JSON.stringify({ week, service: 'all', groups })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
@@ -310,7 +304,7 @@ function CellTab() {
       await fetch('/api/cell-groups/reset', {
         method: 'DELETE',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service: 'morning' })
+        body: JSON.stringify({ week, service: 'all' })
       })
       setGroups([]); setIsSaved(false); setSaveMsg(''); setErrMsg('')
     } catch(e) { setErrMsg('초기화 오류: '+e.message) }
