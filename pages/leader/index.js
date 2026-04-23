@@ -228,26 +228,32 @@ function CellTab() {
   const [isSaved, setIsSaved]       = useState(false)
 
   // 주차/예배 — 현재 주 기본값, 변경 가능
-  const [week, setWeek]       = useState(getWeekStr())
-  const [service, setService] = useState('morning')
+    const [week, setWeek] = useState(getWeekStr())
   const weeks = Array.from({length:5},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
 
   const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
 
-  useEffect(() => { loadData() }, [week, service])
+  useEffect(() => { loadData() }, [week])
 
   async function loadData() {
     setLoading(true)
     try {
-      const [mRes, gRes] = await Promise.all([
-        fetch(`/api/members?week=${week}&service=${service}`),
-        fetch(`/api/cell-groups?week=${week}&service=${service}`)
-      ])
+      // 멤버는 service 무관 전체 접속자 조회
+      const mRes = await fetch('/api/members')
       const mData = await mRes.json()
-      const gData = await gRes.json()
       if (mData.ok) setMembers(mData.data || [])
+
+      // 조 편성은 선택한 주차 기준 (오전 기본 — 저장 시 week만 키로 사용)
+      const gRes = await fetch(`/api/cell-groups?week=${week}&service=morning`)
+      const gData = await gRes.json()
       if (gData.ok && gData.data) { setGroups(gData.data.groups || []); setIsSaved(true) }
-      else { setGroups([]); setIsSaved(false) }
+      else {
+        // 오후도 확인
+        const gRes2 = await fetch(`/api/cell-groups?week=${week}&service=afternoon`)
+        const gData2 = await gRes2.json()
+        if (gData2.ok && gData2.data) { setGroups(gData2.data.groups || []); setIsSaved(true) }
+        else { setGroups([]); setIsSaved(false) }
+      }
     } catch(e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -287,7 +293,7 @@ function CellTab() {
       const res = await fetch('/api/cell-groups', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service, groups })
+        body: JSON.stringify({ week, service: 'morning', groups })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
@@ -304,7 +310,7 @@ function CellTab() {
       await fetch('/api/cell-groups/reset', {
         method: 'DELETE',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service })
+        body: JSON.stringify({ week, service: 'morning' })
       })
       setGroups([]); setIsSaved(false); setSaveMsg(''); setErrMsg('')
     } catch(e) { setErrMsg('초기화 오류: '+e.message) }
@@ -325,17 +331,9 @@ function CellTab() {
 
       {/* 주차/예배 선택 — 어느 예배 조 편성인지 */}
       <div style={S.card}>
-        <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:12}}>대상 예배</p>
-        <div style={{display:'flex',gap:8,marginBottom:12}}>
-          {['morning','afternoon'].map(sv=>(
-            <button key={sv} onClick={()=>setService(sv)} style={{flex:1,padding:'9px',borderRadius:10,border:`2px solid ${service===sv?(sv==='morning'?'#f6a623':'#7a6e9e'):'#e8dcc8'}`,background:service===sv?(sv==='morning'?'#fff8ec':'#f5f3fa'):'#fff',cursor:'pointer',fontSize:12,fontWeight:700,color:service===sv?(sv==='morning'?'#e8901a':'#5a5080'):'#b8a090'}}>
-              {sv==='morning'?'☀️ 주일 오전':'🌙 주일 오후'}
-            </button>
-          ))}
-        </div>
-        <label style={S.label}>주차</label>
+        <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:10}}>주차 선택</p>
         <select value={week} onChange={e=>setWeek(e.target.value)} style={{...S.input,cursor:'pointer'}}>
-          {weeks.map(w=><option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
+          {weeks.map(w=><option key={w} value={w}>{weekLabel(w)}</option>)}
         </select>
       </div>
 
