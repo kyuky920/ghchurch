@@ -188,7 +188,7 @@ export default function CellPage() {
     try {
       const res = await fetch('/api/cell-sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer wordlife-leader-2025' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ week: selectedSermonWeek, service: selectedSermonService, active_tab: 0 })
       })
       const d = await res.json()
@@ -316,7 +316,7 @@ export default function CellPage() {
                       참여하기
                     </button>
                     <button onClick={async()=>{
-                      await fetch('/api/cell-sessions',{method:'DELETE',headers:{'Authorization':'Bearer wordlife-leader-2025'}})
+                      await fetch('/api/cell-sessions',{method:'DELETE'})
                       setActiveSession(null)
                     }} style={{background:'rgba(200,60,60,0.2)',border:'1px solid rgba(200,80,80,0.4)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#ff8a8a',fontWeight:600}}>
                       종료
