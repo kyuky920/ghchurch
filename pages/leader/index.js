@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
 
 const LEADER_SECRET = process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
@@ -250,23 +250,22 @@ function CellTab() {
   const pollRef = useRef(null)
 
   // 세션 폴링 (10초마다)
-  const pollSession = useCallback(async () => {
-    try {
-      const res = await fetch('/api/cell-sessions')
-      const d = await res.json()
-      if (d.ok) {
-        setActiveSession(d.data)
-      }
-    } catch(e) {}
-  }, [])
-
   useEffect(() => {
-    // 즉시 실행 + 5초마다 폴링
-    pollSession()
-    if (pollRef.current) clearInterval(pollRef.current)
-    pollRef.current = setInterval(pollSession, 5000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [pollSession])
+    let alive = true
+    async function poll() {
+      try {
+        const res = await fetch('/api/cell-sessions')
+        const d = await res.json()
+        if (alive && d.ok) setActiveSession(d.data)
+      } catch(e) {}
+    }
+    poll()
+    pollRef.current = setInterval(poll, 5000)
+    return () => {
+      alive = false
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [])
 
   async function sendNotice() {
     if (!notice.trim()) return

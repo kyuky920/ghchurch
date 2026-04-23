@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
-// ── 유틸 ──────────────────────────────────────────────
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
   let id = localStorage.getItem('wl_device_id')
-  if (!id) { id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2); localStorage.setItem('wl_device_id', id) }
+  if (!id) {
+    id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2)
+    localStorage.setItem('wl_device_id', id)
+  }
   return id
 }
 
@@ -18,102 +20,174 @@ const QMETA = [
 ]
 
 function doCopy(text) {
-  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(()=>fbCopy(text))
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => fbCopy(text))
   else fbCopy(text)
 }
 function fbCopy(text) {
-  const t=document.createElement('textarea'); t.value=text; t.style.cssText='position:fixed;opacity:0;'
+  const t = document.createElement('textarea')
+  t.value = text; t.style.cssText = 'position:fixed;opacity:0;'
   document.body.appendChild(t); t.focus(); t.select()
-  try{document.execCommand('copy')}catch(e){}
+  try { document.execCommand('copy') } catch(e) {}
   document.body.removeChild(t)
 }
 
 const S = {
-  wrap:   { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
+  wrap: { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header: { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'20px 20px 16px', borderBottom:'1px solid #c8b898', position:'relative', overflow:'hidden' },
-  cont:   { maxWidth:640, margin:'0 auto', padding:'16px 16px 80px' },
-  card:   { background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0' },
+  cont: { maxWidth:640, margin:'0 auto', padding:'16px 16px 80px' },
+  card: { background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0' },
 }
 
 export default function CellWord() {
   const router = useRouter()
 
-  // 말씀 데이터
-  const [selected, setSelected] = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [tab, setTab]           = useState(0)
-  const [ck, setCk]             = useState('')
+  // 말씀
+  const [selected, setSelected]   = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [tab, setTab]             = useState(1) // 기본: 나눔 질문
+  const [ck, setCk]               = useState('')
 
-  // 셀 세션
+  // 세션 / 내 조
   const [activeSession, setActiveSession] = useState(null)
   const [myGroup, setMyGroup]             = useState(null)
   const [amLeader, setAmLeader]           = useState(false)
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
 
-  const pollRef       = useRef(null)
-  const deviceRef     = useRef('')
+  // 공지 팝업
   const [noticeVisible, setNoticeVisible] = useState(false)
-  const [prevNotice, setPrevNotice]       = useState('')
+  const [shownNotice, setShownNotice]     = useState('')
 
-  // 디바이스 ID 초기화 (최초 1회)
+  const pollRef    = useRef(null)
+  const deviceId   = useRef('')
+  const initialized = useRef(false)
+
+  // 디바이스 ID는 한 번만 초기화
   useEffect(() => {
-    deviceRef.current = getDeviceId()
+    deviceId.current = getDeviceId()
   }, [])
 
-  // 세션 폴링 함수
-  const pollSession = useCallback(async () => {
-    const did = deviceRef.current || getDeviceId()
-    try {
-      const res = await fetch('/api/cell-sessions')
-      const d = await res.json()
-      if (d.ok && d.data) {
-        setActiveSession(d.data)
-        // 공지가 새로 바뀌면 팝업 표시
-        if (d.data.notice && d.data.notice !== prevNotice) {
-          setPrevNotice(d.data.notice)
-          setNoticeVisible(true)
-          setTimeout(() => setNoticeVisible(false), 6000)
-        }
-        const gRes = await fetch(`/api/cell-groups?week=${d.data.week}`)
-        const gData = await gRes.json()
-        if (gData.ok && gData.data?.groups) {
-          const found = gData.data.groups.find(g => g.members?.some(m => m.device_id === did))
-          setMyGroup(found || null)
-          setAmLeader(!!(found && found.leader?.device_id === did))
-        }
-      } else {
-        setActiveSession(null); setMyGroup(null); setAmLeader(false)
-      }
-    } catch(e) {}
-  }, [])
-
-  // 말씀 로드 + 폴링 시작
+  // 라우터 쿼리가 준비되면 말씀 로드 + 폴링 시작
   useEffect(() => {
+    if (!router.isReady) return
     const { week, service, tab: qTab } = router.query
     if (!week) return
+    if (initialized.current) return
+    initialized.current = true
 
+    // 말씀 로드
     fetch('/api/sermons')
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.data?.length) {
-          const target = d.data.find(s => s.week === week && s.service === service) || d.data[0]
+          const target = d.data.find(s => s.week === week && s.service === service)
+            || d.data.find(s => s.week === week)
+            || d.data[0]
           setSelected(target)
           if (qTab !== undefined) setTab(Number(qTab))
         }
       })
       .finally(() => setLoading(false))
 
-    // 폴링 시작 (약간 딜레이 줘서 deviceRef 확보 후 실행)
-    setTimeout(() => pollSession(), 300)
-    if (pollRef.current) clearInterval(pollRef.current)
-    pollRef.current = setInterval(pollSession, 8000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [router.query, pollSession])
+    // 폴링 시작 (즉시 + 5초마다)
+    doPoll()
+    pollRef.current = setInterval(doPool_wrapper, 5000)
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      initialized.current = false
+    }
+  }, [router.isReady])
+
+  // 폴링 wrapper (ref 필요 없이 일반 함수로)
+  function doPool_wrapper() { doPool_ref.current && doPool_ref.current() }
+  const doPool_ref = useRef(null)
+
+  async function doPool() {
+    const did = deviceId.current || getDeviceId()
+    try {
+      // 세션 조회
+      const sRes = await fetch('/api/cell-sessions')
+      const sData = await sRes.json()
+
+      if (!sData.ok || !sData.data) {
+        setActiveSession(null); setMyGroup(null); setAmLeader(false)
+        return
+      }
+
+      const session = sData.data
+      setActiveSession(session)
+
+      // 공지 변경 시 팝업
+      if (session.notice && session.notice !== shownNotice) {
+        setShownNotice(session.notice)
+        setNoticeVisible(true)
+        setTimeout(() => setNoticeVisible(false), 6000)
+      }
+
+      // 조 편성 조회
+      const gRes = await fetch(`/api/cell-groups?week=${session.week}`)
+      const gData = await gRes.json()
+
+      if (gData.ok && gData.data?.groups) {
+        const found = gData.data.groups.find(g =>
+          g.members?.some(m => m.device_id === did)
+        )
+        setMyGroup(found || null)
+        setAmLeader(!!(found?.leader?.device_id === did))
+      }
+    } catch(e) {}
+  }
+
+  // doPool을 ref에 저장해서 setInterval에서 항상 최신 버전 호출
+  useEffect(() => { doPool_ref.current = doPool }, [shownNotice])
+
+  function doPool() {
+    const did = deviceId.current || getDeviceId()
+    fetch('/api/cell-sessions')
+      .then(r => r.json())
+      .then(sData => {
+        if (!sData.ok || !sData.data) {
+          setActiveSession(null); setMyGroup(null); setAmLeader(false)
+          return
+        }
+        const session = sData.data
+        setActiveSession(session)
+
+        // 공지 팝업
+        setShownNotice(prev => {
+          if (session.notice && session.notice !== prev) {
+            setNoticeVisible(true)
+            setTimeout(() => setNoticeVisible(false), 6000)
+            return session.notice
+          }
+          return prev
+        })
+
+        // 조 편성 조회
+        fetch(`/api/cell-groups?week=${session.week}`)
+          .then(r => r.json())
+          .then(gData => {
+            if (gData.ok && gData.data?.groups) {
+              const found = gData.data.groups.find(g =>
+                g.members?.some(m => m.device_id === did)
+              )
+              setMyGroup(found || null)
+              setAmLeader(!!(found?.leader?.device_id === did))
+            }
+          })
+          .catch(() => {})
+      })
+      .catch(() => {})
+  }
+
+  // doPool 참조를 ref에 저장
+  doPool_ref.current = doPool
 
   // 모임 종료
   async function handleGroupEnd() {
     if (!myGroup) return
+    const groupNo = String(myGroup.group_no)
     setGroupEnding(true)
     try {
       const res = await fetch('/api/cell-sessions', {
@@ -121,7 +195,7 @@ export default function CellWord() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'group_end',
-          group_no: String(myGroup.group_no),
+          group_no: groupNo,
           group_name: myGroup.name,
           ended: true
         })
@@ -129,7 +203,7 @@ export default function CellWord() {
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
       setGroupEnded(true)
-      await pollSession()
+      doPool()
     } catch(e) { alert('오류: ' + e.message) }
     finally { setGroupEnding(false) }
   }
@@ -169,7 +243,6 @@ export default function CellWord() {
           *{box-sizing:border-box;}
           @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
           @keyframes spin{to{transform:rotate(360deg)}}
-          @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
           @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
           .tab-bar::-webkit-scrollbar{display:none}
           .tab-bar{-ms-overflow-style:none;scrollbar-width:none}
@@ -177,16 +250,15 @@ export default function CellWord() {
       </Head>
       <div style={S.wrap}>
 
-        {/* 공지 팝업 — 상단 슬라이드 다운 */}
+        {/* ── 공지 팝업 ── */}
         {noticeVisible && activeSession?.notice && (
           <div style={{
             position:'fixed', top:0, left:0, right:0, zIndex:999,
             background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
             padding:'16px 20px',
             display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12,
-            boxShadow:'0 4px 24px rgba(0,0,0,0.3)',
+            boxShadow:'0 4px 24px rgba(0,0,0,0.35)',
             animation:'slideDown 0.4s ease',
-            maxWidth:640, margin:'0 auto',
           }}>
             <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
               <span style={{ fontSize:22, flexShrink:0 }}>📢</span>
@@ -202,37 +274,20 @@ export default function CellWord() {
           </div>
         )}
 
-        {/* 헤더 */}
-        <div style={S.header}>
-          <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <div>
-              <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>WORD &amp; LIFE · 셀 나눔</p>
-              {selected
-                ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:'0 0 2px' }}>{selected.reference}</h1>
-                : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:0 }}>말씀 나눔</h1>
-              }
-              {selected?.sermon_title && <p style={{ fontSize:11, color:'#8b6e4e', margin:0 }}>{selected.sermon_title}</p>}
-            </div>
-            {/* 내 조 표시 */}
-            {myGroup && (
-              <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
-                <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 1px', fontWeight:600 }}>{amLeader ? '👑 리더' : '내 조'}</p>
-                <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{myGroup.name}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 셀 리더 종료 바 */}
+        {/* ── 셀 리더 종료 바 ── */}
         {amLeader && activeSession && myGroup && (
-          <div style={{ background: groupEnded ? '#e8f5e9' : '#fff3e0', padding:'11px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid', borderColor: groupEnded ? '#a5d6a7' : '#ffcc80' }}>
+          <div style={{
+            background: groupEnded ? '#e8f5e9' : '#fff3e0',
+            padding:'12px 20px',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            borderBottom:`1px solid ${groupEnded ? '#a5d6a7' : '#ffcc80'}`,
+          }}>
             <div>
               <p style={{ fontSize:12, color: groupEnded ? '#2e7d32' : '#e65100', fontWeight:700, margin:'0 0 1px' }}>
                 {groupEnded ? '✅ 모임 종료 완료' : `👑 ${myGroup.name} 셀 리더`}
               </p>
               <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:0 }}>
-                {groupEnded ? '부장집사님께 종료가 알려졌어요' : '나눔이 끝나면 모임 종료를 눌러주세요'}
+                {groupEnded ? '부장집사님께 종료가 알려졌어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
               </p>
             </div>
             {!groupEnded && (
@@ -244,7 +299,28 @@ export default function CellWord() {
           </div>
         )}
 
-        {/* 탭 */}
+        {/* ── 헤더 ── */}
+        <div style={S.header}>
+          <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <div>
+              <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>WORD &amp; LIFE · 셀 나눔</p>
+              {selected
+                ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:'0 0 2px' }}>{selected.reference}</h1>
+                : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:0 }}>말씀 나눔</h1>
+              }
+              {selected?.sermon_title && <p style={{ fontSize:11, color:'#8b6e4e', margin:0 }}>{selected.sermon_title}</p>}
+            </div>
+            {myGroup && (
+              <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
+                <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 1px', fontWeight:600 }}>{amLeader ? '👑 리더' : '내 조'}</p>
+                <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{myGroup.name}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── 탭바 ── */}
         {selected && (
           <div className="tab-bar" style={{ background:'#fff', display:'flex', borderBottom:'1px solid #e8dcc8', position:'sticky', top:0, zIndex:10 }}>
             {TABS.map((t, i) => (
