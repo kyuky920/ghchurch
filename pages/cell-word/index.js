@@ -20,6 +20,11 @@ function pickQueryValue(value) {
   return Array.isArray(value) ? value[0] : value
 }
 
+function sameWeek(candidate, requested) {
+  if (!candidate || !requested) return false
+  return candidate === requested || normalizeWeek(candidate) === normalizeWeek(requested)
+}
+
 function getDeviceId() {
   if (typeof window === 'undefined') return ''
   let id = localStorage.getItem('wl_device_id')
@@ -153,26 +158,33 @@ export default function CellWord() {
       .then(d => {
         if (d.ok && d.data?.length) {
           // 조별 링크의 week/service를 최우선으로 정확히 매칭한다.
-          const requestedWeek = normalizeWeek(week)
+          const requestedWeek = week || null
           const requestedService = service || null
-          const sessionWeek = normalizeWeek(activeSession?.sermon_week)
+          const sessionWeek = activeSession?.sermon_week || null
           const sessionService = activeSession?.sermon_service || null
 
           let target = null
 
           if (requestedWeek && requestedService) {
-            target = d.data.find(s => s.week === requestedWeek && s.service === requestedService) || null
+            target = d.data.find(s => sameWeek(s.week, requestedWeek) && s.service === requestedService) || null
           }
           if (!target && sessionWeek && sessionService) {
-            target = d.data.find(s => s.week === sessionWeek && s.service === sessionService) || null
+            target = d.data.find(s => sameWeek(s.week, sessionWeek) && s.service === sessionService) || null
           }
           if (!target && requestedWeek && !requestedService) {
-            target = d.data.find(s => s.week === requestedWeek) || null
+            target = d.data.find(s => sameWeek(s.week, requestedWeek)) || null
           }
           if (!target && sessionWeek && !sessionService) {
-            target = d.data.find(s => s.week === sessionWeek) || null
+            target = d.data.find(s => sameWeek(s.week, sessionWeek)) || null
           }
-          if (!target && !requestedWeek && !sessionWeek) {
+          // /index.js와 동일하게, 지정된 주차가 있으면 그 주차의 첫 설교라도 보여준다.
+          if (!target && requestedWeek) {
+            target = d.data.find(s => sameWeek(s.week, requestedWeek)) || null
+          }
+          if (!target && sessionWeek) {
+            target = d.data.find(s => sameWeek(s.week, sessionWeek)) || null
+          }
+          if (!target) {
             target = d.data[0] || null
           }
 
