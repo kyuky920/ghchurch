@@ -660,11 +660,11 @@ function CellTab() {
                   : (activeSession.group_statuses || {})
                 // JSON key는 항상 문자열 → String()으로 통일
                 const status = st[String(g.group_no)]
-                // status가 있고 ended=true → 종료
-                // status가 있고 ended=false → 진행중
-                // status 없음 → 아직 시작 안 함
+                // group_statuses에 있고 ended=false → 진행 중 (리더가 시작함)
+                // group_statuses에 있고 ended=true  → 종료
+                // group_statuses에 없음              → 대기 (리더가 아직 시작 안 함)
                 const hasStatus = status !== undefined
-                const ended = status?.ended === true
+                const ended   = status?.ended === true
                 const endedAt = status?.ended_at
                 const isActive = hasStatus && !ended
                 const borderColor = ended ? '#a5d6a7' : isActive ? '#ffe082' : '#e8dcc8'

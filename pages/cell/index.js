@@ -100,10 +100,10 @@ export default function CellPage() {
       const d = await res.json()
       if (d.ok && d.data) {
         setActiveSession(d.data)
-        // 세션이 최근 5분 이내에 시작된 것만 자동 이동
+        // 세션이 최근 2분 이내에 시작된 것만 자동 이동 (이전 세션 방지)
         const startedAt = new Date(d.data.started_at)
-        const ageMin = (Date.now() - startedAt.getTime()) / 60000
-        if (!redirecting && ageMin < 5) {
+        const ageSec = (Date.now() - startedAt.getTime()) / 1000
+        if (!redirecting && ageSec < 120) {
           setRedirecting(true)
           setTimeout(() => {
             router.push(`/cell-word?week=${d.data.week}&service=${d.data.service}&tab=${d.data.active_tab}`)
@@ -188,17 +188,31 @@ export default function CellPage() {
 
   async function handleStartSession() {
     if (!selectedSermonWeek) { alert('말씀을 선택해주세요.'); return }
+    if (!myGroup) { alert('내 조를 찾을 수 없어요. 조 편성을 확인해주세요.'); return }
     setSessionStarting(true)
     try {
+      // 1) 세션 시작
       const res = await fetch('/api/cell-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week: selectedSermonWeek, service: selectedSermonService, active_tab: 0 })
+        body: JSON.stringify({ week: selectedSermonWeek, service: selectedSermonService, active_tab: 1 })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
+
+      // 2) 내 조를 진행중으로 등록 (ended: false)
+      await fetch('/api/cell-sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'group_end',
+          group_no: String(myGroup.group_no),
+          group_name: myGroup.name,
+          ended: false
+        })
+      })
+
       setShowStartModal(false)
-      // 셀 리더는 직접 이동
       router.push(`/cell-word?week=${selectedSermonWeek}&service=${selectedSermonService}&tab=1`)
     } catch(e) { alert('오류: ' + e.message) }
     finally { setSessionStarting(false) }

@@ -79,15 +79,42 @@ export default function CellWord() {
         setTimeout(() => setNoticeVisible(false), 6000)
       }
 
-      // 내 조 찾기
+      // 내 조 찾기 — device_id로 매칭
       const gRes = await fetch(`/api/cell-groups?week=${session.week}`)
       const gData = await gRes.json()
       if (gData.ok && gData.data?.groups) {
-        const found = gData.data.groups.find(g =>
+        const groups = gData.data.groups
+        // 멤버로 내 조 찾기
+        let found = groups.find(g =>
           g.members?.some(m => m.device_id === did)
         )
+        // 멤버에 없으면 리더로 찾기 (혹시 멤버 등록 안 된 경우)
+        if (!found) {
+          found = groups.find(g => g.leader?.device_id === did)
+        }
+        const isLeader = !!(found?.leader?.device_id === did)
         setMyGroup(found || null)
-        setAmLeader(!!(found?.leader?.device_id === did))
+        setAmLeader(isLeader)
+
+        // 셀 리더인데 group_statuses에 내 조가 없으면 자동으로 진행중 등록
+        if (isLeader && found && session) {
+          const gs = typeof session.group_statuses === 'string'
+            ? JSON.parse(session.group_statuses || '{}')
+            : (session.group_statuses || {})
+          const myStatus = gs[String(found.group_no)]
+          if (!myStatus) {
+            fetch('/api/cell-sessions', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'group_end',
+                group_no: String(found.group_no),
+                group_name: found.name,
+                ended: false
+              })
+            }).catch(() => {})
+          }
+        }
       }
     } catch(e) {}
   }
