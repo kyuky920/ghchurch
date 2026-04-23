@@ -6,15 +6,15 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
-  // GET — 특정 주차/예배의 접속 중인 멤버 (last_seen 10분 이내)
+  // GET — 멤버 조회
+  // ?all=true : 전체 등록 멤버 (한 번이라도 접속한 전체)
+  // 기본     : 현재 접속 중 (last_seen 30분 이내)
   if (req.method === 'GET') {
-    const { week, service } = req.query
+    const { all } = req.query
     try {
       const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-      const q = supabase.from('members').select('id,device_id,name,last_seen,week,service')
-      const query = (week && service)
-        ? q.eq('week', week).eq('service', service).gte('last_seen', since)
-        : q.gte('last_seen', since)
+      const q = supabase.from('members').select('id,device_id,name,last_seen,created_at')
+      const query = all === 'true' ? q : q.gte('last_seen', since)
       const { data, error } = await query.order('name', { ascending: true })
       if (error) throw error
       return res.status(200).json({ ok: true, data })

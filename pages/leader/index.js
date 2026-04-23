@@ -218,7 +218,8 @@ function SermonTab() {
 
 // ── 탭2: 셀 조 편성 ──────────────────────────────────
 function CellTab() {
-  const [members, setMembers]       = useState([])
+  const [members, setMembers]       = useState([])   // 현재 접속 중
+  const [allMembers, setAllMembers] = useState([])   // 전체 등록 멤버
   const [loading, setLoading]       = useState(true)
   const [groupCount, setGroupCount] = useState(3)
   const [groups, setGroups]         = useState([])
@@ -238,14 +239,18 @@ function CellTab() {
   async function loadData() {
     setLoading(true)
     try {
-      // 전체 접속자 (week/service 무관)
-      const mRes = await fetch('/api/members')
-      const mData = await mRes.json()
-      if (mData.ok) setMembers(mData.data || [])
+      // 접속 중 + 전체 멤버 동시 조회
+      const [mRes, allRes, gRes] = await Promise.all([
+        fetch('/api/members'),
+        fetch('/api/members?all=true'),
+        fetch(`/api/cell-groups?week=${week}`)
+      ])
+      const mData   = await mRes.json()
+      const allData = await allRes.json()
+      const gData   = await gRes.json()
 
-      // 조 편성은 week만으로 조회
-      const gRes = await fetch(`/api/cell-groups?week=${week}`)
-      const gData = await gRes.json()
+      if (mData.ok)   setMembers(mData.data || [])
+      if (allData.ok) setAllMembers(allData.data || [])
       if (gData.ok && gData.data) { setGroups(gData.data.groups || []); setIsSaved(true) }
       else { setGroups([]); setIsSaved(false) }
     } catch(e) { console.error(e) }
@@ -331,26 +336,65 @@ function CellTab() {
         </select>
       </div>
 
-      {/* 접속 중인 멤버 */}
+      {/* 접속 현황 */}
       <div style={S.card}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>
-            접속 중인 청년 <span style={{color:'#a0784e'}}>({members.length}명)</span>
-          </p>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>접속 현황</p>
           <button onClick={loadData} style={S.btnSm}>🔄 새로고침</button>
         </div>
         {loading ? (
           <p style={{color:'#a0784e',fontSize:13,textAlign:'center',padding:'12px 0'}}>불러오는 중...</p>
-        ) : members.length===0 ? (
-          <p style={{color:'#b8a090',fontSize:13,textAlign:'center',padding:'12px 0'}}>접속한 청년이 없어요 — /cell 페이지 접속 필요</p>
         ) : (
-          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-            {members.map(m=>(
-              <span key={m.device_id} style={{background:'#fdf5ec',border:'1px solid #e8c9a0',borderRadius:20,padding:'5px 14px',fontSize:13,color:'#8b6e4e',fontWeight:600}}>
-                {m.name}
-              </span>
-            ))}
-          </div>
+          <>
+            {/* 접속 중 */}
+            <div style={{marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:'#4caf50',flexShrink:0}}/>
+                <p style={{fontSize:12,color:'#4caf50',fontWeight:700,margin:0}}>접속 중 ({members.length}명)</p>
+              </div>
+              {members.length===0 ? (
+                <p style={{fontSize:12,color:'#b8a090',margin:'0 0 0 14px',fontStyle:'italic'}}>/cell 페이지 접속 필요</p>
+              ) : (
+                <div style={{display:'flex',flexWrap:'wrap',gap:7,paddingLeft:14}}>
+                  {members.map(m=>(
+                    <span key={m.device_id} style={{background:'#e8f5e9',border:'1px solid #a5d6a7',borderRadius:20,padding:'4px 12px',fontSize:12,color:'#2e7d32',fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
+                      <span style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0,display:'inline-block'}}/>
+                      {m.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 미접속 (전체 - 접속 중) */}
+            {(() => {
+              const onlineIds = new Set(members.map(m => m.device_id))
+              const offline = allMembers.filter(m => !onlineIds.has(m.device_id))
+              if (offline.length === 0) return null
+              return (
+                <div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:'#bdbdbd',flexShrink:0}}/>
+                    <p style={{fontSize:12,color:'#9e9e9e',fontWeight:700,margin:0}}>미접속 ({offline.length}명)</p>
+                  </div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:7,paddingLeft:14}}>
+                    {offline.map(m=>{
+                      const lastSeen = m.last_seen ? new Date(m.last_seen) : null
+                      const diffMin = lastSeen ? Math.floor((Date.now()-lastSeen.getTime())/60000) : null
+                      const timeLabel = diffMin === null ? '' : diffMin < 60 ? `${diffMin}분 전` : diffMin < 1440 ? `${Math.floor(diffMin/60)}시간 전` : `${Math.floor(diffMin/1440)}일 전`
+                      return (
+                        <span key={m.device_id} style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:20,padding:'4px 12px',fontSize:12,color:'#757575',fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
+                          <span style={{width:6,height:6,borderRadius:'50%',background:'#bdbdbd',flexShrink:0,display:'inline-block'}}/>
+                          {m.name}
+                          {timeLabel && <span style={{fontSize:10,color:'#bdbdbd',fontWeight:400}}>· {timeLabel}</span>}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </>
         )}
       </div>
 
