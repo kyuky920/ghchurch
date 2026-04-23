@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 
@@ -139,10 +139,12 @@ export default function CellPage() {
         const found = gData.data.groups?.find(g =>
           g.members?.some(m => m.device_id === did)
         )
-        if (found) {
-          setMyGroup(found)
-          setAmLeader(found.leader?.device_id === did)
-        }
+        setMyGroup(found || null)
+        setAmLeader(!!found && found.leader?.device_id === did)
+      } else {
+        setGroups(null)
+        setMyGroup(null)
+        setAmLeader(false)
       }
     } catch(e) {}
     finally { setLoading(false) }
@@ -176,18 +178,18 @@ export default function CellPage() {
     setAmLeader(false)
     // 서버에 조 편성 업데이트
     try {
-      const updatedGroups = groups.groups.map(g =>
-        g.group_no === group.group_no
-          ? { ...g, members: [...(g.members||[]), newMember] }
-          : g
-      )
-      await fetch('/api/cell-groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_LEADER_SECRET||'wordlife-leader-2025'}` },
-        body: JSON.stringify({ week: getWeekStr(), groups: updatedGroups })
+      const res = await fetch('/api/cell-groups', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week: getWeekStr(), group_no: group.group_no, device_id: did, name })
       })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
       await loadData()
-    } catch(e) {}
+    } catch(e) {
+      setErrMsg('조 참여 오류: ' + e.message)
+      await loadData()
+    }
   }
 
   // ── 셀 리더: 말씀 목록 로드 ──
@@ -221,10 +223,12 @@ export default function CellPage() {
           group_name: myGroup.name,
           sermon_week: selWeek,
           sermon_service: selService,
+          device_id: deviceId.current,
         })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
+      setGroupEnded(false)
       setShowStartModal(false)
       // 폴링 즉시 갱신
       await pollFn.current()
@@ -242,8 +246,15 @@ export default function CellPage() {
       await fetch('/api/cell-sessions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'end', group_no: String(myGroup.group_no) })
+        body: JSON.stringify({
+          action: 'end',
+          week: getWeekStr(),
+          group_no: String(myGroup.group_no),
+          device_id: deviceId.current
+        })
       })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
       setGroupEnded(true)
       await pollFn.current()
     } catch(e) { alert('오류: '+e.message) }
@@ -251,7 +262,16 @@ export default function CellPage() {
   }
 
   // ── 내 조 세션 ──
-  const mySession = myGroup ? groupSessions[String(myGroup.group_no)] : null
+  const latestMySession = myGroup ? groupSessions[String(myGroup.group_no)] : null
+  const mySession = latestMySession?.is_active ? latestMySession : null
+
+  useEffect(() => {
+    if (!latestMySession) {
+      setGroupEnded(false)
+      return
+    }
+    setGroupEnded(!latestMySession.is_active && !!latestMySession.ended_at)
+  }, [latestMySession?.is_active, latestMySession?.ended_at])
 
   return (
     <>
@@ -308,7 +328,7 @@ export default function CellPage() {
         )}
 
         {/* ── 셀 리더: 진행중 바 ── */}
-        {amLeader && mySession && (
+        {amLeader && latestMySession && (
           <div style={{background:groupEnded?'#e8f5e9':'#fff3e0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${groupEnded?'#a5d6a7':'#ffcc80'}`}}>
             <div>
               <p style={{fontSize:12,color:groupEnded?'#2e7d32':'#e65100',fontWeight:700,margin:'0 0 1px'}}>
@@ -319,13 +339,13 @@ export default function CellPage() {
               </p>
             </div>
             <div style={{display:'flex',gap:8}}>
-              {!groupEnded && (
+              {!groupEnded && mySession && (
                 <button onClick={()=>router.push(`/cell-word?week=${mySession.sermon_week}&service=${mySession.sermon_service}&group_no=${mySession.group_no}&tab=1`)}
                   style={{background:'rgba(255,200,0,0.2)',border:'1px solid rgba(255,200,0,0.5)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#e65100',fontWeight:600}}>
                   나눔 보기
                 </button>
               )}
-              {!groupEnded && (
+              {!groupEnded && mySession && (
                 <button onClick={handleGroupEnd} disabled={groupEnding}
                   style={{background:'rgba(200,60,60,0.15)',border:'1px solid rgba(200,80,80,0.4)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
                   {groupEnding?'전송중...':'🙏 종료'}
@@ -409,7 +429,7 @@ export default function CellPage() {
                           </div>
 
                           {/* 세션 상태 */}
-                          {session && (
+                          {session?.is_active && (
                             <div style={{background:'rgba(46,125,50,0.08)',borderRadius:8,padding:'6px 10px',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
                               <div style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0}}/>
                               <p style={{fontSize:11,color:'#2e7d32',fontWeight:600,margin:0}}>
@@ -440,7 +460,7 @@ export default function CellPage() {
                               </button>
                             )}
                             {/* 이 조 세션이 있고 내 조인 경우: 나눔 참여 버튼 */}
-                            {isMyGroup && session && (
+                            {isMyGroup && session?.is_active && (
                               <button onClick={()=>router.push(`/cell-word?week=${session.sermon_week}&service=${session.sermon_service}&group_no=${session.group_no}&tab=1`)}
                                 style={{flex:1,background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:10,padding:'10px',cursor:'pointer',fontSize:13,fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
                                 📖 말씀 나눔 참여하기 →

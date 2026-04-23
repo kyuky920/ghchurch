@@ -1,5 +1,20 @@
 import { supabase } from '../../../lib/supabase'
 
+async function isLeaderForGroup({ week, group_no, device_id }) {
+  if (!week || !group_no || !device_id) return false
+
+  const { data, error } = await supabase
+    .from('cell_groups')
+    .select('groups')
+    .eq('week', week)
+    .single()
+  if (error || !data) return false
+
+  const groups = typeof data.groups === 'string' ? JSON.parse(data.groups) : (data.groups || [])
+  const group = groups.find(g => String(g.group_no) === String(group_no))
+  return !!group && group.leader?.device_id === device_id
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
@@ -64,9 +79,14 @@ export default async function handler(req, res) {
   // POST — 조별 세션 시작
   // body: { week, service, group_no, group_name, sermon_week, sermon_service }
   if (req.method === 'POST') {
-    const { week, service, group_no, group_name, sermon_week, sermon_service } = req.body
+    const secret = req.headers['authorization']?.replace('Bearer ', '')
+    const { week, service, group_no, group_name, sermon_week, sermon_service, device_id } = req.body
     if (!week || !group_no) return res.status(400).json({ ok: false, error: 'week, group_no 필수' })
     try {
+      const authorized = secret === process.env.LEADER_API_SECRET
+        || await isLeaderForGroup({ week, group_no, device_id })
+      if (!authorized) return res.status(401).json({ ok: false, error: '시작 권한이 없어요.' })
+
       // 같은 조의 기존 활성 세션 종료
       await supabase
         .from('cell_sessions')
@@ -99,9 +119,13 @@ export default async function handler(req, res) {
   // action=notice  : 공지 전송 (리더 도구, group_no 지정 or 전체)
   // action=end     : 조 세션 종료 (셀 리더)
   if (req.method === 'PATCH') {
-    const { action, group_no, notice, broadcast } = req.body
+    const secret = req.headers['authorization']?.replace('Bearer ', '')
+    const { action, week, group_no, notice, broadcast, device_id } = req.body
     try {
       if (action === 'notice') {
+        if (secret !== process.env.LEADER_API_SECRET) {
+          return res.status(401).json({ ok: false, error: '인증 실패' })
+        }
         // 공지: 특정 조 or 전체 활성 세션에 notice 업데이트
         let q = supabase.from('cell_sessions').update({ notice: notice || '' }).eq('is_active', true)
         if (!broadcast && group_no) q = q.eq('group_no', String(group_no))
@@ -113,6 +137,10 @@ export default async function handler(req, res) {
       if (action === 'end') {
         // 조 세션 종료
         if (!group_no) return res.status(400).json({ ok: false, error: 'group_no 필수' })
+        const authorized = secret === process.env.LEADER_API_SECRET
+          || await isLeaderForGroup({ week, group_no, device_id })
+        if (!authorized) return res.status(401).json({ ok: false, error: '종료 권한이 없어요.' })
+
         const { error } = await supabase
           .from('cell_sessions')
           .update({ is_active: false, ended_at: new Date().toISOString() })
@@ -128,8 +156,12 @@ export default async function handler(req, res) {
 
   // DELETE — 전체 세션 종료 (리더 도구)
   if (req.method === 'DELETE') {
+    const secret = req.headers['authorization']?.replace('Bearer ', '')
     const { group_no } = req.query
     try {
+      if (secret !== process.env.LEADER_API_SECRET) {
+        return res.status(401).json({ ok: false, error: '인증 실패' })
+      }
       let q = supabase.from('cell_sessions').update({ is_active: false, ended_at: new Date().toISOString() }).eq('is_active', true)
       if (group_no) q = q.eq('group_no', String(group_no))
       const { error } = await q

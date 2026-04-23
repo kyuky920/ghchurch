@@ -2,7 +2,7 @@ import { supabase } from '../../../lib/supabase'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
@@ -33,6 +33,45 @@ export default async function handler(req, res) {
         .select().single()
       if (error) throw error
       return res.status(200).json({ ok: true, data })
+    } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
+  }
+
+  // PATCH — 청년이 자신의 디바이스로 조 참여
+  if (req.method === 'PATCH') {
+    const { week, group_no, device_id, name } = req.body
+    if (!week || !group_no || !device_id || !name) {
+      return res.status(400).json({ ok: false, error: 'week, group_no, device_id, name 필수' })
+    }
+    try {
+      const { data, error } = await supabase
+        .from('cell_groups')
+        .select('*')
+        .eq('week', week)
+        .single()
+      if (error) throw error
+
+      const parsedGroups = typeof data.groups === 'string' ? JSON.parse(data.groups) : (data.groups || [])
+      const alreadyAssigned = parsedGroups.some(g => g.members?.some(m => m.device_id === device_id))
+      if (alreadyAssigned) {
+        return res.status(409).json({ ok: false, error: '이미 다른 조에 배정되어 있어요.' })
+      }
+
+      const nextGroups = parsedGroups.map(g => {
+        if (String(g.group_no) !== String(group_no)) return g
+        const members = Array.isArray(g.members) ? g.members : []
+        return { ...g, members: [...members, { device_id, name }] }
+      })
+
+      const { data: updated, error: updateError } = await supabase
+        .from('cell_groups')
+        .update({ groups: nextGroups })
+        .eq('week', week)
+        .select()
+        .single()
+      if (updateError) throw updateError
+
+      const groups = typeof updated.groups === 'string' ? JSON.parse(updated.groups) : updated.groups
+      return res.status(200).json({ ok: true, data: { ...updated, groups } })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
   }
 

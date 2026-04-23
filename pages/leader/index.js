@@ -289,13 +289,13 @@ function CellTab() {
     try {
       const res = await fetch('/api/cell-sessions', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LEADER_SECRET}` },
         body: JSON.stringify({ action: 'notice', notice })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
+      setActiveSession(prev => prev ? { ...prev, notice } : prev)
       setNoticeMsg('공지가 전송됐어요!')
-      await pollSession()
       setTimeout(() => setNoticeMsg(''), 2500)
     } catch(e) { setNoticeMsg('오류: ' + e.message) }
     finally { setNoticeSending(false) }
@@ -304,7 +304,10 @@ function CellTab() {
   async function endAllSession() {
     if (!window.confirm('전체 셀 모임을 종료할까요?')) return
     try {
-      await fetch('/api/cell-sessions', { method: 'DELETE' })
+      await fetch('/api/cell-sessions', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${LEADER_SECRET}` }
+      })
       setGroupSessions({})
       setActiveSession(null)
     } catch(e) {}

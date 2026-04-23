@@ -75,6 +75,7 @@ export default function CellWord() {
   pollFn.current = async function poll() {
     const did = getDeviceId()
     try {
+      const { group_no, week } = router.query
       const gno = group_no || ''
       const sRes = await fetch(gno ? `/api/cell-sessions?group_no=${gno}` : '/api/cell-sessions')
       const sData = await sRes.json()
@@ -110,44 +111,34 @@ export default function CellWord() {
         const isLeader = !!(found?.leader?.device_id === did)
         setMyGroup(found || null)
         setAmLeader(isLeader)
-
-        // 셀 리더인데 group_statuses에 내 조가 없으면 자동으로 진행중 등록
-        if (isLeader && found && session) {
-          const gs = typeof session.group_statuses === 'string'
-            ? JSON.parse(session.group_statuses || '{}')
-            : (session.group_statuses || {})
-          const myStatus = gs[String(found.group_no)]
-          if (!myStatus) {
-            fetch('/api/cell-sessions', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'group_end',
-                group_no: String(found.group_no),
-                group_name: found.name,
-                ended: false
-              })
-            }).catch(() => {})
-          }
-        }
       }
     } catch(e) {}
   }
 
-  // ── 말씀 로드 + 폴링 시작 ──
+  // ── 세션 폴링 시작 ──
   useEffect(() => {
     if (!router.isReady) return
-    const { week, service, tab: qTab, group_no } = router.query
+    const { week } = router.query
     if (!week) return
 
-    // 말씀 로드
+    // 즉시 + 5초마다 폴링
+    pollFn.current()
+    pollRef.current = setInterval(() => pollFn.current(), 5000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [router.isReady])
+
+  // ── 말씀 로드 ──
+  useEffect(() => {
+    if (!router.isReady) return
+    const { week, service, tab: qTab } = router.query
+    if (!week) return
+
     fetch('/api/sermons')
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.data?.length) {
-          // sermon_week/sermon_service 우선, 없으면 URL 파라미터 (구형식 변환 포함)
-          const sw = normalizeWeek(session?.sermon_week || week)
-          const ss = session?.sermon_service || service || 'morning'
+          const sw = normalizeWeek(activeSession?.sermon_week || week)
+          const ss = activeSession?.sermon_service || service || 'morning'
           const nw = normalizeWeek(week)
           const target = d.data.find(s => s.week === sw && s.service === ss)
             || d.data.find(s => s.week === sw)
@@ -156,15 +147,12 @@ export default function CellWord() {
             || d.data[0]
           setSelected(target)
           if (qTab !== undefined) setTab(Number(qTab))
+        } else {
+          setSelected(null)
         }
       })
       .finally(() => setLoading(false))
-
-    // 즉시 + 5초마다 폴링
-    pollFn.current()
-    pollRef.current = setInterval(() => pollFn.current(), 5000)
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [router.isReady])
+  }, [router.isReady, router.query.week, router.query.service, router.query.tab, activeSession?.sermon_week, activeSession?.sermon_service])
 
   // ── 모임 종료 ──
   async function handleGroupEnd() {
@@ -176,7 +164,9 @@ export default function CellWord() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'end',
-          group_no: String(myGroup.group_no)
+          week: activeSession?.week || router.query.week,
+          group_no: String(myGroup.group_no),
+          device_id: getDeviceId()
         })
       })
       const d = await res.json()
@@ -254,7 +244,7 @@ export default function CellWord() {
         )}
 
         {/* ── 셀 리더 종료 바 ── */}
-        {amLeader && activeSession && myGroup && (
+        {amLeader && myGroup && (
           <div style={{
             background: groupEnded ? '#e8f5e9' : '#fff3e0',
             padding:'12px 20px',
@@ -269,7 +259,7 @@ export default function CellWord() {
                 {groupEnded ? '부장집사님께 종료가 알려졌어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
               </p>
             </div>
-            {!groupEnded && (
+            {!groupEnded && activeSession && (
               <button onClick={handleGroupEnd} disabled={groupEnding}
                 style={{ background: groupEnding ? '#c4a882' : 'linear-gradient(135deg,#c0392b,#e74c3c)', color:'#fff', border:'none', borderRadius:10, padding:'8px 14px', cursor: groupEnding ? 'not-allowed' : 'pointer', fontSize:12, fontFamily:"'Gowun Batang',serif", fontWeight:700, flexShrink:0 }}>
                 {groupEnding ? '전송 중...' : '🙏 모임 종료'}
