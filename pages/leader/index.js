@@ -5,18 +5,16 @@ const LEADER_SECRET = process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-
 
 function getWeekStr(date) {
   const d = new Date(date || new Date())
-  d.setHours(0,0,0,0)
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - d.getDay()) // 해당 주 일요일로
   const y = d.getFullYear()
-  const w = Math.ceil((((d - new Date(y,0,1)) / 864e5) + 1) / 7)
-  return `${y}-W${String(w).padStart(2,'0')}`
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
 }
 function weekLabel(week) {
-  const [y,w] = week.split('-W').map(Number)
-  const jan1 = new Date(y,0,1)
-  const sun = new Date(jan1)
-  sun.setDate(jan1.getDate() + (w-1)*7 - (jan1.getDay()||7) + 7)
-  return `${sun.getMonth()+1}월 ${sun.getDate()}일 주`
+  const d = new Date(week + 'T00:00:00')
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
 }
 
 const S = {
@@ -229,6 +227,11 @@ function CellTab() {
   const [saving, setSaving]           = useState(false)
   const [saveMsg, setSaveMsg]         = useState('')
   const [errMsg, setErrMsg]           = useState('')
+  const [isSaved, setIsSaved]         = useState(false)
+  const [showStartModal, setShowStartModal] = useState(false)
+  const [selectedTab, setSelectedTab] = useState(1)
+  const [sessionStarting, setSessionStarting] = useState(false)
+  const [sessionActive, setSessionActive] = useState(false)
 
   const weeks = Array.from({length:5},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
 
@@ -254,14 +257,14 @@ function CellTab() {
     if (members.length === 0) { setErrMsg('접속 중인 멤버가 없어요.'); return }
     setErrMsg('')
     const shuffled = [...members].sort(() => Math.random() - 0.5)
-    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:`${i+1}조`, members:[] }))
+    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:`${i+1}조`, leader:null, members:[] }))
     shuffled.forEach((m,i) => { result[i%groupCount].members.push({name:m.name, device_id:m.device_id}) })
     setGroups(result)
   }
 
   function handleManualInit() {
     setErrMsg('')
-    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:`${i+1}조`, members:[] })))
+    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:`${i+1}조`, leader:null, members:[] })))
   }
 
   function moveMember(member, fromGroupNo, toGroupNo) {
@@ -293,9 +296,26 @@ function CellTab() {
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
       setSaveMsg('조 편성이 저장됐어요!')
+      setIsSaved(true)
       setTimeout(()=>setSaveMsg(''), 2500)
     } catch(e) { setErrMsg('저장 오류: '+e.message) }
     finally { setSaving(false) }
+  }
+
+  async function handleReset() {
+    if (!window.confirm('조 편성을 초기화할까요? 저장된 편성도 삭제돼요.')) return
+    try {
+      await fetch('/api/cell-groups/reset', {
+        method: 'DELETE',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({ week, service })
+      })
+      setGroups([])
+      setIsSaved(false)
+      setSessionActive(false)
+      setSaveMsg('')
+      setErrMsg('')
+    } catch(e) { setErrMsg('초기화 오류: '+e.message) }
   }
 
   const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
@@ -384,14 +404,33 @@ function CellTab() {
           </div>
           {groups.map((g,gi)=>(
             <div key={g.group_no} style={{...S.card,borderLeft:`4px solid ${GROUP_COLORS[gi%GROUP_COLORS.length]}`}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:10,height:10,borderRadius:'50%',background:GROUP_COLORS[gi%GROUP_COLORS.length]}}/>
-                  <input value={g.name}
-                    onChange={e=>setGroups(prev=>prev.map(pg=>pg.group_no===g.group_no?{...pg,name:e.target.value}:pg))}
-                    style={{fontSize:15,fontWeight:700,color:'#4a3520',border:'none',background:'transparent',outline:'none',fontFamily:"'Gowun Batang',serif",width:80}}/>
-                  <span style={{fontSize:12,color:'#a08060'}}>({g.members.length}명)</span>
-                </div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                <div style={{width:10,height:10,borderRadius:'50%',background:GROUP_COLORS[gi%GROUP_COLORS.length],flexShrink:0}}/>
+                <input value={g.name}
+                  onChange={e=>setGroups(prev=>prev.map(pg=>pg.group_no===g.group_no?{...pg,name:e.target.value}:pg))}
+                  style={{fontSize:15,fontWeight:700,color:'#4a3520',border:'none',background:'transparent',outline:'none',fontFamily:"'Gowun Batang',serif",width:80}}/>
+                <span style={{fontSize:12,color:'#a08060'}}>({g.members.length}명)</span>
+                <button onClick={()=>{
+                  if(g.members.length===0) return
+                  const pick=g.members[Math.floor(Math.random()*g.members.length)]
+                  setGroups(prev=>prev.map(pg=>pg.group_no===g.group_no?{...pg,leader:pick}:pg))
+                }} style={{marginLeft:'auto',background:'#fdf5ec',border:'1px solid #e8c9a0',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#a0784e',fontWeight:600}}>
+                  🎲 리더 랜덤
+                </button>
+              </div>
+              {/* 셀 리더 선정 */}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,padding:'8px 12px',background:GROUP_COLORS[gi%GROUP_COLORS.length]+'14',borderRadius:8}}>
+                <span style={{fontSize:11,color:GROUP_COLORS[gi%GROUP_COLORS.length],fontWeight:700,whiteSpace:'nowrap'}}>👑 셀 리더</span>
+                <select value={g.leader?.device_id||''}
+                  onChange={e=>{
+                    const picked=e.target.value?g.members.find(m=>m.device_id===e.target.value):null
+                    setGroups(prev=>prev.map(pg=>pg.group_no===g.group_no?{...pg,leader:picked||null}:pg))
+                  }}
+                  style={{flex:1,fontSize:13,padding:'4px 8px',border:`1px solid ${GROUP_COLORS[gi%GROUP_COLORS.length]}50`,borderRadius:8,background:'#fff',color:g.leader?GROUP_COLORS[gi%GROUP_COLORS.length]:'#b8a090',cursor:'pointer',fontWeight:g.leader?700:400,outline:'none'}}>
+                  <option value="">— 미선정 —</option>
+                  {g.members.map(m=><option key={m.device_id} value={m.device_id}>{m.name}</option>)}
+                </select>
+                {g.leader&&<span style={{fontSize:12,color:GROUP_COLORS[gi%GROUP_COLORS.length],fontWeight:700,whiteSpace:'nowrap'}}>{g.leader.name} ✓</span>}
               </div>
               <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                 {g.members.length===0
@@ -417,10 +456,230 @@ function CellTab() {
       {saveMsg&&<p style={S.ok}>✓ {saveMsg}</p>}
 
       {groups.length>0 && (
-        <button onClick={handleSave} disabled={saving} style={saving?S.btnGray:S.btnDark}>
-          {saving?'저장 중...':'💾 조 편성 저장 및 공개'}
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={handleSave} disabled={saving} style={{...saving?S.btnGray:S.btnDark, flex:3}}>
+            {saving?'저장 중...':'💾 저장 및 공개'}
+          </button>
+          <button onClick={handleReset}
+            style={{flex:1,background:'#fff5f5',border:'1px solid #f5c6bb',borderRadius:12,padding:'14px 0',cursor:'pointer',fontSize:13,color:'#c0392b',fontWeight:700}}>
+            🗑 초기화
+          </button>
+        </div>
+      )}
+
+      {/* 편성 없을 때도 초기화 버튼 (저장된 데이터 지우기) */}
+      {groups.length===0 && isSaved && (
+        <button onClick={handleReset}
+          style={{width:'100%',background:'#fff5f5',border:'1px solid #f5c6bb',borderRadius:12,padding:'12px',cursor:'pointer',fontSize:13,color:'#c0392b',fontWeight:700}}>
+          🗑 저장된 조 편성 초기화
         </button>
       )}
+
+      {/* 셀 모임 시작 버튼 — 저장 완료 후 등장 */}
+      {isSaved && !sessionActive && (
+        <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'20px',border:'1px solid #4a8a4a',animation:'fadeUp 0.4s ease'}}>
+          <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>✦ 조 편성이 완료됐어요!</p>
+          <p style={{fontSize:12,color:'rgba(150,220,150,0.7)',margin:'0 0 16px',lineHeight:1.6}}>셀 모임을 시작하면 멤버들이 말씀 나눔 페이지로 자동 이동해요.</p>
+          <button onClick={()=>setShowStartModal(true)}
+            style={{width:'100%',background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:'pointer',boxShadow:'0 4px 20px rgba(46,125,50,0.4)'}}>
+            🙏 셀 모임 시작하기
+          </button>
+        </div>
+      )}
+
+      {sessionActive && (
+        <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'16px 20px',border:'1px solid #4a8a4a',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <p style={{fontSize:13,color:'#7adf7a',fontWeight:700,margin:'0 0 2px'}}>🟢 셀 모임 진행 중</p>
+            <p style={{fontSize:11,color:'rgba(150,220,150,0.6)',margin:0}}>멤버들이 말씀 나눔을 보고 있어요</p>
+          </div>
+          <button onClick={async()=>{
+            await fetch('/api/cell-sessions',{method:'DELETE',headers:{'Authorization':`Bearer ${LEADER_SECRET}`}})
+            setSessionActive(false); setIsSaved(false)
+          }} style={{background:'rgba(200,60,60,0.3)',border:'1px solid rgba(200,80,80,0.5)',borderRadius:8,padding:'7px 14px',cursor:'pointer',fontSize:12,color:'#ff8a8a',fontWeight:600}}>
+            모임 종료
+          </button>
+        </div>
+      )}
+
+      {/* 셀 모임 시작 모달 */}
+      {showStartModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={()=>setShowStartModal(false)}>
+          <div style={{background:'#fff',borderRadius:20,padding:'28px 24px',maxWidth:340,width:'100%',boxShadow:'0 20px 60px rgba(0,0,0,0.4)'}} onClick={e=>e.stopPropagation()}>
+            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>셀 모임 시작</p>
+            <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>멤버들이 자동으로 이동할 말씀 나눔 탭을 선택해주세요.</p>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:20}}>
+              {['말씀 요약','나눔 질문','주간 묵상','말씀카드'].map((t,i)=>(
+                <button key={i} onClick={()=>setSelectedTab(i)}
+                  style={{padding:'13px 16px',borderRadius:12,border:`2px solid ${selectedTab===i?'#a0784e':'#e8dcc8'}`,background:selectedTab===i?'#fdf5ec':'#fff',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:selectedTab===i?700:400,color:selectedTab===i?'#a0784e':'#8b6e4e',textAlign:'left',display:'flex',alignItems:'center',gap:10}}>
+                  <span style={{width:24,height:24,borderRadius:'50%',background:selectedTab===i?'#a0784e':'#e8dcc8',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:selectedTab===i?'#fff':'#8b6e4e',fontWeight:700,flexShrink:0}}>{i+1}</span>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>setShowStartModal(false)}
+                style={{flex:1,padding:'12px',borderRadius:12,border:'1px solid #e8dcc8',background:'#fff',cursor:'pointer',fontSize:13,color:'#8b6e4e',fontWeight:600}}>
+                취소
+              </button>
+              <button onClick={async()=>{
+                setSessionStarting(true)
+                try {
+                  const res = await fetch('/api/cell-sessions',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json','Authorization':`Bearer ${LEADER_SECRET}`},
+                    body: JSON.stringify({week, service, active_tab: selectedTab})
+                  })
+                  const d = await res.json()
+                  if (!d.ok) throw new Error(d.error)
+                  setShowStartModal(false)
+                  setSessionActive(true)
+                  // 리더도 해당 탭으로 이동
+                  window.open(`/?week=${week}&service=${service}&tab=${selectedTab}`, '_blank')
+                } catch(e) { alert('오류: '+e.message) }
+                finally { setSessionStarting(false) }
+              }} disabled={sessionStarting}
+                style={{flex:2,padding:'12px',borderRadius:12,background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,boxShadow:'0 4px 16px rgba(46,125,50,0.3)'}}>
+                {sessionStarting?'시작 중...':'🙏 모임 시작!'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ── 탭3: 딕싯 게임 관리 ──────────────────────────────
+function DixitTab() {
+  const [rooms, setRooms]         = useState([])
+  const [creating, setCreating]   = useState(false)
+  const [maxScore, setMaxScore]   = useState(30)
+  const [newRoom, setNewRoom]     = useState(null)
+  const [errMsg, setErrMsg]       = useState('')
+  const [copied, setCopied]       = useState(false)
+
+  const deviceId = typeof window !== 'undefined' ? (localStorage.getItem('wl_device_id') || '') : ''
+  const leaderName = typeof window !== 'undefined' ? (localStorage.getItem('wl_member_name') || '리더') : '리더'
+
+  async function handleCreate() {
+    setCreating(true); setErrMsg('')
+    try {
+      const res = await fetch('/api/dixit?action=create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host_device: deviceId, host_name: leaderName, max_score: maxScore })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setNewRoom(d.data)
+    } catch(e) { setErrMsg('오류: ' + e.message) }
+    finally { setCreating(false) }
+  }
+
+  async function handleStart() {
+    if (!newRoom) return
+    try {
+      const res = await fetch('/api/dixit?action=start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_code: newRoom.room_code, device_id: deviceId })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      // 게임 페이지로 이동
+      window.open(`/dixit?code=${newRoom.room_code}`, '_blank')
+    } catch(e) { setErrMsg('오류: ' + e.message) }
+  }
+
+  function copyLink() {
+    const link = `${window.location.origin}/dixit?code=${newRoom.room_code}`
+    navigator.clipboard?.writeText(link).catch(()=>{})
+    setCopied(true); setTimeout(()=>setCopied(false), 2000)
+  }
+
+  return (
+    <div style={S.cont}>
+      {/* 설명 */}
+      <div style={{background:'linear-gradient(135deg,#1a1a2e,#16213e)',borderRadius:16,padding:'20px',border:'1px solid rgba(255,215,0,0.2)',marginBottom:4}}>
+        <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#ffd700',margin:'0 0 8px'}}>🃏 딕싯 아이스브레이킹</h2>
+        <p style={{fontSize:13,color:'rgba(240,240,240,0.7)',margin:'0 0 12px',lineHeight:1.7}}>
+          스토리텔러가 카드를 보고 힌트를 주면, 다른 플레이어들이 그 힌트에 맞는 카드를 골라요.<br/>
+          너무 쉽지도 너무 어렵지도 않게 — 상상력의 게임!
+        </p>
+        <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+          {['2~6명 참여','라운드제','30점 선 승리','아이스브레이킹 최적'].map(t=>(
+            <span key={t} style={{background:'rgba(255,215,0,0.15)',border:'1px solid rgba(255,215,0,0.3)',borderRadius:20,padding:'4px 12px',fontSize:11,color:'#ffd700',fontWeight:600}}>{t}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* 점수 설정 */}
+      {!newRoom && (
+        <div style={S.card}>
+          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:12}}>게임 설정</p>
+          <label style={S.label}>목표 점수 (먼저 달성하면 승리)</label>
+          <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+            <button onClick={()=>setMaxScore(s=>Math.max(10,s-5))} style={{width:36,height:36,borderRadius:8,border:'1.5px solid #ddd0ba',background:'#fff',cursor:'pointer',fontSize:20,color:'#8b6e4e',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
+            <span style={{fontSize:20,fontWeight:700,color:'#4a3520',minWidth:50,textAlign:'center'}}>{maxScore}점</span>
+            <button onClick={()=>setMaxScore(s=>Math.min(50,s+5))} style={{width:36,height:36,borderRadius:8,border:'1.5px solid #ddd0ba',background:'#fff',cursor:'pointer',fontSize:20,color:'#8b6e4e',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+          </div>
+          {errMsg&&<p style={S.err}>⚠ {errMsg}</p>}
+          <button onClick={handleCreate} disabled={creating}
+            style={{...S.btn,background:'linear-gradient(135deg,#1a1a2e,#16213e)',border:'1px solid rgba(255,215,0,0.3)',color:'#ffd700',fontFamily:"'Gowun Batang',serif"}}>
+            {creating?'생성 중...':'🃏 게임방 만들기'}
+          </button>
+        </div>
+      )}
+
+      {/* 방 생성 완료 */}
+      {newRoom && (
+        <div style={{...S.card,background:'linear-gradient(135deg,#1a1a2e,#16213e)',border:'1px solid rgba(255,215,0,0.3)'}}>
+          <p style={{fontSize:12,color:'rgba(255,215,0,0.7)',margin:'0 0 8px',letterSpacing:'0.1em'}}>게임방이 만들어졌어요!</p>
+          <div style={{textAlign:'center',padding:'16px 0'}}>
+            <p style={{fontSize:12,color:'rgba(240,240,240,0.6)',margin:'0 0 8px'}}>참여 코드</p>
+            <p style={{fontFamily:'monospace',fontSize:42,fontWeight:700,color:'#ffd700',margin:'0 0 16px',letterSpacing:'0.3em'}}>{newRoom.room_code}</p>
+            <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>
+              <button onClick={copyLink} style={{...S.btnSm,background:'rgba(255,215,0,0.15)',border:'1px solid rgba(255,215,0,0.3)',color:'#ffd700'}}>
+                {copied?'✓ 복사됨!':'🔗 링크 복사'}
+              </button>
+            </div>
+            <p style={{fontSize:11,color:'rgba(240,240,240,0.4)',margin:'0 0 16px'}}>청년들이 /dixit 페이지에서 이 코드로 참여해요</p>
+          </div>
+          {errMsg&&<p style={S.err}>⚠ {errMsg}</p>}
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>window.open(`/dixit?code=${newRoom.room_code}`,'_blank')}
+              style={{flex:1,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:12,padding:'12px',fontSize:13,color:'#f0f0f0',cursor:'pointer',fontWeight:600}}>
+              👁 방 모니터링
+            </button>
+            <button onClick={handleStart}
+              style={{flex:2,background:'linear-gradient(135deg,#ffd700,#ffab00)',color:'#1a1a2e',border:'none',borderRadius:12,padding:'12px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:'pointer'}}>
+              ▶ 게임 시작하기
+            </button>
+          </div>
+          <button onClick={()=>setNewRoom(null)} style={{width:'100%',background:'none',border:'none',color:'rgba(240,240,240,0.4)',fontSize:11,cursor:'pointer',marginTop:12,textDecoration:'underline'}}>
+            새 방 만들기
+          </button>
+        </div>
+      )}
+
+      {/* 게임 규칙 안내 */}
+      <div style={S.card}>
+        <p style={{fontSize:12,color:'#a0784e',fontWeight:700,margin:'0 0 12px'}}>📌 게임 방법</p>
+        {[
+          ['1️⃣','스토리텔러가 손패 중 카드 1장을 보고 힌트를 말해요'],
+          ['2️⃣','다른 플레이어들이 힌트에 맞는 카드 1장을 제출해요'],
+          ['3️⃣','모든 카드를 섞어 공개 — 누구 카드인지 투표!'],
+          ['4️⃣','아무도/모두 맞추면 스토리텔러 0점, 나머지 +2'],
+          ['5️⃣','일부만 맞추면 스토리텔러+맞춘 사람 +3, 유인 +1'],
+        ].map(([n,t])=>(
+          <div key={n} style={{display:'flex',gap:10,marginBottom:8,alignItems:'flex-start'}}>
+            <span style={{fontSize:14,flexShrink:0}}>{n}</span>
+            <p style={{fontSize:12,color:'#6b5040',margin:0,lineHeight:1.65}}>{t}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -447,7 +706,7 @@ export default function Leader() {
           <p style={S.sub}>WORD &amp; LIFE · 리더 도구</p>
           <h1 style={S.h1}>리더 도구</h1>
           <div style={{display:'flex'}}>
-            {['📖 말씀 자료','👥 셀 조 편성'].map((t,i)=>(
+            {['📖 말씀 자료','👥 셀 조 편성','🃏 딕싯'].map((t,i)=>(
               <button key={i} onClick={()=>setActiveTab(i)} style={{flex:1,padding:'12px 8px',border:'none',background:'none',fontSize:13,fontFamily:"'Gowun Batang',serif",color:activeTab===i?'#4a3520':'#a08060',fontWeight:activeTab===i?700:400,borderBottom:activeTab===i?'2.5px solid #a0784e':'2.5px solid transparent',cursor:'pointer',transition:'all 0.2s'}}>
                 {t}
               </button>
@@ -456,6 +715,7 @@ export default function Leader() {
         </div>
         {activeTab===0 && <SermonTab/>}
         {activeTab===1 && <CellTab/>}
+        {activeTab===2 && <DixitTab/>}
       </div>
     </>
   )
