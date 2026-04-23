@@ -126,7 +126,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>광흥교회 청년부 · 말씀 나눔</title>
+        <title>광흥교회 청년부 · 시냇가에 심은 나무</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`

@@ -1,5 +1,25 @@
 import { supabase } from '../../../lib/supabase'
 
+const TREE_GROUP_NAMES = [
+  '감람나무',
+  '백향목',
+  '무화과나무',
+  '포도나무',
+  '종려나무',
+  '살구나무',
+  '떡갈나무',
+  '향나무',
+  '버드나무',
+  '대추나무',
+]
+
+function getTreeGroupName(groupNo) {
+  const index = Math.max(Number(groupNo || 1) - 1, 0)
+  const base = TREE_GROUP_NAMES[index % TREE_GROUP_NAMES.length]
+  const round = Math.floor(index / TREE_GROUP_NAMES.length)
+  return round === 0 ? base : `${base} ${round + 1}`
+}
+
 async function isLeaderForGroup({ week, group_no, device_id }) {
   if (!week || !group_no || !device_id) return false
 
@@ -100,7 +120,7 @@ export default async function handler(req, res) {
           week,
           service: service || 'all',
           group_no: String(group_no),
-          group_name: group_name || `${group_no}조`,
+          group_name: group_name || getTreeGroupName(group_no),
           sermon_week: sermon_week || week,
           sermon_service: sermon_service || 'morning',
           is_active: true,

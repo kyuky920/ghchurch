@@ -44,6 +44,25 @@ function formatSessionPeriod(session) {
   return end ? `${start} ~ ${end}` : `${start} 시작`
 }
 
+const TREE_GROUP_NAMES = [
+  '감람나무',
+  '백향목',
+  '무화과나무',
+  '포도나무',
+  '종려나무',
+  '살구나무',
+  '떡갈나무',
+  '향나무',
+  '버드나무',
+  '대추나무',
+]
+
+function getTreeGroupName(index) {
+  const base = TREE_GROUP_NAMES[index % TREE_GROUP_NAMES.length]
+  const round = Math.floor(index / TREE_GROUP_NAMES.length)
+  return round === 0 ? base : `${base} ${round + 1}`
+}
+
 const S = {
   wrap:    { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header:  { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'20px 20px 0', borderBottom:'1px solid #c8b898' },
@@ -378,14 +397,14 @@ function CellTab() {
     if (members.length === 0) { setErrMsg('접속 중인 멤버가 없어요.'); return }
     setErrMsg('')
     const shuffled = [...members].sort(() => Math.random() - 0.5)
-    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:`${i+1}조`, leader:null, members:[] }))
+    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupName(i), leader:null, members:[] }))
     shuffled.forEach((m,i) => { result[i%groupCount].members.push({name:m.name, device_id:m.device_id}) })
     setGroups(result)
   }
 
   function handleManualInit() {
     setErrMsg('')
-    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:`${i+1}조`, leader:null, members:[] })))
+    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupName(i), leader:null, members:[] })))
   }
 
   function moveMember(member, fromGroupNo, toGroupNo) {
@@ -907,7 +926,7 @@ export default function Leader() {
   return (
     <>
       <Head>
-        <title>광흥교회 청년부 · 리더 도구</title>
+        <title>광흥교회 청년부 · 시냇가에 심은 나무 리더 도구</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
         <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
