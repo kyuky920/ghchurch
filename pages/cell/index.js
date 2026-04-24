@@ -601,15 +601,17 @@ export default function CellPage() {
                       return (
                         <div key={g.group_no} style={{borderRadius:14,padding:'16px 18px',background:isMyGroup?`${color}18`:bg,border:`1.5px solid ${isMyGroup?color:color+'30'}`,animation:`fadeUp 0.3s ease ${gi*0.07}s both`}}>
                           {/* 조 헤더 */}
-                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap',rowGap:6}}>
                             <div style={{width:10,height:10,borderRadius:'50%',background:color,flexShrink:0}}/>
-                            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color,fontWeight:700,margin:0,flex:1}}>{formatGroupName(g)}</p>
-                            {isMyGroup && <span style={{background:color,color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:10,fontWeight:700}}>내 조</span>}
-                            {g.leader && <span style={{fontSize:11,color,fontWeight:600}}>👑 {g.leader.name}</span>}
-                            <span style={{background:sessionState.bg,color:sessionState.color,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700}}>
+                            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color,fontWeight:700,margin:0,flex:'1 1 180px',minWidth:0,lineHeight:1.42,paddingBottom:2,wordBreak:'keep-all'}}>
+                              {formatGroupName(g)}
+                            </p>
+                            {isMyGroup && <span style={{background:color,color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>내 조</span>}
+                            {g.leader && <span style={{fontSize:11,color,fontWeight:600,flexShrink:0}}>👑 {g.leader.name}</span>}
+                            <span style={{background:sessionState.bg,color:sessionState.color,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>
                               {sessionState.label}
                             </span>
-                            <span style={{fontSize:11,color:'#a08060'}}>({g.members?.length||0}명)</span>
+                            <span style={{fontSize:11,color:'#a08060',flexShrink:0}}>({g.members?.length||0}명)</span>
                           </div>
 
                           {/* 세션 상태 */}
