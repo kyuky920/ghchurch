@@ -4,7 +4,7 @@ const LEADER_SECRET = process.env.LEADER_API_SECRET || process.env.NEXT_PUBLIC_L
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
@@ -52,8 +52,6 @@ export default async function handler(req, res) {
 
       const updates = {}
       if (typeof name === 'string') updates.name = name.trim()
-      if ('week' in req.body) updates.week = week || null
-      if ('service' in req.body) updates.service = service || null
       if (!Object.keys(updates).length) {
         return res.status(400).json({ ok: false, error: '수정할 필드가 없어요.' })
       }
@@ -84,6 +82,26 @@ export default async function handler(req, res) {
       if (error) throw error
       return res.status(200).json({ ok: true })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
+  }
+
+  // DELETE — 리더 전용 회원 삭제
+  if (req.method === 'DELETE') {
+    const auth = req.headers.authorization || ''
+    if (auth !== `Bearer ${LEADER_SECRET}`) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' })
+    }
+    const { device_id } = req.body || {}
+    if (!device_id) return res.status(400).json({ ok: false, error: 'device_id 필수' })
+    try {
+      const { error } = await supabase
+        .from('members')
+        .delete()
+        .eq('device_id', device_id)
+      if (error) throw error
+      return res.status(200).json({ ok: true })
+    } catch(e) {
+      return res.status(500).json({ ok: false, error: e.message })
+    }
   }
 
   return res.status(405).json({ ok: false, error: 'Method not allowed' })

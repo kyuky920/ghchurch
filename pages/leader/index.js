@@ -43,6 +43,15 @@ function formatSessionPeriod(session) {
   const end = formatSessionTime(session.ended_at)
   return end ? `${start} ~ ${end}` : `${start} 시작`
 }
+function getLastSeenLabel(lastSeenValue) {
+  const lastSeen = lastSeenValue ? new Date(lastSeenValue) : null
+  const diffMin = lastSeen ? Math.floor((Date.now()-lastSeen.getTime())/60000) : null
+  if (diffMin === null) return ''
+  if (diffMin < 1) return '방금 전'
+  if (diffMin < 60) return `${diffMin}분 전`
+  if (diffMin < 1440) return `${Math.floor(diffMin/60)}시간 전`
+  return `${Math.floor(diffMin/1440)}일 전`
+}
 
 const TREE_GROUP_NAMES = [
   '감람나무',
@@ -489,11 +498,6 @@ function CellTab() {
   const [noticeSending, setNoticeSending] = useState(false)
   const [noticeMsg, setNoticeMsg]     = useState('')
   const [week, setWeek] = useState(getWeekStr())
-  const [editingMember, setEditingMember] = useState(null)
-  const [memberForm, setMemberForm] = useState({ name: '', week: '', service: '' })
-  const [memberSaving, setMemberSaving] = useState(false)
-  const [memberMsg, setMemberMsg] = useState('')
-  const [memberErr, setMemberErr] = useState('')
   const pollRef = useRef(null)
 
   // 세션 폴링 (10초마다)
@@ -680,79 +684,6 @@ function CellTab() {
     }))
   }
 
-  function getLastSeenLabel(lastSeenValue) {
-    const lastSeen = lastSeenValue ? new Date(lastSeenValue) : null
-    const diffMin = lastSeen ? Math.floor((Date.now()-lastSeen.getTime())/60000) : null
-    if (diffMin === null) return ''
-    if (diffMin < 1) return '방금 전'
-    if (diffMin < 60) return `${diffMin}분 전`
-    if (diffMin < 1440) return `${Math.floor(diffMin/60)}시간 전`
-    return `${Math.floor(diffMin/1440)}일 전`
-  }
-
-  function openMemberEdit(member) {
-    setEditingMember(member)
-    setMemberForm({
-      name: member?.name || '',
-      week: member?.week || '',
-      service: member?.service || '',
-    })
-    setMemberMsg('')
-    setMemberErr('')
-  }
-
-  function closeMemberEdit() {
-    setEditingMember(null)
-    setMemberForm({ name: '', week: '', service: '' })
-  }
-
-  async function handleMemberSave() {
-    if (!editingMember?.device_id) return
-    const trimmedName = (memberForm.name || '').trim()
-    if (!trimmedName) {
-      setMemberErr('이름은 비워둘 수 없어요.')
-      return
-    }
-    setMemberSaving(true)
-    setMemberErr('')
-    setMemberMsg('')
-    try {
-      const res = await fetch('/api/members', {
-        method: 'PATCH',
-        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({
-          action: 'admin_update',
-          device_id: editingMember.device_id,
-          name: trimmedName,
-          week: memberForm.week || null,
-          service: memberForm.service || null,
-        })
-      })
-      const d = await res.json()
-      if (!d.ok) throw new Error(d.error)
-
-      const updatedName = d.data?.name || trimmedName
-      const updatedWeek = d.data?.week || null
-      const updatedService = d.data?.service || null
-
-      setMembers(prev => prev.map(m => m.device_id === editingMember.device_id ? { ...m, name: updatedName, week: updatedWeek, service: updatedService } : m))
-      setAllMembers(prev => prev.map(m => m.device_id === editingMember.device_id ? { ...m, name: updatedName, week: updatedWeek, service: updatedService } : m))
-      setGroups(prev => prev.map(g => ({
-        ...g,
-        leader: g.leader?.device_id === editingMember.device_id ? { ...g.leader, name: updatedName } : g.leader,
-        members: (g.members || []).map(m => m.device_id === editingMember.device_id ? { ...m, name: updatedName } : m),
-      })))
-
-      setMemberMsg('회원 정보를 수정했어요.')
-      setTimeout(() => setMemberMsg(''), 2000)
-      closeMemberEdit()
-    } catch(e) {
-      setMemberErr('수정 오류: ' + e.message)
-    } finally {
-      setMemberSaving(false)
-    }
-  }
-
   async function handleSave() {
     setSaving(true); setErrMsg(''); setSaveMsg('')
     try {
@@ -864,94 +795,6 @@ function CellTab() {
               )
             })()}
           </>
-        )}
-      </div>
-
-      {/* 회원 정보 관리 */}
-      <div style={S.card}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>회원 정보 관리</p>
-          <span style={{fontSize:11,color:'#8b6e4e',fontWeight:600}}>총 {allMembers.length}명</span>
-        </div>
-        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>리더가 이름/주차/예배 정보를 수정할 수 있어요.</p>
-
-        {editingMember && (
-          <div style={{background:'#fdf5ec',border:'1px solid #e8c9a0',borderRadius:10,padding:'10px 12px',marginBottom:10}}>
-            <p style={{fontSize:12,color:'#8b6e4e',fontWeight:700,margin:'0 0 8px'}}>수정 중: {editingMember.name}</p>
-            <div style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 1fr',gap:8}}>
-              <input
-                value={memberForm.name}
-                onChange={e=>setMemberForm(prev=>({ ...prev, name: e.target.value }))}
-                placeholder="이름"
-                style={{...S.input,padding:'8px 10px',fontSize:13}}
-              />
-              <select
-                value={memberForm.week}
-                onChange={e=>setMemberForm(prev=>({ ...prev, week: e.target.value }))}
-                style={{...S.input,padding:'8px 10px',fontSize:13,cursor:'pointer'}}
-              >
-                <option value="">주차 미지정</option>
-                {weeks.map(w => <option key={w} value={w}>{weekLabel(w)}</option>)}
-              </select>
-              <select
-                value={memberForm.service}
-                onChange={e=>setMemberForm(prev=>({ ...prev, service: e.target.value }))}
-                style={{...S.input,padding:'8px 10px',fontSize:13,cursor:'pointer'}}
-              >
-                <option value="">예배 미지정</option>
-                <option value="morning">주일 오전</option>
-                <option value="afternoon">주일 오후</option>
-              </select>
-            </div>
-            <div style={{display:'flex',gap:8,marginTop:8}}>
-              <button
-                onClick={handleMemberSave}
-                disabled={memberSaving}
-                style={{background:memberSaving?'#c4a882':'#4a3520',color:'#fff',border:'none',borderRadius:8,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:memberSaving?'not-allowed':'pointer'}}
-              >
-                {memberSaving ? '저장 중...' : '저장'}
-              </button>
-              <button
-                onClick={closeMemberEdit}
-                style={{background:'#fff',border:'1px solid #ddd0ba',borderRadius:8,padding:'7px 12px',fontSize:12,fontWeight:600,cursor:'pointer',color:'#8b6e4e'}}
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        )}
-
-        {memberErr && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {memberErr}</p>}
-        {memberMsg && <p style={{...S.ok,margin:'0 0 8px'}}>✓ {memberMsg}</p>}
-
-        {allMembers.length === 0 ? (
-          <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>등록된 회원이 없어요.</p>
-        ) : (
-          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:260,overflowY:'auto',paddingRight:2}}>
-            {allMembers.map(m => {
-              const isOnline = members.some(o => o.device_id === m.device_id)
-              const lastSeenLabel = getLastSeenLabel(m.last_seen)
-              return (
-                <div key={m.device_id} style={{display:'flex',alignItems:'center',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'8px 10px',background:'#fff'}}>
-                  <span style={{width:8,height:8,borderRadius:'50%',background:isOnline?'#4caf50':'#bdbdbd',flexShrink:0}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{m.name}</p>
-                    <p style={{fontSize:10,color:'#a08060',margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                      {isOnline ? '접속 중' : `미접속${lastSeenLabel ? ` · ${lastSeenLabel}` : ''}`}
-                      {m.week ? ` · ${weekLabel(m.week)}` : ''}
-                      {m.service === 'morning' ? ' · 오전' : m.service === 'afternoon' ? ' · 오후' : ''}
-                    </p>
-                  </div>
-                  <button
-                    onClick={()=>openMemberEdit(m)}
-                    style={{...S.btnSm,padding:'5px 10px'}}
-                  >
-                    수정
-                  </button>
-                </div>
-              )
-            })}
-          </div>
         )}
       </div>
 
@@ -1219,7 +1062,187 @@ function CellTab() {
   )
 }
 
-// ── 탭3: 딕싯 게임 관리 ──────────────────────────────
+// ── 탭3: 회원 관리 ───────────────────────────────────
+function MemberTab() {
+  const [allMembers, setAllMembers] = useState([])
+  const [onlineIds, setOnlineIds] = useState(new Set())
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState('')
+  const [editName, setEditName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState('')
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  useEffect(() => { loadMembers() }, [])
+
+  async function loadMembers() {
+    setLoading(true)
+    try {
+      const [allRes, onlineRes] = await Promise.all([
+        fetch('/api/members?all=true'),
+        fetch('/api/members'),
+      ])
+      const allData = await allRes.json()
+      const onlineData = await onlineRes.json()
+      if (allData.ok) setAllMembers(allData.data || [])
+      if (onlineData.ok) setOnlineIds(new Set((onlineData.data || []).map(m => m.device_id)))
+    } catch (e) {
+      setErr('회원 목록을 불러오지 못했어요.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function startEdit(member) {
+    setEditingId(member.device_id)
+    setEditName(member.name || '')
+    setMsg('')
+    setErr('')
+  }
+
+  function cancelEdit() {
+    setEditingId('')
+    setEditName('')
+    setErr('')
+  }
+
+  async function saveMemberName(deviceId) {
+    const name = (editName || '').trim()
+    if (!name) {
+      setErr('이름은 비워둘 수 없어요.')
+      return
+    }
+    setSaving(true)
+    setErr('')
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PATCH',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({ action:'admin_update', device_id: deviceId, name })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setAllMembers(prev => prev.map(m => m.device_id === deviceId ? { ...m, name: d.data?.name || name } : m))
+      setMsg('회원 이름을 수정했어요.')
+      setTimeout(() => setMsg(''), 2000)
+      setEditingId('')
+      setEditName('')
+    } catch (e) {
+      setErr('수정 오류: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function deleteMember(deviceId) {
+    if (!window.confirm('이 회원을 삭제할까요?')) return
+    setDeletingId(deviceId)
+    setErr('')
+    try {
+      const res = await fetch('/api/members', {
+        method: 'DELETE',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({ device_id: deviceId })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setAllMembers(prev => prev.filter(m => m.device_id !== deviceId))
+      setOnlineIds(prev => {
+        const next = new Set(prev)
+        next.delete(deviceId)
+        return next
+      })
+      if (editingId === deviceId) cancelEdit()
+      setMsg('회원을 삭제했어요.')
+      setTimeout(() => setMsg(''), 2000)
+    } catch (e) {
+      setErr('삭제 오류: ' + e.message)
+    } finally {
+      setDeletingId('')
+    }
+  }
+
+  return (
+    <div style={S.cont}>
+      <div style={S.card}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>회원 정보 관리</p>
+          <button onClick={loadMembers} style={S.btnSm}>🔄 새로고침</button>
+        </div>
+        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>이름 수정과 회원 삭제만 지원합니다.</p>
+        {err && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {err}</p>}
+        {msg && <p style={{...S.ok,margin:'0 0 8px'}}>✓ {msg}</p>}
+
+        {loading ? (
+          <p style={{color:'#a0784e',fontSize:13,textAlign:'center',padding:'12px 0'}}>불러오는 중...</p>
+        ) : allMembers.length === 0 ? (
+          <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>등록된 회원이 없어요.</p>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:520,overflowY:'auto',paddingRight:2}}>
+            {allMembers.map(member => {
+              const isOnline = onlineIds.has(member.device_id)
+              const isEditing = editingId === member.device_id
+              const timeLabel = getLastSeenLabel(member.last_seen)
+              return (
+                <div key={member.device_id} style={{display:'flex',alignItems:'center',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'9px 10px',background:'#fff'}}>
+                  <span style={{width:8,height:8,borderRadius:'50%',background:isOnline?'#4caf50':'#bdbdbd',flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    {isEditing ? (
+                      <input
+                        value={editName}
+                        onChange={e=>setEditName(e.target.value)}
+                        style={{...S.input,padding:'7px 9px',fontSize:13}}
+                        placeholder="이름"
+                      />
+                    ) : (
+                      <>
+                        <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{member.name}</p>
+                        <p style={{fontSize:10,color:'#a08060',margin:0}}>
+                          {isOnline ? '접속 중' : `미접속${timeLabel ? ` · ${timeLabel}` : ''}`}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div style={{display:'flex',gap:6}}>
+                      <button
+                        onClick={()=>saveMemberName(member.device_id)}
+                        disabled={saving}
+                        style={{background:saving?'#c4a882':'#4a3520',color:'#fff',border:'none',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:saving?'not-allowed':'pointer'}}
+                      >
+                        저장
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        style={{...S.btnSm,padding:'6px 10px'}}
+                      >
+                        취소
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>startEdit(member)} style={{...S.btnSm,padding:'6px 10px'}}>수정</button>
+                      <button
+                        onClick={()=>deleteMember(member.device_id)}
+                        disabled={deletingId === member.device_id}
+                        style={{background:'#fff5f5',border:'1px solid #f5c6bb',borderRadius:8,padding:'6px 10px',fontSize:12,color:'#c0392b',fontWeight:700,cursor:deletingId===member.device_id?'not-allowed':'pointer'}}
+                      >
+                        {deletingId === member.device_id ? '삭제 중...' : '삭제'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── 탭4: 딕싯 게임 관리 ──────────────────────────────
 function DixitTab() {
   const [rooms, setRooms]         = useState([])
   const [creating, setCreating]   = useState(false)
@@ -1374,7 +1397,7 @@ export default function Leader() {
           <p style={S.sub}>시냇가에 심은 나무 WORD &amp; LIFE</p>
           <h1 style={S.h1}>리더 도구</h1>
           <div style={{display:'flex'}}>
-            {['📖 말씀 자료','👥 셀 조 편성','🃏 딕싯'].map((t,i)=>(
+            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','🃏 딕싯'].map((t,i)=>(
               <button key={i} onClick={()=>setActiveTab(i)} style={{flex:1,padding:'12px 8px',border:'none',background:'none',fontSize:13,fontFamily:"'Gowun Batang',serif",color:activeTab===i?'#4a3520':'#a08060',fontWeight:activeTab===i?700:400,borderBottom:activeTab===i?'2.5px solid #a0784e':'2.5px solid transparent',cursor:'pointer',transition:'all 0.2s'}}>
                 {t}
               </button>
@@ -1383,7 +1406,8 @@ export default function Leader() {
         </div>
         {activeTab===0 && <SermonTab/>}
         {activeTab===1 && <CellTab/>}
-        {activeTab===2 && <DixitTab/>}
+        {activeTab===2 && <MemberTab/>}
+        {activeTab===3 && <DixitTab/>}
       </div>
     </>
   )
