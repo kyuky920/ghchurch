@@ -120,12 +120,36 @@ export default function CellPage() {
   const pollFn = useRef(null)
   pollFn.current = async function() {
     try {
-      const res = await fetch(`/api/cell-sessions?all=true&week=${week}`)
-      const d = await res.json()
-      if (d.ok && Array.isArray(d.data)) {
+      const [sessionRes, memberRes, groupRes] = await Promise.all([
+        fetch(`/api/cell-sessions?all=true&week=${week}`),
+        fetch('/api/members'),
+        fetch(`/api/cell-groups?week=${week}`),
+      ])
+      const sData = await sessionRes.json()
+      const mData = await memberRes.json()
+      const gData = await groupRes.json()
+
+      if (sData.ok && Array.isArray(sData.data)) {
         const map = {}
-        d.data.forEach(s => { map[String(s.group_no)] = s })
+        sData.data.forEach(s => { map[String(s.group_no)] = s })
         setGroupSessions(map)
+      }
+      if (mData.ok) setMembers(mData.data || [])
+      if (gData.ok && gData.data) {
+        setGroups(gData.data)
+        const did = deviceId.current
+        let found = gData.data.groups?.find(g =>
+          g.members?.some(m => m.device_id === did)
+        )
+        if (!found) {
+          found = gData.data.groups?.find(g => g.leader?.device_id === did)
+        }
+        setMyGroup(found || null)
+        setAmLeader(!!found && found.leader?.device_id === did)
+      } else if (gData.ok && !gData.data) {
+        setGroups(null)
+        setMyGroup(null)
+        setAmLeader(false)
       }
     } catch(e) {}
   }
