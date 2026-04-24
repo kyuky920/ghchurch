@@ -96,7 +96,7 @@ export default function CellWord() {
 
   const [selected, setSelected]         = useState(null)
   const [loading, setLoading]           = useState(true)
-  const [tab, setTab]                   = useState(1)
+  const [tab, setTab]                   = useState(2)
   const [savingImage, setSavingImage]   = useState(false)
 
   const [activeSession, setActiveSession] = useState(null)
@@ -201,7 +201,13 @@ export default function CellWord() {
           )
 
           setSelected(target || null)
-          if (qTab !== undefined) setTab(Number(qTab))
+          if (qTab !== undefined) {
+            const parsedTab = Number(qTab)
+            // 구버전 호환: 0(요약), 1(질문) -> 신버전 1(요약), 2(질문)
+            if (parsedTab === 0) setTab(1)
+            else if (parsedTab === 1) setTab(2)
+            else if (parsedTab >= 0 && parsedTab <= 2) setTab(parsedTab)
+          }
         } else {
           setSelected(null)
         }
@@ -300,7 +306,7 @@ export default function CellWord() {
     finally { setGroupEnding(false) }
   }
 
-  const TABS = ['말씀 요약', '나눔 질문']
+  const TABS = ['성경말씀', '말씀 요약', '나눔질문']
 
   const parseField = (val) => {
     if (!val) return []
@@ -326,7 +332,7 @@ export default function CellWord() {
       })
       const link = document.createElement('a')
       const safeRef = (selected.reference || 'cell-word').replace(/[^\w\-가-힣]+/g, '_')
-      const tabName = tab === 0 ? 'summary' : 'questions'
+      const tabName = tab === 0 ? 'passage' : tab === 1 ? 'summary' : 'questions'
       link.download = `${safeRef}_${tabName}.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
@@ -395,10 +401,10 @@ export default function CellWord() {
             <div>
               <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
               {selected
-                ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.reference}</h1>
+                ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.sermon_title || selected.reference}</h1>
                 : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:0 }}>말씀 나눔</h1>
               }
-              {selected?.sermon_title && <p style={{ fontSize:12, color:'#6b5740', margin:0, fontWeight:500 }}>{selected.sermon_title}</p>}
+              {selected?.sermon_title && selected?.reference && <p style={{ fontSize:12, color:'#6b5740', margin:0, fontWeight:500 }}>{selected.reference}</p>}
               {activeSession?.started_at && (
                 <p style={{ fontSize:11, color:'#6b5740', margin:'4px 0 0' }}>
                   ⏰ {formatSessionPeriod(activeSession)}
@@ -407,8 +413,11 @@ export default function CellWord() {
             </div>
             {myGroup && (
               <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
-                <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 1px', fontWeight:600 }}>{amLeader ? '👑 리더' : '내 조'}</p>
+                <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 2px', fontWeight:600 }}>내 조</p>
                 <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{formatGroupName(myGroup)}</p>
+                {myGroup?.leader?.name && (
+                  <p style={{ fontSize:10, color:'#6b5740', margin:'2px 0 0' }}>리더: {myGroup.leader.name}</p>
+                )}
               </div>
             )}
           </div>
@@ -457,8 +466,24 @@ export default function CellWord() {
                 ))}
               </div>
 
-            {/* 탭 0: 말씀 요약 */}
+            {/* 탭 0: 성경말씀 */}
               {tab===0 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                  {selected.passage ? (
+                    <div style={S.card}>
+                      <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 8px' }}>📖 {selected.reference} · 개역개정</p>
+                      <p style={{ color:'#30261d', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:2.05, margin:0, whiteSpace:'pre-line' }}>{selected.passage}</p>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign:'center', padding:'40px 20px', color:'#b8a090' }}>
+                      <p style={{ fontSize:13 }}>본문 말씀을 준비 중이에요</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {/* 탭 1: 말씀 요약 */}
+              {tab===1 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                   {!summary ? (
                     <div style={{ textAlign:'center', padding:'40px 20px', color:'#b8a090' }}>
@@ -486,15 +511,9 @@ export default function CellWord() {
                 </div>
               )}
 
-              {/* 탭 1: 나눔 질문 */}
-              {tab===1 && (
+              {/* 탭 2: 나눔 질문 */}
+              {tab===2 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                  {selected.passage && (
-                    <div style={S.card}>
-                      <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 8px' }}>📖 {selected.reference} · 개역개정</p>
-                      <p style={{ color:'#30261d', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:2.05, margin:0, whiteSpace:'pre-line' }}>{selected.passage}</p>
-                    </div>
-                  )}
                   {qs.map((item, i) => {
                     const q  = typeof item==='string' ? item : item.question
                     const ex = typeof item==='object' ? item.explanation : ''
