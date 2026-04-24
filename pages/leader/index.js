@@ -714,8 +714,6 @@ function CellTab() {
             {groups.map((g) => {
               const session  = groupSessions[String(g.group_no)]
               const sessionSermon = session ? sermonLookup[`${session.sermon_week}:${session.sermon_service}`] : null
-              // is_active=true → 진행중, ended_at 있고 is_active=false → 종료, session 없음 → 대기
-              const hasStatus = !!session
               const ended    = !!session && !session.is_active && !!session.ended_at
               const isActive = !!session?.is_active
               const endedAt  = session?.ended_at

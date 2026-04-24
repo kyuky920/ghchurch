@@ -25,6 +25,27 @@ function sameWeek(candidate, requested) {
   if (!candidate || !requested) return false
   return candidate === requested || normalizeWeek(candidate) === normalizeWeek(requested)
 }
+function findMatchingSermon(sermons, requestedWeek, requestedService, sessionWeek, sessionService) {
+  if (!Array.isArray(sermons) || sermons.length === 0) return null
+
+  if (requestedWeek && requestedService) {
+    const exactRequested = sermons.find(s => sameWeek(s.week, requestedWeek) && s.service === requestedService)
+    if (exactRequested) return exactRequested
+  }
+  if (sessionWeek && sessionService) {
+    const exactSession = sermons.find(s => sameWeek(s.week, sessionWeek) && s.service === sessionService)
+    if (exactSession) return exactSession
+  }
+  if (requestedWeek) {
+    const requestedWeekFallback = sermons.find(s => sameWeek(s.week, requestedWeek))
+    if (requestedWeekFallback) return requestedWeekFallback
+  }
+  if (sessionWeek) {
+    const sessionWeekFallback = sermons.find(s => sameWeek(s.week, sessionWeek))
+    if (sessionWeekFallback) return sessionWeekFallback
+  }
+  return sermons[0] || null
+}
 function formatSessionTime(value) {
   if (!value) return ''
   const date = new Date(value)
@@ -158,49 +179,39 @@ export default function CellWord() {
     const service = pickQueryValue(router.query.service)
     const qTab = pickQueryValue(router.query.tab)
     if (!week && !activeSession?.sermon_week) return
+    let alive = true
+    setLoading(true)
 
     fetch('/api/sermons')
       .then(r => r.json())
       .then(d => {
+        if (!alive) return
         if (d.ok && d.data?.length) {
-          // 조별 링크의 week/service를 최우선으로 정확히 매칭한다.
           const requestedWeek = week || null
           const requestedService = service || null
           const sessionWeek = activeSession?.sermon_week || null
           const sessionService = activeSession?.sermon_service || null
+          const target = findMatchingSermon(
+            d.data,
+            requestedWeek,
+            requestedService,
+            sessionWeek,
+            sessionService
+          )
 
-          let target = null
-
-          if (requestedWeek && requestedService) {
-            target = d.data.find(s => sameWeek(s.week, requestedWeek) && s.service === requestedService) || null
-          }
-          if (!target && sessionWeek && sessionService) {
-            target = d.data.find(s => sameWeek(s.week, sessionWeek) && s.service === sessionService) || null
-          }
-          if (!target && requestedWeek && !requestedService) {
-            target = d.data.find(s => sameWeek(s.week, requestedWeek)) || null
-          }
-          if (!target && sessionWeek && !sessionService) {
-            target = d.data.find(s => sameWeek(s.week, sessionWeek)) || null
-          }
-          // /index.js와 동일하게, 지정된 주차가 있으면 그 주차의 첫 설교라도 보여준다.
-          if (!target && requestedWeek) {
-            target = d.data.find(s => sameWeek(s.week, requestedWeek)) || null
-          }
-          if (!target && sessionWeek) {
-            target = d.data.find(s => sameWeek(s.week, sessionWeek)) || null
-          }
-          if (!target) {
-            target = d.data[0] || null
-          }
-
-          setSelected(target)
+          setSelected(target || null)
           if (qTab !== undefined) setTab(Number(qTab))
         } else {
           setSelected(null)
         }
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+
+    return () => {
+      alive = false
+    }
   }, [router.isReady, router.query.week, router.query.service, router.query.tab, activeSession?.sermon_week, activeSession?.sermon_service])
 
   useEffect(() => {
