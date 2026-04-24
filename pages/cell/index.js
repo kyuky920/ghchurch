@@ -151,11 +151,23 @@ export default function CellPage() {
   }
   async function sendHeartbeat(memberName) {
     try {
-      await fetch('/api/members', {
+      const res = await fetch('/api/members', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_id: deviceId.current, name: memberName })
       })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        if (res.status === 404 && d?.needs_register) {
+          localStorage.removeItem('wl_member_name')
+          setRegistered(false)
+          setName('')
+          setInputName('')
+          setMyGroup(null)
+          setAmLeader(false)
+          if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+        }
+      }
     } catch(e) {}
   }
 

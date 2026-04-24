@@ -75,12 +75,15 @@ export default async function handler(req, res) {
 
     if (!device_id) return res.status(400).json({ ok: false, error: 'device_id 필수' })
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('members')
         .update({ last_seen: new Date().toISOString(), week: week||null, service: service||null })
         .eq('device_id', device_id)
+        .select('device_id')
+        .single()
       if (error) throw error
-      return res.status(200).json({ ok: true })
+      if (!data?.device_id) return res.status(404).json({ ok: false, error: 'member_not_found', needs_register: true })
+      return res.status(200).json({ ok: true, data })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
   }
 
@@ -98,6 +101,36 @@ export default async function handler(req, res) {
         .delete()
         .eq('device_id', device_id)
       if (error) throw error
+
+      // 삭제된 디바이스가 기존 조편성/리더 정보에 남지 않도록 전체 주차에서 정리
+      const { data: groupRows, error: groupsError } = await supabase
+        .from('cell_groups')
+        .select('week,groups')
+      if (groupsError) throw groupsError
+
+      for (const row of groupRows || []) {
+        const parsed = typeof row.groups === 'string' ? JSON.parse(row.groups) : (row.groups || [])
+        let changed = false
+        const nextGroups = (Array.isArray(parsed) ? parsed : []).map(group => {
+          const members = Array.isArray(group.members) ? group.members : []
+          const filteredMembers = members.filter(m => m?.device_id !== device_id)
+          const leaderDeleted = group?.leader?.device_id === device_id
+          if (filteredMembers.length !== members.length || leaderDeleted) changed = true
+          return {
+            ...group,
+            members: filteredMembers,
+            leader: leaderDeleted ? null : group.leader,
+          }
+        })
+        if (changed) {
+          const { error: updateError } = await supabase
+            .from('cell_groups')
+            .update({ groups: nextGroups })
+            .eq('week', row.week)
+          if (updateError) throw updateError
+        }
+      }
+
       return res.status(200).json({ ok: true })
     } catch(e) {
       return res.status(500).json({ ok: false, error: e.message })
