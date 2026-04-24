@@ -501,6 +501,51 @@ function CellTab() {
       setActiveSession(null)
     } catch(e) {}
   }
+
+  async function resetSessions(groupNo = null) {
+    const targetLabel = groupNo ? `${groupNo}조` : '전체 조'
+    if (!window.confirm(`${targetLabel}의 셀 상태를 대기로 초기화할까요?`)) return
+    try {
+      const res = await fetch('/api/cell-sessions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({ action: 'reset', week, group_no: groupNo ? String(groupNo) : undefined })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setNoticeMsg(groupNo ? `${groupNo}조 상태를 대기로 초기화했어요.` : '전체 셀 상태를 대기로 초기화했어요.')
+      setTimeout(() => setNoticeMsg(''), 2500)
+      setGroupSessions(prev => {
+        const next = { ...prev }
+        if (groupNo) {
+          if (next[String(groupNo)]) {
+            next[String(groupNo)] = {
+              ...next[String(groupNo)],
+              is_active: false,
+              started_at: null,
+              ended_at: null,
+              notice: '',
+            }
+          }
+          return next
+        }
+        Object.keys(next).forEach((key) => {
+          next[key] = {
+            ...next[key],
+            is_active: false,
+            started_at: null,
+            ended_at: null,
+            notice: '',
+          }
+        })
+        return next
+      })
+      setActiveSession(null)
+      await loadData()
+    } catch(e) {
+      setNoticeMsg('오류: ' + e.message)
+    }
+  }
   // 주차/예배 — 현재 주 기본값, 변경 가능
   const weeks = Array.from({length:5},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
 
@@ -822,17 +867,25 @@ function CellTab() {
                     : '⏸ 셀 모임 대기 중'}
               </p>
               <p style={{fontSize:11,color:activeSession?'#558b2f':'#8b6e4e',margin:0}}>
-                {activeSession
-                  ? (()=>{ const s=Object.values(groupSessions).find(s=>s.is_active); return s?weekLabel(s.week):'' })()
+                {Object.keys(groupSessions).length > 0
+                  ? `${weekLabel(week)} 기록을 보고 있어요`
                   : '셀 리더가 모임을 시작하면 현황이 업데이트돼요'}
               </p>
             </div>
-            {activeSession && (
-              <button onClick={endAllSession}
-                style={{background:'#ffebee',border:'1px solid #ef9a9a',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
-                ⏹ 전체 종료
-              </button>
-            )}
+            <div style={{display:'flex',gap:8}}>
+              {activeSession && (
+                <button onClick={endAllSession}
+                  style={{background:'#ffebee',border:'1px solid #ef9a9a',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
+                  ⏹ 전체 종료
+                </button>
+              )}
+              {Object.keys(groupSessions).length > 0 && (
+                <button onClick={()=>resetSessions()}
+                  style={{background:'#eef2ff',border:'1px solid #c7d2fe',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,color:'#3949ab',fontWeight:700}}>
+                  ↺ 전체 대기화
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 조별 현황 — 저장만 돼도 표시, 세션 없으면 전부 대기 */}
@@ -854,18 +907,18 @@ function CellTab() {
                     <p style={{fontSize:11,color:'#8b6e4e',margin:0}}>
                       {g.leader ? `👑 ${g.leader.name}` : '리더 미지정'} · {g.members.length}명
                     </p>
-                    {(sessionSermon?.reference || session?.sermon_week) && (
+                    {(isActive || ended) && (sessionSermon?.reference || session?.sermon_week) && (
                       <p style={{fontSize:10,color:isActive?'#8f6a2a':ended?'#5b8a60':'#a08060',margin:'3px 0 0',fontWeight:600}}>
                         📖 {sessionSermon?.reference || weekLabel(session.sermon_week)}
                         {session.sermon_service==='morning'?' · 오전':session.sermon_service==='afternoon'?' · 오후':''}
                       </p>
                     )}
-                    {sessionSermon?.sermon_title && (
+                    {(isActive || ended) && sessionSermon?.sermon_title && (
                       <p style={{fontSize:10,color:'#b08d5d',margin:'2px 0 0'}}>
                         {sessionSermon.sermon_title}
                       </p>
                     )}
-                    {session?.started_at && (
+                    {(isActive || ended) && session?.started_at && (
                       <p style={{fontSize:10,color:isActive?'#8f6a2a':ended?'#5b8a60':'#a08060',margin:'2px 0 0'}}>
                         ⏰ {formatSessionPeriod(session)}
                       </p>
@@ -884,6 +937,12 @@ function CellTab() {
                       </>
                     ) : (
                       <span style={{background:'#f5f5f5',color:'#9e9e9e',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>— 대기</span>
+                    )}
+                    {session && (
+                      <button onClick={()=>resetSessions(g.group_no)}
+                        style={{display:'block',margin:'6px 0 0 auto',background:'#f5f7ff',border:'1px solid #d6defa',borderRadius:8,padding:'4px 8px',cursor:'pointer',fontSize:10,color:'#3949ab',fontWeight:700}}>
+                        대기화
+                      </button>
                     )}
                   </div>
                 </div>

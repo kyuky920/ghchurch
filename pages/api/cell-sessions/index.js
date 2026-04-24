@@ -145,6 +145,7 @@ export default async function handler(req, res) {
   // PATCH — 세션 업데이트
   // action=notice  : 공지 전송 (리더 도구, group_no 지정 or 전체)
   // action=end     : 조 세션 종료 (셀 리더)
+  // action=reset   : 주차별 세션 상태를 대기로 초기화 (리더 도구)
   if (req.method === 'PATCH') {
     const secret = req.headers['authorization']?.replace('Bearer ', '')
     const { action, week, group_no, notice, broadcast, device_id } = req.body
@@ -173,6 +174,28 @@ export default async function handler(req, res) {
           .update({ is_active: false, ended_at: new Date().toISOString() })
           .eq('is_active', true)
           .eq('group_no', String(group_no))
+        if (error) throw error
+        return res.status(200).json({ ok: true })
+      }
+
+      if (action === 'reset') {
+        if (secret !== process.env.LEADER_API_SECRET) {
+          return res.status(401).json({ ok: false, error: '인증 실패' })
+        }
+        if (!week) return res.status(400).json({ ok: false, error: 'week 필수' })
+
+        let q = supabase
+          .from('cell_sessions')
+          .update({
+            is_active: false,
+            started_at: null,
+            ended_at: null,
+            notice: '',
+          })
+          .eq('week', week)
+
+        if (group_no) q = q.eq('group_no', String(group_no))
+        const { error } = await q
         if (error) throw error
         return res.status(200).json({ ok: true })
       }

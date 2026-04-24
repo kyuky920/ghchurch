@@ -314,7 +314,9 @@ export default function CellPage() {
   const latestMySession = myGroup ? groupSessions[String(myGroup.group_no)] : null
   const mySession = latestMySession?.is_active ? latestMySession : null
   const noticeSession = mySession || latestMySession
-  const mySessionViewTarget = latestMySession || mySession
+  const latestMySessionState = getSessionState(latestMySession)
+  const mySessionViewTarget = latestMySessionState.key === 'waiting' ? null : (latestMySession || mySession)
+  const canStartSession = amLeader && latestMySessionState.key === 'waiting'
   const activeNoticeKey = noticeSession?.notice
     ? `${noticeSession.group_no || ''}:${noticeSession.notice}`
     : ''
@@ -416,7 +418,7 @@ export default function CellPage() {
         )}
 
         {/* ── 셀 리더: 진행중 바 ── */}
-        {amLeader && latestMySession && (
+        {amLeader && latestMySessionState.key !== 'waiting' && latestMySession && (
           <div style={{background:groupEnded?'#e8f5e9':'#fff3e0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${groupEnded?'#a5d6a7':'#ffcc80'}`}}>
             <div>
               <p style={{fontSize:12,color:groupEnded?'#2e7d32':'#e65100',fontWeight:700,margin:'0 0 1px'}}>
@@ -499,7 +501,7 @@ export default function CellPage() {
               </div>
 
               {/* ── 셀 리더: 모임 시작 버튼 ── */}
-              {amLeader && !mySession && (
+              {canStartSession && (
                 <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'20px',border:'1px solid #4a8a4a'}}>
                   <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>👑 셀 리더로 선정됐어요!</p>
                   <p style={{fontSize:11,color:'rgba(150,220,150,0.7)',margin:'0 0 16px'}}>말씀을 선택하고 모임을 시작해주세요</p>
@@ -550,7 +552,7 @@ export default function CellPage() {
                           </div>
 
                           {/* 세션 상태 */}
-                          {session && (
+                          {session && sessionState.key !== 'waiting' && (
                             <div style={{background:session.is_active?'rgba(46,125,50,0.08)':'rgba(84,110,122,0.08)',borderRadius:8,padding:'8px 10px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}>
                               <div style={{width:6,height:6,borderRadius:'50%',background:session.is_active?'#4caf50':'#78909c',flexShrink:0,marginTop:5}}/>
                               <div>
