@@ -78,17 +78,17 @@ function getDeviceId() {
 }
 
 const QMETA = [
-  { type:'말씀 속으로',  color:'#a0784e', bg:'#fdf5ec' },
-  { type:'내 이야기',    color:'#c4956a', bg:'#fef8f0' },
-  { type:'함께 나눔',    color:'#7a9e7e', bg:'#f0f7f1' },
-  { type:'이번 주 실천', color:'#6b8f71', bg:'#edf4ee' },
+  { type:'말씀 속으로',  color:'#7a5a33', bg:'#fff8ef' },
+  { type:'내 이야기',    color:'#8b6440', bg:'#fff9f2' },
+  { type:'함께 나눔',    color:'#3f6f54', bg:'#f4fbf6' },
+  { type:'이번 주 실천', color:'#3f6f54', bg:'#eff8f1' },
 ]
 
 const S = {
-  wrap:   { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
-  header: { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'20px 20px 16px', borderBottom:'1px solid #c8b898', position:'relative', overflow:'hidden' },
-  cont:   { maxWidth:640, margin:'0 auto', padding:'16px 16px 80px' },
-  card:   { background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0' },
+  wrap:   { minHeight:'100vh', background:'#f6f3ee', fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif", color:'#2f281f' },
+  header: { background:'linear-gradient(160deg,#ede2d2,#d8c8ad)', padding:'20px 20px 16px', borderBottom:'1px solid #ccbda3', position:'relative', overflow:'hidden' },
+  cont:   { maxWidth:700, margin:'0 auto', padding:'18px 16px 88px' },
+  card:   { background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #dfd3c0', boxShadow:'0 4px 16px rgba(55,38,15,0.04)' },
 }
 
 export default function CellWord() {
@@ -342,9 +342,13 @@ export default function CellWord() {
       <Head>
         <title>광흥교회 청년부 · 시냇가에 심은 나무 WORD &amp; LIFE · 셀 모임</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
-        <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+        <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
           *{box-sizing:border-box;}
+          html,body{margin:0;padding:0;background:#f6f3ee;color:#2f281f}
+          body{font-family:'IBM Plex Sans KR','Noto Sans KR',sans-serif;line-height:1.72;-webkit-font-smoothing:antialiased}
+          textarea{font:inherit}
+          button{font:inherit}
           @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
           @keyframes spin{to{transform:rotate(360deg)}}
           @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -366,11 +370,11 @@ export default function CellWord() {
               <p style={{ fontSize:12, color: groupEnded ? '#2e7d32' : '#e65100', fontWeight:700, margin:'0 0 1px' }}>
                 {groupEnded ? `✅ ${formatGroupName(myGroup)} 모임 종료됨` : `👑 ${formatGroupName(myGroup)} 셀 리더`}
               </p>
-              <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:0 }}>
+              <p style={{ fontSize:11, color: groupEnded ? '#447a31' : '#9f3c1a', margin:0 }}>
                 {groupEnded ? '함께 나눈 말씀은 계속 볼 수 있어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
               </p>
               {activeSession?.started_at && (
-                <p style={{ fontSize:10, color: groupEnded ? '#558b2f' : '#bf360c', margin:'3px 0 0' }}>
+                <p style={{ fontSize:11, color: groupEnded ? '#447a31' : '#9f3c1a', margin:'3px 0 0' }}>
                   ⏰ {formatSessionPeriod(activeSession)}
                 </p>
               )}
@@ -391,12 +395,12 @@ export default function CellWord() {
             <div>
               <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
               {selected
-                ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:'0 0 2px' }}>{selected.reference}</h1>
-                : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:18, color:'#4a3520', fontWeight:700, margin:0 }}>말씀 나눔</h1>
+                ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.reference}</h1>
+                : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:0 }}>말씀 나눔</h1>
               }
-              {selected?.sermon_title && <p style={{ fontSize:11, color:'#8b6e4e', margin:0 }}>{selected.sermon_title}</p>}
+              {selected?.sermon_title && <p style={{ fontSize:12, color:'#6b5740', margin:0, fontWeight:500 }}>{selected.sermon_title}</p>}
               {activeSession?.started_at && (
-                <p style={{ fontSize:10, color:'#8b6e4e', margin:'4px 0 0' }}>
+                <p style={{ fontSize:11, color:'#6b5740', margin:'4px 0 0' }}>
                   ⏰ {formatSessionPeriod(activeSession)}
                 </p>
               )}
@@ -415,7 +419,7 @@ export default function CellWord() {
           {loading ? (
             <div style={{ textAlign:'center', padding:48, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
               <div style={{ width:32, height:32, borderRadius:'50%', border:'3px solid #e8dcc8', borderTop:'3px solid #a0784e', animation:'spin 0.9s linear infinite' }}/>
-              <p style={{ color:'#a0784e', fontSize:13 }}>불러오는 중...</p>
+              <p style={{ color:'#7a5a33', fontSize:14, fontWeight:500 }}>불러오는 중...</p>
             </div>
           ) : !selected ? (
             <div style={{ textAlign:'center', padding:'60px 20px', color:'#b8a090' }}>
@@ -426,7 +430,7 @@ export default function CellWord() {
             <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
               {isLeaderNoticeVisible && (
                 <div style={{
-                  background:'linear-gradient(135deg,#1b5e20,#2e7d32)',
+                  background:'linear-gradient(135deg,#1f6b26,#2f8b3a)',
                   borderRadius:16,
                   padding:'16px 18px',
                   marginBottom:16,
@@ -434,7 +438,7 @@ export default function CellWord() {
                   animation:'slideDown 0.4s ease',
                 }}>
                   <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
-                  <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{activeSession.notice}</p>
+                  <p style={{ fontSize:16, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.72 }}>{activeSession.notice}</p>
                   <button
                     onClick={handleNoticeConfirm}
                     style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}
@@ -444,10 +448,10 @@ export default function CellWord() {
                 </div>
               )}
 
-              <div className="tab-bar" style={{ background:'#fff', display:'flex', borderBottom:'1px solid #e8dcc8', marginBottom:16, position:'sticky', top:0, zIndex:10 }}>
+              <div className="tab-bar" style={{ background:'rgba(255,255,255,0.92)', display:'flex', borderBottom:'1px solid #ddd0bc', marginBottom:16, position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)', borderTopLeftRadius:12, borderTopRightRadius:12 }}>
                 {TABS.map((t, i) => (
                   <button key={i} onClick={() => setTab(i)}
-                    style={{ flex:1, padding:'13px 8px', border:'none', background:'none', fontSize:13, fontFamily:"'Gowun Batang',serif", color: tab===i ? '#8b6e4e' : '#bba888', fontWeight: tab===i ? 700 : 400, borderBottom: tab===i ? '2.5px solid #a0784e' : '2.5px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
+                    style={{ flex:1, padding:'14px 8px', border:'none', background:'none', fontSize:14, fontFamily:"'Gowun Batang',serif", color: tab===i ? '#6a4d2d' : '#998465', fontWeight: tab===i ? 700 : 500, borderBottom: tab===i ? '2.5px solid #8b6a45' : '2.5px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
                     {t}
                   </button>
                 ))}
@@ -462,19 +466,19 @@ export default function CellWord() {
                     </div>
                   ) : (
                     <>
-                      <div style={{ background:'linear-gradient(135deg,#a0784e,#c4956a)', borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden' }}>
+                      <div style={{ background:'linear-gradient(135deg,#8f693f,#b98657)', borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden' }}>
                         <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
                         <p style={{ color:'rgba(245,230,208,0.85)', fontSize:10, letterSpacing:'0.15em', margin:'0 0 10px', fontWeight:600 }}>✦ 핵심 메시지</p>
-                        <p style={{ color:'#fff', fontFamily:"'Gowun Batang',serif", fontSize:16, lineHeight:1.85, margin:0, fontWeight:700 }}>{summary.key_point}</p>
+                        <p style={{ color:'#fff', fontFamily:"'Gowun Batang',serif", fontSize:17, lineHeight:1.9, margin:0, fontWeight:700 }}>{summary.key_point}</p>
                       </div>
                       <div style={{ background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #e8d8c0' }}>
                         <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 10px' }}>📖 전체 흐름</p>
-                        <p style={{ color:'#4a3520', fontFamily:"'Gowun Batang',serif", fontSize:14, lineHeight:1.95, margin:0 }}>{summary.overview}</p>
+                        <p style={{ color:'#382819', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:2, margin:0 }}>{summary.overview}</p>
                       </div>
                       {summary.sections?.map((sec, i) => (
                         <div key={i} style={{ background:'#fdf5ec', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0', borderLeft:'4px solid #c4956a', animation:`fadeUp 0.3s ease ${i*0.1}s both` }}>
                           <p style={{ fontSize:12, color:'#a0784e', fontWeight:700, margin:'0 0 8px' }}>{sec.title}</p>
-                          <p style={{ color:'#4a3728', fontFamily:"'Gowun Batang',serif", fontSize:14, lineHeight:1.9, margin:0 }}>{sec.content}</p>
+                          <p style={{ color:'#3a2a1b', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:1.95, margin:0 }}>{sec.content}</p>
                         </div>
                       ))}
                     </>
@@ -488,7 +492,7 @@ export default function CellWord() {
                   {selected.passage && (
                     <div style={S.card}>
                       <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 8px' }}>📖 {selected.reference} · 개역개정</p>
-                      <p style={{ color:'#4a3520', fontFamily:"'Gowun Batang',serif", fontSize:13, lineHeight:2.1, margin:0, whiteSpace:'pre-line' }}>{selected.passage}</p>
+                      <p style={{ color:'#30261d', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:2.05, margin:0, whiteSpace:'pre-line' }}>{selected.passage}</p>
                     </div>
                   )}
                   {qs.map((item, i) => {
@@ -498,8 +502,8 @@ export default function CellWord() {
                     return (
                       <div key={i} style={{ background:m.bg, borderRadius:14, padding:'16px 18px', borderLeft:`4px solid ${m.color}`, animation:`fadeUp 0.4s ease ${i*0.1}s both` }}>
                         <p style={{ fontSize:10, color:m.color, fontWeight:700, margin:'0 0 7px', letterSpacing:'0.06em' }}>{m.type}</p>
-                        {ex && <div style={{ background:'rgba(255,255,255,0.65)', borderRadius:8, padding:'9px 12px', marginBottom:8, borderLeft:`2px solid ${m.color}60` }}><p style={{ margin:0, color:'#6b5040', fontSize:12, lineHeight:1.8 }}>{ex}</p></div>}
-                        <p style={{ margin:0, color:'#4a3520', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:1.85, fontWeight:700 }}>{q}</p>
+                        {ex && <div style={{ background:'rgba(255,255,255,0.78)', borderRadius:8, padding:'10px 12px', marginBottom:9, borderLeft:`2px solid ${m.color}60` }}><p style={{ margin:0, color:'#5a4737', fontSize:13, lineHeight:1.85 }}>{ex}</p></div>}
+                        <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:16, lineHeight:1.9, fontWeight:700 }}>{q}</p>
                         <div style={{marginTop:10}}>
                           <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
                           <textarea
@@ -509,7 +513,7 @@ export default function CellWord() {
                               questionNotes: { ...(prev.questionNotes || {}), [i]: e.target.value }
                             }))}
                             placeholder="이 질문에 대한 내 생각과 나눔 포인트를 적어보세요."
-                            style={{width:'100%',minHeight:88,padding:'10px 12px',border:'1px solid rgba(0,0,0,0.08)',borderRadius:10,background:'rgba(255,255,255,0.72)',resize:'vertical',fontSize:13,color:'#4a3520',fontFamily:"'Noto Sans KR',sans-serif",lineHeight:1.7}}
+                            style={{width:'100%',minHeight:96,padding:'11px 12px',border:'1px solid #d6cbb9',borderRadius:10,background:'rgba(255,255,255,0.92)',resize:'vertical',fontSize:14,color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.75}}
                           />
                         </div>
                       </div>
@@ -521,7 +525,7 @@ export default function CellWord() {
                       value={personalNotes.prayer || ''}
                       onChange={e => setPersonalNotes(prev => ({ ...prev, prayer: e.target.value }))}
                       placeholder="오늘 셀모임을 통해 붙잡은 기도제목을 기록해 보세요. 이 내용은 내 기기에서만 저장됩니다."
-                      style={{width:'100%',minHeight:110,padding:'12px 14px',border:'1px solid #e8d8c0',borderRadius:10,background:'#faf7f4',resize:'vertical',fontSize:13,color:'#4a3520',fontFamily:"'Noto Sans KR',sans-serif",lineHeight:1.8}}
+                      style={{width:'100%',minHeight:120,padding:'12px 14px',border:'1px solid #d9ccba',borderRadius:10,background:'#fdfbf8',resize:'vertical',fontSize:14,color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.8}}
                     />
                     <p style={{fontSize:11,color:'#a08060',margin:'8px 0 0'}}>이 메모와 기도제목은 서버로 전송되지 않고, 이 기기 브라우저에만 저장됩니다.</p>
                   </div>
