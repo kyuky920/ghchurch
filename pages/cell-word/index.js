@@ -105,6 +105,7 @@ export default function CellWord() {
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
   const [noticeAcknowledged, setNoticeAcknowledged] = useState(false)
+  const [personalNotes, setPersonalNotes] = useState({ questionNotes: {}, prayer: '' })
 
   const pollRef      = useRef(null)
   const captureRef   = useRef(null)
@@ -251,6 +252,29 @@ export default function CellWord() {
     localStorage.setItem(`wl_notice_ack:${activeNoticeKey}`, 'true')
     setNoticeAcknowledged(true)
   }
+
+  useEffect(() => {
+    if (!selected?.id || typeof window === 'undefined') return
+    const saved = localStorage.getItem(`wl_cell_notes:${selected.id}`)
+    if (!saved) {
+      setPersonalNotes({ questionNotes: {}, prayer: '' })
+      return
+    }
+    try {
+      const parsed = JSON.parse(saved)
+      setPersonalNotes({
+        questionNotes: parsed.questionNotes || {},
+        prayer: parsed.prayer || '',
+      })
+    } catch(e) {
+      setPersonalNotes({ questionNotes: {}, prayer: '' })
+    }
+  }, [selected?.id])
+
+  useEffect(() => {
+    if (!selected?.id || typeof window === 'undefined') return
+    localStorage.setItem(`wl_cell_notes:${selected.id}`, JSON.stringify(personalNotes))
+  }, [selected?.id, personalNotes])
 
   // ── 모임 종료 ──
   async function handleGroupEnd() {
@@ -476,9 +500,31 @@ export default function CellWord() {
                         <p style={{ fontSize:10, color:m.color, fontWeight:700, margin:'0 0 7px', letterSpacing:'0.06em' }}>{m.type}</p>
                         {ex && <div style={{ background:'rgba(255,255,255,0.65)', borderRadius:8, padding:'9px 12px', marginBottom:8, borderLeft:`2px solid ${m.color}60` }}><p style={{ margin:0, color:'#6b5040', fontSize:12, lineHeight:1.8 }}>{ex}</p></div>}
                         <p style={{ margin:0, color:'#4a3520', fontFamily:"'Gowun Batang',serif", fontSize:15, lineHeight:1.85, fontWeight:700 }}>{q}</p>
+                        <div style={{marginTop:10}}>
+                          <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
+                          <textarea
+                            value={personalNotes.questionNotes?.[i] || ''}
+                            onChange={e => setPersonalNotes(prev => ({
+                              ...prev,
+                              questionNotes: { ...(prev.questionNotes || {}), [i]: e.target.value }
+                            }))}
+                            placeholder="이 질문에 대한 내 생각과 나눔 포인트를 적어보세요."
+                            style={{width:'100%',minHeight:88,padding:'10px 12px',border:'1px solid rgba(0,0,0,0.08)',borderRadius:10,background:'rgba(255,255,255,0.72)',resize:'vertical',fontSize:13,color:'#4a3520',fontFamily:"'Noto Sans KR',sans-serif",lineHeight:1.7}}
+                          />
+                        </div>
                       </div>
                     )
                   })}
+                  <div style={{...S.card, marginTop:4}}>
+                    <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>🙏 오늘의 기도제목</p>
+                    <textarea
+                      value={personalNotes.prayer || ''}
+                      onChange={e => setPersonalNotes(prev => ({ ...prev, prayer: e.target.value }))}
+                      placeholder="오늘 셀모임을 통해 붙잡은 기도제목을 기록해 보세요. 이 내용은 내 기기에서만 저장됩니다."
+                      style={{width:'100%',minHeight:110,padding:'12px 14px',border:'1px solid #e8d8c0',borderRadius:10,background:'#faf7f4',resize:'vertical',fontSize:13,color:'#4a3520',fontFamily:"'Noto Sans KR',sans-serif",lineHeight:1.8}}
+                    />
+                    <p style={{fontSize:11,color:'#a08060',margin:'8px 0 0'}}>이 메모와 기도제목은 서버로 전송되지 않고, 이 기기 브라우저에만 저장됩니다.</p>
+                  </div>
                 </div>
               )}
               <button

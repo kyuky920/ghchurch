@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await supabase
         .from('sermons')
-        .select('id,week,service,reference,sermon_title,passage,sermon_points,status,error_msg,card_verse,created_at')
+        .select('id,week,service,reference,sermon_title,passage,sermon_points,status,error_msg,card_verse,sermon_summary,questions,meditations,created_at')
         .order('week', { ascending: false })
         .order('service', { ascending: true })
       if (error) throw error

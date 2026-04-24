@@ -50,17 +50,21 @@ export default async function handler(req, res) {
   // ?all=true   → 전체 활성 세션 목록 (리더 대시보드용)
   // 기본        → 가장 최근 활성 세션 1개
   if (req.method === 'GET') {
-    const { group_no, all } = req.query
+    const { group_no, all, week } = req.query
     try {
       if (all === 'true') {
-        // 리더 대시보드: 오늘 시작된 세션 전체 (종료된 것 포함)
-        const todayStart = new Date()
-        todayStart.setHours(0,0,0,0)
-        const { data, error } = await supabase
+        let query = supabase
           .from('cell_sessions')
           .select('*')
-          .gte('started_at', todayStart.toISOString())
           .order('started_at', { ascending: true })
+        if (week) {
+          query = query.eq('week', week)
+        } else {
+          const todayStart = new Date()
+          todayStart.setHours(0,0,0,0)
+          query = query.gte('started_at', todayStart.toISOString())
+        }
+        const { data, error } = await query
         if (error) throw error
         // group_no별 가장 최신 세션만 (중복 제거)
         const latest = {}

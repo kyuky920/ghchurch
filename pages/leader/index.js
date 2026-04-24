@@ -121,6 +121,16 @@ function SermonTab() {
   const [saveMsg, setSaveMsg]   = useState('')
   const [errMsg, setErrMsg]     = useState('')
   const pollRef = useRef(null)
+  const [resultForm, setResultForm] = useState({
+    sermon_title: '',
+    sermon_summary: { key_point:'', overview:'', sections:[] },
+    questions: [],
+    meditations: [],
+    card_verse: '',
+  })
+  const [resultSaving, setResultSaving] = useState(false)
+  const [resultMsg, setResultMsg] = useState('')
+  const [resultErr, setResultErr] = useState('')
 
   useEffect(() => { loadAll() }, [])
   useEffect(() => {
@@ -151,6 +161,47 @@ function SermonTab() {
     setSaveMsg(''); setErrMsg(''); setScreen('editor')
   }
 
+  function parseArrayField(val) {
+    if (!val) return []
+    if (Array.isArray(val)) return val
+    try { return JSON.parse(val) } catch(e) { return [] }
+  }
+
+  function parseSummaryField(val) {
+    if (!val) return { key_point:'', overview:'', sections:[] }
+    if (typeof val === 'object') {
+      return {
+        key_point: val.key_point || '',
+        overview: val.overview || '',
+        sections: Array.isArray(val.sections) ? val.sections : [],
+      }
+    }
+    try {
+      const parsed = JSON.parse(val)
+      return {
+        key_point: parsed.key_point || '',
+        overview: parsed.overview || '',
+        sections: Array.isArray(parsed.sections) ? parsed.sections : [],
+      }
+    } catch(e) {
+      return { key_point:'', overview:'', sections:[] }
+    }
+  }
+
+  function openResultEdit(s) {
+    setEditData(s)
+    setResultForm({
+      sermon_title: s.sermon_title || '',
+      sermon_summary: parseSummaryField(s.sermon_summary),
+      questions: parseArrayField(s.questions),
+      meditations: parseArrayField(s.meditations),
+      card_verse: s.card_verse || '',
+    })
+    setResultMsg('')
+    setResultErr('')
+    setScreen('result')
+  }
+
   async function handleSave() {
     if (!reference.trim()||!passage.trim()) { setErrMsg('성경 구절과 본문을 입력해주세요.'); return }
     setSaving(true); setErrMsg(''); setSaveMsg('')
@@ -177,17 +228,90 @@ function SermonTab() {
     } catch(e) { alert('삭제 실패: '+e.message) }
   }
 
+  async function handleResultSave() {
+    if (!editData?.id) return
+    setResultSaving(true)
+    setResultMsg('')
+    setResultErr('')
+    try {
+      const res = await fetch(`/api/sermons/${editData.id}`, {
+        method: 'PATCH',
+        headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify(resultForm)
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setResultMsg('생성된 나눔자료를 수정했어요.')
+      await loadAll()
+      setTimeout(() => {
+        setResultMsg('')
+        setScreen('list')
+      }, 1200)
+    } catch(e) { setResultErr('저장 오류: ' + e.message) }
+    finally { setResultSaving(false) }
+  }
+
   const weeks = Array.from({length:10},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
   const grouped = sermons.reduce((acc,s)=>{ if(!acc[s.week]) acc[s.week]=[]; acc[s.week].push(s); return acc },{})
+
+  if (screen === 'result') return (
+    <div style={S.cont}>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:4}}>
+        <button onClick={()=>setScreen('list')} style={{background:'rgba(139,110,78,0.15)',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',color:'#8b6e4e',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center'}}>←</button>
+        <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:17,color:'#4a3520',fontWeight:700,margin:0}}>생성된 나눔자료 수정</h2>
+      </div>
+      <div style={{background:'#e8f5e9',borderRadius:12,padding:'12px 16px',border:'1px solid #a5d6a7'}}>
+        <p style={{fontSize:12,color:'#2e7d32',margin:0,lineHeight:1.7}}>📌 n8n이 만든 결과만 직접 수정해요. 원문 말씀을 바꾸고 재생성하려면 이전 화면의 말씀 자료 수정으로 돌아가세요.</p>
+      </div>
+      <div style={S.card}>
+        <label style={S.label}>설교 제목</label>
+        <input value={resultForm.sermon_title} onChange={e=>setResultForm(prev=>({...prev, sermon_title:e.target.value}))} style={S.input}/>
+      </div>
+      <div style={S.card}>
+        <label style={S.label}>핵심 메시지</label>
+        <textarea value={resultForm.sermon_summary.key_point || ''} onChange={e=>setResultForm(prev=>({...prev, sermon_summary:{...prev.sermon_summary, key_point:e.target.value}}))} style={{...S.input,minHeight:70,resize:'vertical'}}/>
+        <label style={{...S.label,marginTop:12}}>전체 흐름</label>
+        <textarea value={resultForm.sermon_summary.overview || ''} onChange={e=>setResultForm(prev=>({...prev, sermon_summary:{...prev.sermon_summary, overview:e.target.value}}))} style={{...S.input,minHeight:90,resize:'vertical'}}/>
+      </div>
+      <div style={S.card}>
+        <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:10}}>나눔 질문</p>
+        {(resultForm.questions || []).map((item, i) => (
+          <div key={i} style={{marginBottom:10,padding:'10px 12px',background:'#fdf5ec',borderRadius:10,border:'1px solid #e8c9a0'}}>
+            <label style={S.label}>질문 {i + 1}</label>
+            <textarea value={typeof item === 'string' ? item : (item.question || '')} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? (typeof q === 'string' ? e.target.value : { ...q, question: e.target.value }) : q)}))} style={{...S.input,minHeight:70,resize:'vertical'}}/>
+          </div>
+        ))}
+      </div>
+      <div style={S.card}>
+        <label style={S.label}>말씀카드 핵심 구절</label>
+        <input value={resultForm.card_verse || ''} onChange={e=>setResultForm(prev=>({...prev, card_verse:e.target.value}))} style={S.input}/>
+      </div>
+      <div style={S.card}>
+        <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:10}}>주간 묵상</p>
+        {(resultForm.meditations || []).map((item, i) => (
+          <div key={i} style={{marginBottom:10,padding:'10px 12px',background:'#f5f3fa',borderRadius:10,border:'1px solid #ddd0f0'}}>
+            <label style={S.label}>{item.day || `${i + 1}일차`}</label>
+            <input value={item.focus || ''} onChange={e=>setResultForm(prev=>({...prev, meditations: prev.meditations.map((m, idx) => idx === i ? { ...m, focus: e.target.value } : m)}))} placeholder="묵상 구절" style={{...S.input,marginBottom:6}}/>
+            <textarea value={item.message || ''} onChange={e=>setResultForm(prev=>({...prev, meditations: prev.meditations.map((m, idx) => idx === i ? { ...m, message: e.target.value } : m)}))} placeholder="묵상 메시지" style={{...S.input,minHeight:70,resize:'vertical'}}/>
+          </div>
+        ))}
+      </div>
+      {resultErr && <p style={S.err}>⚠ {resultErr}</p>}
+      {resultMsg && <p style={S.ok}>✓ {resultMsg}</p>}
+      <button onClick={handleResultSave} disabled={resultSaving} style={resultSaving ? S.btnGray : S.btnDark}>
+        {resultSaving ? '저장 중...' : '💾 생성된 나눔자료 저장'}
+      </button>
+    </div>
+  )
 
   if (screen === 'editor') return (
     <div style={S.cont}>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:4}}>
         <button onClick={()=>setScreen('list')} style={{background:'rgba(139,110,78,0.15)',border:'none',borderRadius:8,width:32,height:32,cursor:'pointer',color:'#8b6e4e',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center'}}>←</button>
-        <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:17,color:'#4a3520',fontWeight:700,margin:0}}>{editData?'말씀 자료 수정':'새 말씀 자료 등록'}</h2>
+        <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:17,color:'#4a3520',fontWeight:700,margin:0}}>{editData?'말씀 자료 수정 및 나눔자료 재생성':'새 말씀 자료 등록'}</h2>
       </div>
       <div style={{background:'#fdf5ec',borderRadius:12,padding:'12px 16px',border:'1px solid #e8c9a0'}}>
-        <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.7}}>📌 저장하면 <strong>n8n이 자동으로 나눔 자료를 생성</strong>해요.</p>
+        <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.7}}>📌 저장하면 <strong>n8n이 자동으로 나눔 자료를 생성</strong>하고, 기존 생성 결과도 다시 만들어져요.</p>
       </div>
       <div style={S.card}>
         <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:14}}>예배 정보</p>
@@ -260,7 +384,8 @@ function SermonTab() {
                   <StatusBadge status={s.status}/>
                 </div>
                 <div style={{display:'flex',gap:6}}>
-                  <button onClick={()=>openEdit(s)} style={S.btnSm}>수정</button>
+                  <button onClick={()=>openEdit(s)} style={S.btnSm}>말씀자료 수정</button>
+                  {s.status === 'done' && <button onClick={()=>openResultEdit(s)} style={{...S.btnSm,background:'#eef6ff',border:'1px solid #c7dff8',color:'#1565c0'}}>나눔자료 수정</button>}
                   <button onClick={()=>handleDelete(s.id)} style={{...S.btnSm,background:'#fff5f5',border:'1px solid #f5c6bb',color:'#c0392b'}}>삭제</button>
                 </div>
               </div>
@@ -302,7 +427,7 @@ function CellTab() {
       try {
         // 세션 + 멤버 동시 갱신
         const [sRes, mRes, aRes] = await Promise.all([
-          fetch('/api/cell-sessions?all=true'),
+          fetch(`/api/cell-sessions?all=true&week=${week}`),
           fetch('/api/members'),
           fetch('/api/members?all=true'),
         ])
@@ -326,7 +451,7 @@ function CellTab() {
       alive = false
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [])
+  }, [week])
 
   useEffect(() => {
     let alive = true
@@ -692,7 +817,11 @@ function CellTab() {
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
             <div>
               <p style={{fontSize:13,color:activeSession?'#2e7d32':'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 2px'}}>
-                {Object.values(groupSessions).some(s=>s.is_active) ? '🟢 셀 모임 진행 중' : '⏸ 셀 모임 대기 중'}
+                {Object.values(groupSessions).some(s=>s.is_active)
+                  ? '🟢 셀 모임 진행 중'
+                  : Object.values(groupSessions).length > 0
+                    ? '✅ 주차 기록 확인 중'
+                    : '⏸ 셀 모임 대기 중'}
               </p>
               <p style={{fontSize:11,color:activeSession?'#558b2f':'#8b6e4e',margin:0}}>
                 {activeSession
@@ -700,7 +829,7 @@ function CellTab() {
                   : '셀 리더가 모임을 시작하면 현황이 업데이트돼요'}
               </p>
             </div>
-            {(activeSession || Object.keys(groupSessions).length > 0) && (
+            {activeSession && (
               <button onClick={endAllSession}
                 style={{background:'#ffebee',border:'1px solid #ef9a9a',borderRadius:8,padding:'6px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
                 ⏹ 전체 종료
