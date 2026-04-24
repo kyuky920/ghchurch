@@ -418,6 +418,7 @@ function CellTab() {
   const [notice, setNotice]           = useState('')
   const [noticeSending, setNoticeSending] = useState(false)
   const [noticeMsg, setNoticeMsg]     = useState('')
+  const [week, setWeek] = useState(getWeekStr())
   const pollRef = useRef(null)
 
   // 세션 폴링 (10초마다)
@@ -500,10 +501,7 @@ function CellTab() {
       setActiveSession(null)
     } catch(e) {}
   }
-
-
   // 주차/예배 — 현재 주 기본값, 변경 가능
-    const [week, setWeek] = useState(getWeekStr())
   const weeks = Array.from({length:5},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
 
   const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
