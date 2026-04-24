@@ -1,5 +1,7 @@
 import { supabase } from '../../../lib/supabase'
 
+const LEADER_SECRET = process.env.LEADER_API_SECRET || process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
@@ -13,7 +15,7 @@ export default async function handler(req, res) {
     const { all } = req.query
     try {
       const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-      const q = supabase.from('members').select('id,device_id,name,last_seen,created_at')
+      const q = supabase.from('members').select('id,device_id,name,week,service,last_seen,created_at')
       const query = all === 'true' ? q : q.gte('last_seen', since)
       const { data, error } = await query.order('name', { ascending: true })
       if (error) throw error
@@ -38,7 +40,41 @@ export default async function handler(req, res) {
 
   // PATCH — last_seen 업데이트 (heartbeat)
   if (req.method === 'PATCH') {
-    const { device_id, week, service } = req.body
+    const { action, device_id, week, service, name } = req.body
+
+    // 리더 전용 회원 정보 수정
+    if (action === 'admin_update') {
+      const auth = req.headers.authorization || ''
+      if (auth !== `Bearer ${LEADER_SECRET}`) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' })
+      }
+      if (!device_id) return res.status(400).json({ ok: false, error: 'device_id 필수' })
+
+      const updates = {}
+      if (typeof name === 'string') updates.name = name.trim()
+      if ('week' in req.body) updates.week = week || null
+      if ('service' in req.body) updates.service = service || null
+      if (!Object.keys(updates).length) {
+        return res.status(400).json({ ok: false, error: '수정할 필드가 없어요.' })
+      }
+      if ('name' in updates && !updates.name) {
+        return res.status(400).json({ ok: false, error: '이름은 비워둘 수 없어요.' })
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .update(updates)
+          .eq('device_id', device_id)
+          .select('id,device_id,name,week,service,last_seen,created_at')
+          .single()
+        if (error) throw error
+        return res.status(200).json({ ok: true, data })
+      } catch(e) {
+        return res.status(500).json({ ok: false, error: e.message })
+      }
+    }
+
     if (!device_id) return res.status(400).json({ ok: false, error: 'device_id 필수' })
     try {
       const { error } = await supabase

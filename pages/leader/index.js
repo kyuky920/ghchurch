@@ -489,6 +489,11 @@ function CellTab() {
   const [noticeSending, setNoticeSending] = useState(false)
   const [noticeMsg, setNoticeMsg]     = useState('')
   const [week, setWeek] = useState(getWeekStr())
+  const [editingMember, setEditingMember] = useState(null)
+  const [memberForm, setMemberForm] = useState({ name: '', week: '', service: '' })
+  const [memberSaving, setMemberSaving] = useState(false)
+  const [memberMsg, setMemberMsg] = useState('')
+  const [memberErr, setMemberErr] = useState('')
   const pollRef = useRef(null)
 
   // 세션 폴링 (10초마다)
@@ -675,6 +680,79 @@ function CellTab() {
     }))
   }
 
+  function getLastSeenLabel(lastSeenValue) {
+    const lastSeen = lastSeenValue ? new Date(lastSeenValue) : null
+    const diffMin = lastSeen ? Math.floor((Date.now()-lastSeen.getTime())/60000) : null
+    if (diffMin === null) return ''
+    if (diffMin < 1) return '방금 전'
+    if (diffMin < 60) return `${diffMin}분 전`
+    if (diffMin < 1440) return `${Math.floor(diffMin/60)}시간 전`
+    return `${Math.floor(diffMin/1440)}일 전`
+  }
+
+  function openMemberEdit(member) {
+    setEditingMember(member)
+    setMemberForm({
+      name: member?.name || '',
+      week: member?.week || '',
+      service: member?.service || '',
+    })
+    setMemberMsg('')
+    setMemberErr('')
+  }
+
+  function closeMemberEdit() {
+    setEditingMember(null)
+    setMemberForm({ name: '', week: '', service: '' })
+  }
+
+  async function handleMemberSave() {
+    if (!editingMember?.device_id) return
+    const trimmedName = (memberForm.name || '').trim()
+    if (!trimmedName) {
+      setMemberErr('이름은 비워둘 수 없어요.')
+      return
+    }
+    setMemberSaving(true)
+    setMemberErr('')
+    setMemberMsg('')
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PATCH',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({
+          action: 'admin_update',
+          device_id: editingMember.device_id,
+          name: trimmedName,
+          week: memberForm.week || null,
+          service: memberForm.service || null,
+        })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+
+      const updatedName = d.data?.name || trimmedName
+      const updatedWeek = d.data?.week || null
+      const updatedService = d.data?.service || null
+
+      setMembers(prev => prev.map(m => m.device_id === editingMember.device_id ? { ...m, name: updatedName, week: updatedWeek, service: updatedService } : m))
+      setAllMembers(prev => prev.map(m => m.device_id === editingMember.device_id ? { ...m, name: updatedName, week: updatedWeek, service: updatedService } : m))
+      setGroups(prev => prev.map(g => ({
+        ...g,
+        leader: g.leader?.device_id === editingMember.device_id ? { ...g.leader, name: updatedName } : g.leader,
+        members: (g.members || []).map(m => m.device_id === editingMember.device_id ? { ...m, name: updatedName } : m),
+      })))
+
+      setMemberMsg('회원 정보를 수정했어요.')
+      setTimeout(() => setMemberMsg(''), 2000)
+      closeMemberEdit()
+    } catch(e) {
+      setMemberErr('수정 오류: ' + e.message)
+    } finally {
+      setMemberSaving(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true); setErrMsg(''); setSaveMsg('')
     try {
@@ -772,9 +850,7 @@ function CellTab() {
                   </div>
                   <div style={{display:'flex',flexWrap:'wrap',gap:7,paddingLeft:14}}>
                     {offline.map(m=>{
-                      const lastSeen = m.last_seen ? new Date(m.last_seen) : null
-                      const diffMin = lastSeen ? Math.floor((Date.now()-lastSeen.getTime())/60000) : null
-                      const timeLabel = diffMin === null ? '' : diffMin < 60 ? `${diffMin}분 전` : diffMin < 1440 ? `${Math.floor(diffMin/60)}시간 전` : `${Math.floor(diffMin/1440)}일 전`
+                      const timeLabel = getLastSeenLabel(m.last_seen)
                       return (
                         <span key={m.device_id} style={{background:'#f5f5f5',border:'1px solid #e0e0e0',borderRadius:20,padding:'4px 12px',fontSize:12,color:'#757575',fontWeight:500,display:'flex',alignItems:'center',gap:5}}>
                           <span style={{width:6,height:6,borderRadius:'50%',background:'#bdbdbd',flexShrink:0,display:'inline-block'}}/>
@@ -788,6 +864,94 @@ function CellTab() {
               )
             })()}
           </>
+        )}
+      </div>
+
+      {/* 회원 정보 관리 */}
+      <div style={S.card}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>회원 정보 관리</p>
+          <span style={{fontSize:11,color:'#8b6e4e',fontWeight:600}}>총 {allMembers.length}명</span>
+        </div>
+        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>리더가 이름/주차/예배 정보를 수정할 수 있어요.</p>
+
+        {editingMember && (
+          <div style={{background:'#fdf5ec',border:'1px solid #e8c9a0',borderRadius:10,padding:'10px 12px',marginBottom:10}}>
+            <p style={{fontSize:12,color:'#8b6e4e',fontWeight:700,margin:'0 0 8px'}}>수정 중: {editingMember.name}</p>
+            <div style={{display:'grid',gridTemplateColumns:'1.2fr 1fr 1fr',gap:8}}>
+              <input
+                value={memberForm.name}
+                onChange={e=>setMemberForm(prev=>({ ...prev, name: e.target.value }))}
+                placeholder="이름"
+                style={{...S.input,padding:'8px 10px',fontSize:13}}
+              />
+              <select
+                value={memberForm.week}
+                onChange={e=>setMemberForm(prev=>({ ...prev, week: e.target.value }))}
+                style={{...S.input,padding:'8px 10px',fontSize:13,cursor:'pointer'}}
+              >
+                <option value="">주차 미지정</option>
+                {weeks.map(w => <option key={w} value={w}>{weekLabel(w)}</option>)}
+              </select>
+              <select
+                value={memberForm.service}
+                onChange={e=>setMemberForm(prev=>({ ...prev, service: e.target.value }))}
+                style={{...S.input,padding:'8px 10px',fontSize:13,cursor:'pointer'}}
+              >
+                <option value="">예배 미지정</option>
+                <option value="morning">주일 오전</option>
+                <option value="afternoon">주일 오후</option>
+              </select>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button
+                onClick={handleMemberSave}
+                disabled={memberSaving}
+                style={{background:memberSaving?'#c4a882':'#4a3520',color:'#fff',border:'none',borderRadius:8,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:memberSaving?'not-allowed':'pointer'}}
+              >
+                {memberSaving ? '저장 중...' : '저장'}
+              </button>
+              <button
+                onClick={closeMemberEdit}
+                style={{background:'#fff',border:'1px solid #ddd0ba',borderRadius:8,padding:'7px 12px',fontSize:12,fontWeight:600,cursor:'pointer',color:'#8b6e4e'}}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        )}
+
+        {memberErr && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {memberErr}</p>}
+        {memberMsg && <p style={{...S.ok,margin:'0 0 8px'}}>✓ {memberMsg}</p>}
+
+        {allMembers.length === 0 ? (
+          <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>등록된 회원이 없어요.</p>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:260,overflowY:'auto',paddingRight:2}}>
+            {allMembers.map(m => {
+              const isOnline = members.some(o => o.device_id === m.device_id)
+              const lastSeenLabel = getLastSeenLabel(m.last_seen)
+              return (
+                <div key={m.device_id} style={{display:'flex',alignItems:'center',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'8px 10px',background:'#fff'}}>
+                  <span style={{width:8,height:8,borderRadius:'50%',background:isOnline?'#4caf50':'#bdbdbd',flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{m.name}</p>
+                    <p style={{fontSize:10,color:'#a08060',margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                      {isOnline ? '접속 중' : `미접속${lastSeenLabel ? ` · ${lastSeenLabel}` : ''}`}
+                      {m.week ? ` · ${weekLabel(m.week)}` : ''}
+                      {m.service === 'morning' ? ' · 오전' : m.service === 'afternoon' ? ' · 오후' : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={()=>openMemberEdit(m)}
+                    style={{...S.btnSm,padding:'5px 10px'}}
+                  >
+                    수정
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 
