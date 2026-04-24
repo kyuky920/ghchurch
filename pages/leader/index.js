@@ -55,16 +55,86 @@ const TREE_GROUP_NAMES = [
   '향나무',
   '버드나무',
   '대추나무',
+  '소나무',
+  '전나무',
+  '주목',
+  '동백나무',
+  '매화나무',
+  '벚나무',
+  '단풍나무',
+  '이팝나무',
+  '은행나무',
+  '느티나무',
+  '회화나무',
+  '배롱나무',
+  '복숭아나무',
+  '자두나무',
+  '사과나무',
+  '배나무',
+  '모과나무',
+  '감나무',
+  '석류나무',
+  '유자나무',
+  '귤나무',
+  '레몬나무',
+  '자몽나무',
+  '밤나무',
+  '호두나무',
+  '오동나무',
+  '플라타너스',
+  '메타세쿼이아',
+  '자작나무',
+  '박태기나무',
+  '산수유나무',
+  '목련나무',
+  '산딸나무',
+  '개나리나무',
+  '철쭉나무',
+  '진달래나무',
+  '치자나무',
+  '금목서',
+  '은목서',
+  '후박나무',
+  '사철나무',
+  '비자나무',
+  '편백나무',
+  '삼나무',
+  '가문비나무',
+  '구상나무',
+  '히말라야시다',
+  '아카시아나무',
+  '서어나무',
+  '팽나무',
+  '산벚나무',
+  '쪽동백나무',
+  '산사나무',
+  '마가목',
+  '돈나무',
+  '황칠나무',
+  '보리수나무',
+  '산초나무',
+  '구기자나무',
+  '찔레나무',
+  '해당화나무',
 ]
 
-function getTreeGroupName(index) {
-  const base = TREE_GROUP_NAMES[index % TREE_GROUP_NAMES.length]
-  const round = Math.floor(index / TREE_GROUP_NAMES.length)
-  return round === 0 ? base : `${base} ${round + 1}`
+function shuffle(array) {
+  const copy = [...array]
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
 }
 
-function getTreeGroupLabel(index) {
-  return `${index + 1}조 - ${getTreeGroupName(index)}`
+function buildRandomGroupNames(count) {
+  const shuffled = shuffle(TREE_GROUP_NAMES)
+  return Array.from({ length: count }, (_, index) => {
+    const base = shuffled[index % shuffled.length]
+    const round = Math.floor(index / shuffled.length)
+    const name = round === 0 ? base : `${base} ${round + 1}`
+    return `${index + 1}조 - ${name}`
+  })
 }
 
 function formatGroupName(group) {
@@ -578,14 +648,16 @@ function CellTab() {
     if (members.length === 0) { setErrMsg('접속 중인 멤버가 없어요.'); return }
     setErrMsg('')
     const shuffled = [...members].sort(() => Math.random() - 0.5)
-    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupLabel(i), leader:null, members:[] }))
+    const names = buildRandomGroupNames(groupCount)
+    const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:names[i], leader:null, members:[] }))
     shuffled.forEach((m,i) => { result[i%groupCount].members.push({name:m.name, device_id:m.device_id}) })
     setGroups(result)
   }
 
   function handleManualInit() {
     setErrMsg('')
-    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:getTreeGroupLabel(i), leader:null, members:[] })))
+    const names = buildRandomGroupNames(groupCount)
+    setGroups(Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:names[i], leader:null, members:[] })))
   }
 
   function moveMember(member, fromGroupNo, toGroupNo) {

@@ -58,6 +58,7 @@ const GROUP_BGS    = ['#fdf5ec','#f0f7f1','#f5f3fa','#fef8f0','#ffebee','#e3f2fd
 
 export default function CellPage() {
   const router = useRouter()
+  const [week, setWeek] = useState(getWeekStr())
 
   // 기본 상태
   const [name, setName]             = useState('')
@@ -94,14 +95,13 @@ export default function CellPage() {
   const heartbeatRef = useRef(null)
   const pollRef      = useRef(null)
   const deviceId     = useRef('')
+  const weeks = Array.from({length:8},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
 
   // ── 초기화 ──
   useEffect(() => {
     deviceId.current = getDeviceId()
     const saved = getSavedName()
     if (saved) { setName(saved); setRegistered(true); startHeartbeat(saved) }
-    loadData()
-    startPoll()
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
       if (pollRef.current) clearInterval(pollRef.current)
@@ -120,7 +120,7 @@ export default function CellPage() {
   const pollFn = useRef(null)
   pollFn.current = async function() {
     try {
-      const res = await fetch('/api/cell-sessions?all=true')
+      const res = await fetch(`/api/cell-sessions?all=true&week=${week}`)
       const d = await res.json()
       if (d.ok && Array.isArray(d.data)) {
         const map = {}
@@ -131,9 +131,18 @@ export default function CellPage() {
   }
 
   function startPoll() {
+    if (pollRef.current) clearInterval(pollRef.current)
     pollFn.current()
     pollRef.current = setInterval(() => pollFn.current(), 5000)
   }
+
+  useEffect(() => {
+    loadData()
+    startPoll()
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [week])
 
   // ── Heartbeat ──
   function startHeartbeat(memberName) {
@@ -156,7 +165,7 @@ export default function CellPage() {
     try {
       const [mRes, gRes] = await Promise.all([
         fetch('/api/members'),
-        fetch(`/api/cell-groups?week=${getWeekStr()}`)
+        fetch(`/api/cell-groups?week=${week}`)
       ])
       const mData = await mRes.json()
       const gData = await gRes.json()
@@ -213,7 +222,7 @@ export default function CellPage() {
       const res = await fetch('/api/cell-groups', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ week: getWeekStr(), group_no: group.group_no, device_id: did, name })
+        body: JSON.stringify({ week, group_no: group.group_no, device_id: did, name })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
@@ -231,10 +240,17 @@ export default function CellPage() {
       const d = await res.json()
       if (d.ok && d.data?.length) {
         const sorted = d.data.sort((a,b) => b.week.localeCompare(a.week))
-        const weeks = [...new Set(sorted.map(s=>s.week))].slice(0,2)
-        const recent = sorted.filter(s => weeks.includes(s.week))
+        const targetWeekSermons = sorted.filter(s => s.week === week)
+        const fallbackWeeks = [...new Set(sorted.map(s=>s.week))].slice(0,2)
+        const recent = targetWeekSermons.length ? targetWeekSermons : sorted.filter(s => fallbackWeeks.includes(s.week))
         setSermons(recent)
-        if (recent.length) { setSelWeek(recent[0].week); setSelService(recent[0].service) }
+        if (targetWeekSermons.length) {
+          setSelWeek(week)
+          setSelService(targetWeekSermons[0].service)
+        } else if (recent.length) {
+          setSelWeek(recent[0].week)
+          setSelService(recent[0].service)
+        }
       }
     } catch(e) {}
   }
@@ -266,7 +282,7 @@ export default function CellPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          week: getWeekStr(),
+          week,
           service: 'all',
           group_no: String(myGroup.group_no),
           group_name: formatGroupName(myGroup),
@@ -297,7 +313,7 @@ export default function CellPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'end',
-          week: getWeekStr(),
+          week,
           group_no: String(myGroup.group_no),
           device_id: deviceId.current
         })
@@ -397,6 +413,15 @@ export default function CellPage() {
           ) : (
             <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>이름을 입력하고 조 편성을 확인하세요</p>
           )}
+        </div>
+
+        <div style={{maxWidth:640,margin:'16px auto 0',padding:'0 16px'}}>
+          <div style={{background:'#fff',borderRadius:14,padding:'14px 16px',border:'1px solid #e8d8c0'}}>
+            <label style={{display:'block',fontSize:12,color:'#8b6e4e',fontWeight:700,marginBottom:8}}>대상 주 선택</label>
+            <select value={week} onChange={e=>setWeek(e.target.value)} style={{width:'100%',padding:'11px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:14,background:'#faf7f4',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}>
+              {weeks.map(w => <option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
+            </select>
+          </div>
         </div>
 
         {/* ── 내 조 세션 알림 배너 ── */}
