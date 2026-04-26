@@ -104,6 +104,7 @@ export default function CellWord() {
   const [amLeader, setAmLeader]           = useState(false)
   const [groupEnded, setGroupEnded]       = useState(false)
   const [groupEnding, setGroupEnding]     = useState(false)
+  const [onlineMembers, setOnlineMembers] = useState([])
   const [noticeAcknowledged, setNoticeAcknowledged] = useState(false)
   const [personalNotes, setPersonalNotes] = useState({ questionNotes: {}, prayer: '' })
 
@@ -128,8 +129,13 @@ export default function CellWord() {
         return
       }
 
-      const sRes = await fetch(`/api/cell-sessions?group_no=${gno}`)
+      const [sRes, mRes] = await Promise.all([
+        fetch(`/api/cell-sessions?group_no=${gno}`),
+        fetch('/api/members')
+      ])
       const sData = await sRes.json()
+      const mData = await mRes.json()
+      if (mData.ok) setOnlineMembers(mData.data || [])
 
       if (!sData.ok || !sData.data) {
         setActiveSession(null); setMyGroup(null); setAmLeader(false)
@@ -425,6 +431,29 @@ export default function CellWord() {
 
         {/* ── 컨텐츠 ── */}
         <div style={S.cont}>
+          {onlineMembers.length > 0 && (
+            <div style={{...S.card, marginBottom:12}}>
+              <p style={{fontSize:11, color:'#8b6e4e', fontWeight:700, margin:'0 0 8px'}}>🟢 현재 접속 중 {onlineMembers.length}명</p>
+              <div style={{display:'flex', flexWrap:'wrap', gap:7}}>
+                {onlineMembers.map(m => (
+                  <span
+                    key={m.device_id}
+                    style={{
+                      background:'#e8f5e9',
+                      border:'1px solid #a5d6a7',
+                      borderRadius:20,
+                      padding:'4px 10px',
+                      fontSize:12,
+                      color:'#2e7d32',
+                      fontWeight:600,
+                    }}
+                  >
+                    {m.name}{m.device_id === getDeviceId() ? ' (나)' : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {loading ? (
             <div style={{ textAlign:'center', padding:48, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
               <div style={{ width:32, height:32, borderRadius:'50%', border:'3px solid #e8dcc8', borderTop:'3px solid #a0784e', animation:'spin 0.9s linear infinite' }}/>
