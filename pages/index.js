@@ -28,6 +28,18 @@ function weekLabel(week) {
   }
   return week
 }
+function weekToComparableDate(week) {
+  if (!week) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(week)) return week
+  if (/^\d{4}-W\d{2}$/.test(week)) {
+    const [y, w] = week.split('-W').map(Number)
+    const jan4 = new Date(y, 0, 4)
+    const sun = new Date(jan4)
+    sun.setDate(jan4.getDate() - jan4.getDay() + (w - 1) * 7)
+    return `${sun.getFullYear()}-${String(sun.getMonth() + 1).padStart(2, '0')}-${String(sun.getDate()).padStart(2, '0')}`
+  }
+  return week
+}
 const S = {
   wrap:   { minHeight:'100vh', background:'#faf6f0', fontFamily:"'Noto Sans KR',sans-serif" },
   header: { background:'linear-gradient(160deg,#e8dcc8,#d4c4a8)', padding:'28px 20px 22px', borderBottom:'1px solid #c8b898', position:'relative', overflow:'hidden' },
@@ -51,7 +63,13 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/sermons').then(r=>r.json()).then(d=>{
       if (d.ok) {
-        const list = d.data || []
+        const list = [...(d.data || [])].sort((a, b) => {
+          const aWeek = weekToComparableDate(a?.week)
+          const bWeek = weekToComparableDate(b?.week)
+          if (aWeek && bWeek && aWeek !== bWeek) return bWeek.localeCompare(aWeek)
+          if (a?.service !== b?.service) return a?.service === 'morning' ? -1 : 1
+          return (b?.id || 0) - (a?.id || 0)
+        })
         setSermons(list)
         if (list.length) {
           // URL 파라미터로 주차/예배/탭 설정 (셀 모임 시작 시)
@@ -106,7 +124,11 @@ export default function Home() {
   Object.keys(grouped).forEach(wk => {
     grouped[wk].sort((a,b) => a.service === 'morning' ? -1 : 1)
   })
-  const sortedWeeks = Object.keys(grouped).sort((a,b) => b.localeCompare(a))
+  const sortedWeeks = Object.keys(grouped).sort((a,b) => {
+    const aa = weekToComparableDate(a)
+    const bb = weekToComparableDate(b)
+    return bb.localeCompare(aa)
+  })
 
   async function saveCurrentViewAsImage() {
     if (!captureRef.current || !selected) return
