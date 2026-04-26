@@ -671,9 +671,28 @@ function CellTab() {
 
   function moveMember(member, fromGroupNo, toGroupNo) {
     setGroups(prev => prev.map(g => {
-      if (g.group_no === fromGroupNo) return {...g, members:g.members.filter(m=>m.device_id!==member.device_id)}
+      if (g.group_no === fromGroupNo) {
+        const isLeader = g.leader?.device_id === member.device_id
+        return {
+          ...g,
+          members:g.members.filter(m=>m.device_id!==member.device_id),
+          leader: isLeader ? null : g.leader,
+        }
+      }
       if (g.group_no === toGroupNo)   return {...g, members:[...g.members, member]}
       return g
+    }))
+  }
+
+  function removeMemberFromGroup(member, fromGroupNo) {
+    setGroups(prev => prev.map(g => {
+      if (g.group_no !== fromGroupNo) return g
+      const isLeader = g.leader?.device_id === member.device_id
+      return {
+        ...g,
+        members: (g.members || []).filter(m => m.device_id !== member.device_id),
+        leader: isLeader ? null : g.leader,
+      }
     }))
   }
 
@@ -895,9 +914,15 @@ function CellTab() {
                       <span style={{fontSize:13,color:'#4a3520',fontWeight:600}}>
                         {g.leader?.device_id===m.device_id && '👑 '}{m.name}
                       </span>
-                      <select onChange={e=>{ if(e.target.value){ moveMember(m,g.group_no,Number(e.target.value)); e.target.value='' } }}
+                      <select onChange={e=>{
+                        if (!e.target.value) return
+                        if (e.target.value === '__unassign__') removeMemberFromGroup(m, g.group_no)
+                        else moveMember(m, g.group_no, Number(e.target.value))
+                        e.target.value = ''
+                      }}
                         style={{fontSize:11,padding:'2px 4px',border:'none',background:'transparent',color:GROUP_COLORS[gi%GROUP_COLORS.length],cursor:'pointer'}}>
                         <option value="">↔</option>
+                        <option value="__unassign__">조 제외</option>
                         {groups.filter(og=>og.group_no!==g.group_no).map(og=><option key={og.group_no} value={og.group_no}>→ {formatGroupName(og)}</option>)}
                       </select>
                     </div>
