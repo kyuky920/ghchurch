@@ -31,6 +31,18 @@ function weekLabel(week) {
   if (isNaN(d.getTime())) return week
   return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
 }
+function weekToComparableDate(week) {
+  if (!week) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(week)) return week
+  if (/^\d{4}-W\d{2}$/.test(week)) {
+    const [y, w] = week.split('-W').map(Number)
+    const jan4 = new Date(y, 0, 4)
+    const sun = new Date(jan4)
+    sun.setDate(jan4.getDate() - jan4.getDay() + (w - 1) * 7)
+    return `${sun.getFullYear()}-${String(sun.getMonth() + 1).padStart(2, '0')}-${String(sun.getDate()).padStart(2, '0')}`
+  }
+  return week
+}
 function formatSessionTime(value) {
   if (!value) return ''
   const date = new Date(value)
@@ -332,7 +344,9 @@ function SermonTab() {
 
   const weeks = Array.from({length:10},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
   const sortedSermons = [...sermons].sort((a, b) => {
-    if (a?.week && b?.week && a.week !== b.week) return b.week.localeCompare(a.week)
+    const aWeek = weekToComparableDate(a?.week)
+    const bWeek = weekToComparableDate(b?.week)
+    if (aWeek && bWeek && aWeek !== bWeek) return bWeek.localeCompare(aWeek)
     if (a?.service !== b?.service) return a?.service === 'morning' ? -1 : 1
     const aTs = new Date(a?.created_at || 0).getTime()
     const bTs = new Date(b?.created_at || 0).getTime()
