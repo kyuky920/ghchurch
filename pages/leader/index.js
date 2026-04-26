@@ -331,7 +331,15 @@ function SermonTab() {
   }
 
   const weeks = Array.from({length:10},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()+(1-i)*7); return getWeekStr(d) })
-  const grouped = sermons.reduce((acc,s)=>{ if(!acc[s.week]) acc[s.week]=[]; acc[s.week].push(s); return acc },{})
+  const sortedSermons = [...sermons].sort((a, b) => {
+    const aTs = new Date(a?.created_at || 0).getTime()
+    const bTs = new Date(b?.created_at || 0).getTime()
+    if (bTs !== aTs) return bTs - aTs
+    if (a?.week && b?.week && a.week !== b.week) return b.week.localeCompare(a.week)
+    if (a?.service !== b?.service) return a?.service === 'morning' ? -1 : 1
+    return (b?.id || 0) - (a?.id || 0)
+  })
+  const grouped = sortedSermons.reduce((acc,s)=>{ if(!acc[s.week]) acc[s.week]=[]; acc[s.week].push(s); return acc },{})
 
   if (screen === 'result') return (
     <div style={S.cont}>
