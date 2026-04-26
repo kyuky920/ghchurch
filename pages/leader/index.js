@@ -709,9 +709,10 @@ function CellTab() {
   }
 
   function handleRandom() {
-    if (members.length === 0) { setErrMsg('접속 중인 멤버가 없어요.'); return }
+    const candidates = allMembers.length ? allMembers : members
+    if (candidates.length === 0) { setErrMsg('편성할 회원이 없어요.'); return }
     setErrMsg('')
-    const shuffled = [...members].sort(() => Math.random() - 0.5)
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5)
     const names = buildRandomGroupNames(groupCount)
     const result = Array.from({length:groupCount},(_,i)=>({ group_no:i+1, name:names[i], leader:null, members:[] }))
     shuffled.forEach((m,i) => { result[i%groupCount].members.push({name:m.name, device_id:m.device_id}) })
