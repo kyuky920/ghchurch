@@ -373,6 +373,39 @@ function SermonTab() {
         <textarea value={resultForm.sermon_summary.key_point || ''} onChange={e=>setResultForm(prev=>({...prev, sermon_summary:{...prev.sermon_summary, key_point:e.target.value}}))} style={{...S.input,minHeight:70,resize:'vertical'}}/>
         <label style={{...S.label,marginTop:12}}>전체 흐름</label>
         <textarea value={resultForm.sermon_summary.overview || ''} onChange={e=>setResultForm(prev=>({...prev, sermon_summary:{...prev.sermon_summary, overview:e.target.value}}))} style={{...S.input,minHeight:90,resize:'vertical'}}/>
+        <label style={{...S.label,marginTop:12}}>단락별 요약</label>
+        {(resultForm.sermon_summary.sections || []).length === 0 ? (
+          <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>등록된 단락 요약이 없어요.</p>
+        ) : (
+          (resultForm.sermon_summary.sections || []).map((sec, i) => (
+            <div key={i} style={{marginTop:8,padding:'10px 12px',background:'#fdf5ec',borderRadius:10,border:'1px solid #e8c9a0'}}>
+              <label style={S.label}>단락 {i + 1} 제목</label>
+              <input
+                value={sec?.title || ''}
+                onChange={e=>setResultForm(prev=>({
+                  ...prev,
+                  sermon_summary: {
+                    ...prev.sermon_summary,
+                    sections: (prev.sermon_summary.sections || []).map((item, idx) => idx === i ? { ...(item || {}), title: e.target.value } : item)
+                  }
+                }))}
+                style={{...S.input,marginBottom:6}}
+              />
+              <label style={S.label}>단락 {i + 1} 내용</label>
+              <textarea
+                value={sec?.content || ''}
+                onChange={e=>setResultForm(prev=>({
+                  ...prev,
+                  sermon_summary: {
+                    ...prev.sermon_summary,
+                    sections: (prev.sermon_summary.sections || []).map((item, idx) => idx === i ? { ...(item || {}), content: e.target.value } : item)
+                  }
+                }))}
+                style={{...S.input,minHeight:70,resize:'vertical'}}
+              />
+            </div>
+          ))
+        )}
       </div>
       <div style={S.card}>
         <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:10}}>나눔 질문</p>
