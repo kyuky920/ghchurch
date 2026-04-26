@@ -70,6 +70,7 @@ export default function CellPage() {
   // 조 편성
   const [groups, setGroups]         = useState(null)  // { groups: [...] }
   const [members, setMembers]       = useState([])
+  const [showMemberList, setShowMemberList] = useState(false)
   const [loading, setLoading]       = useState(false)
 
   // 내 조
@@ -558,8 +559,29 @@ export default function CellPage() {
               <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',border:'1px solid #e8d8c0',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite',flexShrink:0}}/>
                 <p style={{fontSize:12,color:'#7a9e7e',margin:0,fontWeight:600}}>접속 중 · {members.length}명 함께 있어요</p>
-                <button onClick={loadData} style={{marginLeft:'auto',background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#8b6e4e',fontWeight:600}}>🔄</button>
+                <button
+                  onClick={() => setShowMemberList(prev => !prev)}
+                  style={{marginLeft:'auto',background:'#eef5ef',border:'1px solid #cfe3d2',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#4f7f59',fontWeight:700}}
+                >
+                  {showMemberList ? '접기 ▲' : '명단 보기 ▼'}
+                </button>
+                <button onClick={loadData} style={{background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#8b6e4e',fontWeight:600}}>🔄</button>
               </div>
+              {showMemberList && (
+                <div style={{background:'#fff',borderRadius:12,padding:'12px 14px',border:'1px solid #e8d8c0',marginTop:-8}}>
+                  {members.length === 0 ? (
+                    <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>현재 접속 중인 사람이 없어요.</p>
+                  ) : (
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                      {members.map(m => (
+                        <span key={m.device_id} style={{background:'#e8f5e9',border:'1px solid #a5d6a7',borderRadius:20,padding:'4px 11px',fontSize:12,color:'#2e7d32',fontWeight:600}}>
+                          {m.name}{m.device_id===deviceId.current ? ' (나)' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── 셀 리더: 모임 시작 버튼 ── */}
               {canStartSession && (
