@@ -106,6 +106,7 @@ export default function Home() {
   Object.keys(grouped).forEach(wk => {
     grouped[wk].sort((a,b) => a.service === 'morning' ? -1 : 1)
   })
+  const sortedWeeks = Object.keys(grouped).sort((a,b) => b.localeCompare(a))
 
   async function saveCurrentViewAsImage() {
     if (!captureRef.current || !selected) return
@@ -164,7 +165,7 @@ export default function Home() {
           {!loading && !error && (
             <>
               {/* 주차 선택 드롭다운 */}
-              {Object.keys(grouped).length > 0 && (
+              {sortedWeeks.length > 0 && (
                 <div style={{marginBottom:14}}>
                   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
                     <label style={{fontSize:12,color:'#8b6e4e',fontWeight:700,whiteSpace:'nowrap'}}>주차 선택</label>
@@ -180,7 +181,7 @@ export default function Home() {
                       }}
                       style={{flex:1,padding:'10px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:14,background:'#fff',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}
                     >
-                      {Object.keys(grouped).map(wk=>(
+                      {sortedWeeks.map(wk=>(
                         <option key={wk} value={wk}>{weekLabel(wk)}</option>
                       ))}
                     </select>

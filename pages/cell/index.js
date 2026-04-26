@@ -276,7 +276,11 @@ export default function CellPage() {
       const res = await fetch('/api/sermons')
       const d = await res.json()
       if (d.ok && d.data?.length) {
-        const sorted = d.data.sort((a,b) => b.week.localeCompare(a.week))
+        const sorted = [...d.data].sort((a,b) => {
+          if (a.week !== b.week) return b.week.localeCompare(a.week)
+          if (a.service !== b.service) return a.service === 'morning' ? -1 : 1
+          return (b.id || 0) - (a.id || 0)
+        })
         const targetWeekSermons = sorted.filter(s => s.week === week)
         const fallbackWeeks = [...new Set(sorted.map(s=>s.week))].slice(0,2)
         const recent = targetWeekSermons.length ? targetWeekSermons : sorted.filter(s => fallbackWeeks.includes(s.week))
@@ -720,10 +724,12 @@ export default function CellPage() {
                 </div>
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
-                  {Object.entries(sermons.reduce((acc,s)=>{ if(!acc[s.week]) acc[s.week]=[]; acc[s.week].push(s); return acc },{})).map(([wk, items]) => (
+                  {Object.entries(sermons.reduce((acc,s)=>{ if(!acc[s.week]) acc[s.week]=[]; acc[s.week].push(s); return acc },{}))
+                    .sort(([a],[b]) => b.localeCompare(a))
+                    .map(([wk, items]) => (
                     <div key={wk} style={{marginBottom:8}}>
                       <p style={{fontSize:11,color:'#a08060',fontWeight:700,margin:'0 0 8px'}}>{weekLabel(wk)}</p>
-                      {items.map(s => {
+                      {[...items].sort((a,b) => a.service === b.service ? (b.id || 0) - (a.id || 0) : (a.service === 'morning' ? -1 : 1)).map(s => {
                         const isSel = selWeek===s.week && selService===s.service
                         const isMorn = s.service==='morning'
                         return (
