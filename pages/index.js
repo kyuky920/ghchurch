@@ -67,13 +67,19 @@ export default function Home() {
             : list.find(s => s.week === targetWeek && s.service === 'morning')
           setSelected(target || list[0])
 
-          if (qTab !== undefined) setTab(Number(qTab))
+          if (qTab !== undefined) {
+            const parsedTab = Number(qTab)
+            // 구버전 호환: 0(요약), 1(질문) -> 신버전 1(요약), 2(질문)
+            if (parsedTab === 0) setTab(1)
+            else if (parsedTab === 1) setTab(2)
+            else if (parsedTab >= 0 && parsedTab <= 2) setTab(parsedTab)
+          }
         }
       } else setError(d.error)
     }).catch(e=>setError(e.message)).finally(()=>setLoading(false))
   },[router.query])
 
-  const TABS = ['말씀 요약','나눔 질문']
+  const TABS = ['성경말씀','말씀 요약','나눔질문']
 
   // Supabase에서 JSON string으로 올 수 있어서 파싱 처리
   const parseField = (val) => {
@@ -112,7 +118,7 @@ export default function Home() {
       })
       const link = document.createElement('a')
       const safeRef = (selected.reference || 'wordlife').replace(/[^\w\-가-힣]+/g, '_')
-      const tabName = tab === 0 ? 'summary' : 'questions'
+      const tabName = tab === 0 ? 'passage' : tab === 1 ? 'summary' : 'questions'
       link.download = `${safeRef}_${tabName}.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
@@ -209,8 +215,8 @@ export default function Home() {
                     <span style={{background:selected.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:11,fontWeight:700,display:'inline-block',marginBottom:8}}>
                       {selected.service==='morning'?'주일 오전':'주일 오후'}
                     </span>
-                    <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{selected.reference}</h2>
-                    {selected.sermon_title&&<p style={{fontSize:13,color:'#8b6e4e',margin:0}}>{selected.sermon_title}</p>}
+                    <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{selected.sermon_title || selected.reference}</h2>
+                    {selected.sermon_title && selected.reference && <p style={{fontSize:13,color:'#8b6e4e',margin:0}}>{selected.reference}</p>}
                   </div>
 
                   {/* 탭 */}
@@ -223,8 +229,24 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {/* 탭 0: 말씀 요약 */}
+                  {/* 탭 0: 성경말씀 */}
                   {tab===0 && (
+                    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                      {selected.passage ? (
+                        <div style={S.card}>
+                          <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>📖 {selected.reference} · 개역개정</p>
+                          <p style={{color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:13,lineHeight:2.1,margin:0,whiteSpace:'pre-line'}}>{selected.passage}</p>
+                        </div>
+                      ) : (
+                        <div style={{textAlign:'center',padding:'40px 20px',color:'#b8a090'}}>
+                          <p style={{fontSize:13}}>본문 말씀을 불러오는 중...</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 탭 1: 말씀 요약 */}
+                  {tab===1 && (
                     <div style={{display:'flex',flexDirection:'column',gap:14}}>
                       {!summary ? (
                         <div style={{textAlign:'center',padding:'40px 20px',color:'#b8a090'}}>
@@ -255,15 +277,9 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* 탭 1: 나눔 질문 */}
-                  {tab===1 && (
+                  {/* 탭 2: 나눔 질문 */}
+                  {tab===2 && (
                     <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                      {selected.passage && (
-                        <div style={S.card}>
-                          <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>📖 {selected.reference} · 개역개정</p>
-                          <p style={{color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:13,lineHeight:2.1,margin:0,whiteSpace:'pre-line'}}>{selected.passage}</p>
-                        </div>
-                      )}
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0'}}>✦ {selected.reference} 나눔 질문</p>
                       {qs.map((item,i)=>{
                         const q=typeof item==='string'?item:item.question
