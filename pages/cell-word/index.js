@@ -84,6 +84,31 @@ const QMETA = [
   { type:'이번 주 실천', color:'#3f6f54', bg:'#eff8f1' },
 ]
 
+function normalizeQuestions(raw) {
+  const toItem = (q, sectionTitle = '') => {
+    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q }
+    return {
+      section_title: q?.section_title || sectionTitle || '',
+      category: q?.category || q?.type || '',
+      explanation: q?.explanation || q?.context || '',
+      question: q?.question || q?.text || q?.content || '',
+    }
+  }
+
+  if (Array.isArray(raw)) return raw.map((q) => toItem(q)).filter((q) => q.question)
+
+  if (raw && typeof raw === 'object') {
+    const sections = Array.isArray(raw.sections) ? raw.sections : []
+    const list = sections.flatMap((s) => {
+      const title = s?.section_title || s?.title || s?.topic || ''
+      const questions = Array.isArray(s?.questions) ? s.questions : []
+      return questions.map((q) => toItem(q, title))
+    })
+    if (list.length) return list.filter((q) => q.question)
+  }
+  return []
+}
+
 const S = {
   wrap:   { minHeight:'100vh', background:'#f6f3ee', fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif", color:'#2f281f' },
   header: { background:'linear-gradient(160deg,#ede2d2,#d8c8ad)', padding:'20px 20px 16px', borderBottom:'1px solid #ccbda3', position:'relative', overflow:'hidden' },
@@ -313,7 +338,7 @@ export default function CellWord() {
     if (Array.isArray(val)) return val
     try { return JSON.parse(val) } catch(e) { return [] }
   }
-  const qs   = parseField(selected?.questions)
+  const qs   = normalizeQuestions(parseField(selected?.questions))
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
@@ -515,12 +540,12 @@ export default function CellWord() {
               {tab===2 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                   {qs.map((item, i) => {
-                    const q  = typeof item==='string' ? item : item.question
-                    const ex = typeof item==='object' ? item.explanation : ''
+                    const q  = item.question
+                    const ex = item.explanation
                     const m  = QMETA[i] || QMETA[0]
                     return (
                       <div key={i} style={{ background:m.bg, borderRadius:14, padding:'16px 18px', borderLeft:`4px solid ${m.color}`, animation:`fadeUp 0.4s ease ${i*0.1}s both` }}>
-                        <p style={{ fontSize:10, color:m.color, fontWeight:700, margin:'0 0 7px', letterSpacing:'0.06em' }}>{m.type}</p>
+                        <p style={{ fontSize:10, color:m.color, fontWeight:700, margin:'0 0 7px', letterSpacing:'0.06em' }}>{item.section_title || item.category || m.type}</p>
                         {ex && <div style={{ background:'rgba(255,255,255,0.78)', borderRadius:8, padding:'10px 12px', marginBottom:9, borderLeft:`2px solid ${m.color}60` }}><p style={{ margin:0, color:'#5a4737', fontSize:13, lineHeight:1.85 }}>{ex}</p></div>}
                         <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:16, lineHeight:1.9, fontWeight:700 }}>{q}</p>
                         <div style={{marginTop:10}}>

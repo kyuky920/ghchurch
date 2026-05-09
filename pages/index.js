@@ -10,6 +10,31 @@ const QMETA = [
   { type:'이번 주 실천', color:'#6b8f71', bg:'#edf4ee' },
 ]
 
+function normalizeQuestions(raw) {
+  const toItem = (q, sectionTitle = '') => {
+    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q }
+    return {
+      section_title: q?.section_title || sectionTitle || '',
+      category: q?.category || q?.type || '',
+      explanation: q?.explanation || q?.context || '',
+      question: q?.question || q?.text || q?.content || '',
+    }
+  }
+
+  if (Array.isArray(raw)) return raw.map((q) => toItem(q)).filter((q) => q.question)
+
+  if (raw && typeof raw === 'object') {
+    const sections = Array.isArray(raw.sections) ? raw.sections : []
+    const list = sections.flatMap((s) => {
+      const title = s?.section_title || s?.title || s?.topic || ''
+      const questions = Array.isArray(s?.questions) ? s.questions : []
+      return questions.map((q) => toItem(q, title))
+    })
+    if (list.length) return list.filter((q) => q.question)
+  }
+  return []
+}
+
 function weekLabel(week) {
   if (!week) return ''
   // YYYY-MM-DD 형식
@@ -108,7 +133,7 @@ export default function Home() {
     }
     return []
   }
-  const qs      = parseField(selected?.questions)
+  const qs      = normalizeQuestions(parseField(selected?.questions))
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
@@ -305,12 +330,12 @@ export default function Home() {
                     <div style={{display:'flex',flexDirection:'column',gap:12}}>
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0'}}>✦ {selected.reference} 나눔 질문</p>
                       {qs.map((item,i)=>{
-                        const q=typeof item==='string'?item:item.question
-                        const ex=typeof item==='object'?item.explanation:''
+                        const q=item.question
+                        const ex=item.explanation
                         const m=QMETA[i]||QMETA[0]
                         return (
                           <div key={i} style={{background:m.bg,borderRadius:14,padding:'16px 18px',borderLeft:`4px solid ${m.color}`,animation:`fadeUp 0.4s ease ${i*0.1}s both`}}>
-                            <p style={{fontSize:10,color:m.color,fontWeight:700,margin:'0 0 7px',letterSpacing:'0.06em'}}>{m.type}</p>
+                            <p style={{fontSize:10,color:m.color,fontWeight:700,margin:'0 0 7px',letterSpacing:'0.06em'}}>{item.section_title || item.category || m.type}</p>
                             {ex&&<div style={{background:'rgba(255,255,255,0.65)',borderRadius:8,padding:'9px 12px',marginBottom:8,borderLeft:`2px solid ${m.color}60`}}><p style={{margin:0,color:'#6b5040',fontSize:12,lineHeight:1.8}}>{ex}</p></div>}
                             <p style={{margin:0,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:15,lineHeight:1.85,fontWeight:700}}>{q}</p>
                           </div>

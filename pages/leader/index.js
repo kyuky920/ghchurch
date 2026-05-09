@@ -208,6 +208,9 @@ function SermonTab() {
   const [passage, setPassage]   = useState('')
   const [sTitle, setSTitle]     = useState('')
   const [sPoints, setSPoints]   = useState('')
+  const [sOutline, setSOutline] = useState('')
+  const [sSummaryInput, setSSummaryInput] = useState('')
+  const [sTranscript, setSTranscript] = useState('')
   const [saving, setSaving]     = useState(false)
   const [saveMsg, setSaveMsg]   = useState('')
   const [errMsg, setErrMsg]     = useState('')
@@ -240,22 +243,70 @@ function SermonTab() {
     finally { setLoading(false) }
   }
 
+  function parseSourceMaterials(rawPoints) {
+    const defaults = { outline: '', summary: '', transcript: '', legacy_points: '' }
+    if (!rawPoints || typeof rawPoints !== 'string') return defaults
+    try {
+      const parsed = JSON.parse(rawPoints)
+      if (parsed && typeof parsed === 'object' && (parsed.outline !== undefined || parsed.summary !== undefined || parsed.transcript !== undefined)) {
+        return {
+          outline: parsed.outline || '',
+          summary: parsed.summary || '',
+          transcript: parsed.transcript || '',
+          legacy_points: parsed.legacy_points || '',
+        }
+      }
+      return { ...defaults, legacy_points: rawPoints }
+    } catch (e) {
+      return { ...defaults, legacy_points: rawPoints }
+    }
+  }
+
   function openNew() {
     setEditData(null); setWeek(getWeekStr()); setService('morning')
     setRef(''); setPassage(''); setSTitle(''); setSPoints('')
+    setSOutline(''); setSSummaryInput(''); setSTranscript('')
     setSaveMsg(''); setErrMsg(''); setScreen('editor')
   }
   function openEdit(s) {
+    const source = parseSourceMaterials(s.sermon_points || '')
     setEditData(s); setWeek(s.week); setService(s.service)
     setRef(s.reference); setPassage(s.passage||'')
-    setSTitle(s.sermon_title||''); setSPoints(s.sermon_points||'')
+    setSTitle(s.sermon_title||''); setSPoints(source.legacy_points || s.sermon_points || '')
+    setSOutline(source.outline || '')
+    setSSummaryInput(source.summary || '')
+    setSTranscript(source.transcript || '')
     setSaveMsg(''); setErrMsg(''); setScreen('editor')
   }
 
   function parseArrayField(val) {
     if (!val) return []
     if (Array.isArray(val)) return val
+    if (typeof val === 'object') return val
     try { return JSON.parse(val) } catch(e) { return [] }
+  }
+
+  function normalizeQuestionsForEdit(value) {
+    const toItem = (q, sectionTitle = '') => {
+      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q }
+      return {
+        section_title: q?.section_title || sectionTitle || '',
+        category: q?.category || q?.type || '',
+        explanation: q?.explanation || q?.context || '',
+        question: q?.question || q?.text || q?.content || '',
+      }
+    }
+    if (Array.isArray(value)) return value.map((q) => toItem(q)).filter((q) => q.question)
+    if (value && typeof value === 'object') {
+      const sections = Array.isArray(value.sections) ? value.sections : []
+      const list = sections.flatMap((s) => {
+        const title = s?.section_title || s?.title || s?.topic || ''
+        const questions = Array.isArray(s?.questions) ? s.questions : []
+        return questions.map((q) => toItem(q, title))
+      })
+      return list.filter((q) => q.question)
+    }
+    return []
   }
 
   function parseSummaryField(val) {
@@ -284,7 +335,7 @@ function SermonTab() {
     setResultForm({
       sermon_title: s.sermon_title || '',
       sermon_summary: parseSummaryField(s.sermon_summary),
-      questions: parseArrayField(s.questions),
+      questions: normalizeQuestionsForEdit(parseArrayField(s.questions)),
       meditations: parseArrayField(s.meditations),
       card_verse: s.card_verse || '',
     })
@@ -297,10 +348,16 @@ function SermonTab() {
     if (!reference.trim()||!passage.trim()) { setErrMsg('성경 구절과 본문을 입력해주세요.'); return }
     setSaving(true); setErrMsg(''); setSaveMsg('')
     try {
+      const sourcePayload = {
+        outline: sOutline || '',
+        summary: sSummaryInput || '',
+        transcript: sTranscript || '',
+        legacy_points: sPoints || '',
+      }
       const res = await fetch('/api/sermons', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ week, service, reference, sermon_title:sTitle, passage, sermon_points:sPoints })
+        body: JSON.stringify({ week, service, reference, sermon_title:sTitle, passage, sermon_points: JSON.stringify(sourcePayload) })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
@@ -412,7 +469,10 @@ function SermonTab() {
         {(resultForm.questions || []).map((item, i) => (
           <div key={i} style={{marginBottom:10,padding:'10px 12px',background:'#fdf5ec',borderRadius:10,border:'1px solid #e8c9a0'}}>
             <label style={S.label}>질문 {i + 1}</label>
-            <textarea value={typeof item === 'string' ? item : (item.question || '')} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? (typeof q === 'string' ? e.target.value : { ...q, question: e.target.value }) : q)}))} style={{...S.input,minHeight:70,resize:'vertical'}}/>
+            <input value={item.section_title || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, section_title: e.target.value } : q)}))} placeholder="대지/주제" style={{...S.input,marginBottom:6}}/>
+            <input value={item.category || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, category: e.target.value } : q)}))} placeholder="카테고리(선택)" style={{...S.input,marginBottom:6}}/>
+            <textarea value={item.explanation || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, explanation: e.target.value } : q)}))} placeholder="질문 의도/진행 가이드" style={{...S.input,minHeight:62,resize:'vertical',marginBottom:6}}/>
+            <textarea value={item.question || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, question: e.target.value } : q)}))} style={{...S.input,minHeight:70,resize:'vertical'}}/>
           </div>
         ))}
       </div>
@@ -475,9 +535,21 @@ function SermonTab() {
           <label style={S.label}>말씀 본문 (개역개정) *</label>
           <textarea value={passage} onChange={e=>setPassage(e.target.value)} placeholder="성경 앱에서 개역개정 본문을 복사해서 붙여넣어 주세요." style={{...S.input,minHeight:140,resize:'vertical'}}/>
         </div>
+        <div style={{marginBottom:12}}>
+          <label style={S.label}>설교 대지 <span style={S.opt}>(선택)</span></label>
+          <textarea value={sOutline} onChange={e=>setSOutline(e.target.value)} placeholder={"예)\n1. 그리스도의 법을 성취함 (1-5)\n  1) 온유한 심령으로 바로 잡음\n  2) 각자 자기의 일을 살핌"} style={{...S.input,minHeight:96,resize:'vertical'}}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={S.label}>설교 요약 <span style={S.opt}>(선택)</span></label>
+          <textarea value={sSummaryInput} onChange={e=>setSSummaryInput(e.target.value)} placeholder={"주요 주제 / 다음 할 일 / 단락별 요약 등을 입력하세요."} style={{...S.input,minHeight:120,resize:'vertical'}}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={S.label}>설교 원문 <span style={S.opt}>(선택)</span></label>
+          <textarea value={sTranscript} onChange={e=>setSTranscript(e.target.value)} placeholder={"설교 녹취 원문(긴 텍스트 가능)"} style={{...S.input,minHeight:180,resize:'vertical'}}/>
+        </div>
         <div>
-          <label style={S.label}>설교 요지 <span style={S.opt}>(선택)</span></label>
-          <textarea value={sPoints} onChange={e=>setSPoints(e.target.value)} placeholder={"예)\n1. 왕이 없는 시대의 혼란\n  1) 각자 소견대로 행함"} style={{...S.input,minHeight:80,resize:'vertical'}}/>
+          <label style={S.label}>추가 메모(하위호환) <span style={S.opt}>(선택)</span></label>
+          <textarea value={sPoints} onChange={e=>setSPoints(e.target.value)} placeholder={"기존 설교 요지 텍스트가 있으면 여기에 유지할 수 있어요."} style={{...S.input,minHeight:70,resize:'vertical'}}/>
         </div>
       </div>
       {errMsg&&<p style={S.err}>⚠ {errMsg}</p>}

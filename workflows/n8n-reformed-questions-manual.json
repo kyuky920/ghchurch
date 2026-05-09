@@ -1,0 +1,324 @@
+{
+  "name": "심기욱개인프로젝트_v2_manual_trigger",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger-1",
+      "name": "수동 실행",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "sermons",
+        "limit": 5,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "pending"
+            }
+          ]
+        }
+      },
+      "id": "abda839c-6a2e-4c9c-b9b6-e7a799befaa7",
+      "name": "Pending 1개 조회",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -696,
+        -520
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "FxLPnVB7JVPJxciC",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "id": "532ba5fd-897d-4ab9-a5ac-504fc655d75e"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0505896b-79c0-4e48-a062-ffbfbbb9e3ef",
+      "name": "Pending 있음?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -472,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sermons",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Pending 1개 조회').first().json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "b401a386-66b1-44e1-8c65-b8acceceed4d",
+      "name": "status → processing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -248,
+        -720
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "FxLPnVB7JVPJxciC",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Pending 1개 조회').first().json;\n\nconst reference   = item.reference || '';\nconst passage     = item.passage || '';\nconst sTitle      = item.sermon_title || '';\n\nlet outline = '';\nlet summary = '';\nlet transcript = '';\nlet legacyPoints = '';\n\ntry {\n  const parsedPoints = item.sermon_points ? JSON.parse(item.sermon_points) : null;\n  if (parsedPoints && typeof parsedPoints === 'object') {\n    outline = parsedPoints.outline || '';\n    summary = parsedPoints.summary || '';\n    transcript = parsedPoints.transcript || '';\n    legacyPoints = parsedPoints.legacy_points || '';\n  } else if (item.sermon_points) {\n    legacyPoints = item.sermon_points;\n  }\n} catch (e) {\n  legacyPoints = item.sermon_points || '';\n}\n\nconst lines = [\n  '너는 개혁주의(성경의 충분성, 하나님의 주권, 인간의 전적 타락, 은혜 중심 구원, 그리스도 중심 해석) 신학적 틀 위에서 청년부 소그룹 나눔 질문지를 만드는 목회자 보조자다.',\n  '목표는 지식 확인이 아니라 회개, 믿음, 순종, 공동체적 책임으로 이어지는 깊은 나눔이다.',\n  '',\n  '[핵심 원칙]',\n  '1) 반드시 아래 입력 텍스트(본문/설교대지/설교요약/설교원문)에 근거할 것. 근거 없는 확장 금지.',\n  '2) 질문은 정답형/추상형이 아니라 자기 고백과 삶의 적용을 이끌 것.',\n  '3) 율법주의·도덕주의로 흐르지 않게, 복음(그리스도의 은혜와 십자가)을 동력으로 제시할 것.',\n  '4) 공동체 적용 질문을 포함해 서로 짐을 지는 방향으로 연결할 것.',\n  '5) 섹션(대지/주제)별로 질문 수를 고정하지 말 것. 중요도에 따라 유동적으로 만들 것.',\n  '',\n  `성경 구절: ${reference}`,\n  sTitle ? `설교 제목: ${sTitle}` : '',\n  outline ? `설교 대지:\\n${outline}` : '',\n  summary ? `설교 요약:\\n${summary}` : '',\n  transcript ? `설교 원문:\\n${transcript}` : '',\n  legacyPoints ? `추가 메모(하위호환):\\n${legacyPoints}` : '',\n  '성경 본문(개역개정):',\n  passage,\n  '',\n  '[출력 스키마 - JSON만 반환, 다른 텍스트 금지]',\n  '{',\n  '  \"questions\": {',\n  '    \"sections\": [',\n  '      {',\n  '        \"section_title\": \"대지/주제 이름\",',\n  '        \"summary_anchor\": \"이 섹션의 핵심 진술 1~2문장\",',\n  '        \"questions\": [',\n  '          {',\n  '            \"category\": \"관찰|해석|복음성찰|적용|공동체\",',\n  '            \"explanation\": \"인도자를 위한 의도 설명 1~2문장\",',\n  '            \"question\": \"참여자가 답할 실제 질문(한 문장)\",',\n  '            \"scripture_anchor\": \"관련 구절/표현\",',\n  '            \"follow_up\": \"더 깊이 들어가는 보조 질문(선택)\"',\n  '          }',\n  '        ]',\n  '      }',\n  '    ],',\n  '    \"meta\": {',\n  '      \"theological_focus\": [\"핵심 신학 포인트\"],',\n  '      \"application_focus\": [\"이번 주 적용 키워드\"]',\n  '    }',\n  '  }',\n  '}',\n  '',\n  '[질문 품질 기준]',\n  '- 각 섹션은 최소 2문항 이상 권장 (단, 꼭 필요한 만큼만).',\n  '- 최소 한 문항은 죄 인식/회개를, 최소 한 문항은 은혜/복음 소망을, 최소 한 문항은 공동체 실천을 다룰 것.',\n  '- 청년들이 방어적으로 굳지 않도록 정죄형 문장을 피하고, 진실한 고백을 여는 어조를 사용할 것.'\n];\n\nreturn [{\n  json: {\n    id: item.id,\n    userMsg: lines.filter(Boolean).join('\\n')\n  }\n}];"
+      },
+      "id": "99000c2c-a2f2-4616-a108-7483a189e976",
+      "name": "프롬프트 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userMsg }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        136,
+        -520
+      ],
+      "id": "2e092e24-54dc-4552-8f2c-1b31e8758397",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "deploymentId": "claude-sonnet-4.6",
+        "maxTokens": 5000
+      },
+      "type": "CUSTOM.thinqAI_ChatModel",
+      "typeVersion": 1,
+      "position": [
+        120,
+        -320
+      ],
+      "id": "11c1f19b-80b4-4c5b-a91c-8c3d4d40aae8",
+      "name": "ThinQ AI - Chat Model"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nlet raw = '';\nif (input.content?.[0]?.text) raw = input.content[0].text;\nelse if (input.text) raw = input.text;\nelse if (input.output) raw = input.output;\nelse if (input.message) raw = input.message;\nelse raw = JSON.stringify(input);\n\nraw = raw.trim()\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```\\s*$/i, '')\n  .trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  throw new Error('JSON 파싱 실패: ' + e.message + '\\n원본: ' + raw.slice(0, 400));\n}\n\nconst qRoot = parsed.questions || parsed;\n\nlet sections = [];\nif (Array.isArray(qRoot?.sections)) {\n  sections = qRoot.sections;\n} else if (Array.isArray(qRoot)) {\n  sections = [{ section_title: '통합 나눔', summary_anchor: '', questions: qRoot }];\n}\n\nconst normalizedSections = sections\n  .map((sec, secIdx) => {\n    const title = sec?.section_title || sec?.title || sec?.topic || `섹션 ${secIdx + 1}`;\n    const anchor = sec?.summary_anchor || sec?.summary || '';\n    const qList = Array.isArray(sec?.questions) ? sec.questions : [];\n\n    const normalizedQuestions = qList\n      .map((q) => {\n        if (typeof q === 'string') {\n          return {\n            section_title: title,\n            category: '적용',\n            explanation: '',\n            question: q,\n            scripture_anchor: '',\n            follow_up: ''\n          };\n        }\n        return {\n          section_title: title,\n          category: q?.category || q?.type || '적용',\n          explanation: q?.explanation || q?.context || '',\n          question: q?.question || q?.text || q?.content || '',\n          scripture_anchor: q?.scripture_anchor || q?.anchor || '',\n          follow_up: q?.follow_up || q?.followup || ''\n        };\n      })\n      .filter((q) => q.question);\n\n    return {\n      section_title: title,\n      summary_anchor: anchor,\n      questions: normalizedQuestions\n    };\n  })\n  .filter((sec) => sec.questions.length > 0);\n\nif (!normalizedSections.length) {\n  throw new Error('유효한 sections/questions가 없습니다. 받은 키: ' + Object.keys(parsed).join(', '));\n}\n\nconst flattened = normalizedSections.flatMap((sec) => sec.questions);\n\nconst output = {\n  sections: normalizedSections,\n  flat: flattened,\n  meta: qRoot?.meta || {}\n};\n\nconst id = $('프롬프트 생성').first().json.id;\n\nreturn [{\n  json: {\n    id,\n    questions: output\n  }\n}];"
+      },
+      "id": "61d7c0a6-2cc1-4967-8028-dcf043ea9c4b",
+      "name": "JSON 파싱",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "sermons",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldId": "questions",
+              "fieldValue": "={{ JSON.stringify($json.questions) }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            },
+            {
+              "fieldId": "error_msg",
+              "fieldValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "id": "e799c14e-c983-44b2-afb9-bed6ee367fbd",
+      "name": "status → done 저장",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        584,
+        -520
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "FxLPnVB7JVPJxciC",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "수동 실행": {
+      "main": [
+        [
+          {
+            "node": "Pending 1개 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pending 1개 조회": {
+      "main": [
+        [
+          {
+            "node": "Pending 있음?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pending 있음?": {
+      "main": [
+        [
+          {
+            "node": "status → processing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "프롬프트 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "프롬프트 생성": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ThinQ AI - Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "JSON 파싱",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON 파싱": {
+      "main": [
+        [
+          {
+            "node": "status → done 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "tags": [
+    {
+      "name": "church"
+    },
+    {
+      "name": "wordlife"
+    }
+  ]
+}
