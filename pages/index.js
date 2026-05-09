@@ -128,6 +128,7 @@ export default function Home() {
   const parseField = (val) => {
     if (!val) return []
     if (Array.isArray(val)) return val
+    if (typeof val === 'object') return val
     if (typeof val === 'string') {
       try { return JSON.parse(val) } catch(e) { return [] }
     }

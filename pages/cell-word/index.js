@@ -336,6 +336,7 @@ export default function CellWord() {
   const parseField = (val) => {
     if (!val) return []
     if (Array.isArray(val)) return val
+    if (typeof val === 'object') return val
     try { return JSON.parse(val) } catch(e) { return [] }
   }
   const qs   = normalizeQuestions(parseField(selected?.questions))
