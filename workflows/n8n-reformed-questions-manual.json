@@ -16,16 +16,7 @@
       "parameters": {
         "operation": "getAll",
         "tableId": "sermons",
-        "limit": 5,
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "status",
-              "condition": "eq",
-              "keyValue": "pending"
-            }
-          ]
-        }
+        "limit": 30
       },
       "id": "abda839c-6a2e-4c9c-b9b6-e7a799befaa7",
       "name": "Pending 1개 조회",
@@ -84,7 +75,7 @@
             {
               "keyName": "id",
               "condition": "eq",
-              "keyValue": "={{ $('Pending 1개 조회').first().json.id }}"
+              "keyValue": "={{ $('처리 대상 선택').first().json.id }}"
             }
           ]
         },
@@ -118,7 +109,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $('Pending 1개 조회').first().json;\n\nconst reference   = item.reference || '';\nconst passage     = item.passage || '';\nconst sTitle      = item.sermon_title || '';\n\nlet outline = '';\nlet summary = '';\nlet transcript = '';\nlet legacyPoints = '';\n\ntry {\n  const parsedPoints = item.sermon_points ? JSON.parse(item.sermon_points) : null;\n  if (parsedPoints && typeof parsedPoints === 'object') {\n    outline = parsedPoints.outline || '';\n    summary = parsedPoints.summary || '';\n    transcript = parsedPoints.transcript || '';\n    legacyPoints = parsedPoints.legacy_points || '';\n  } else if (item.sermon_points) {\n    legacyPoints = item.sermon_points;\n  }\n} catch (e) {\n  legacyPoints = item.sermon_points || '';\n}\n\nconst lines = [\n  '너는 개혁주의(성경의 충분성, 하나님의 주권, 인간의 전적 타락, 은혜 중심 구원, 그리스도 중심 해석) 신학적 틀 위에서 청년부 소그룹 나눔 질문지를 만드는 목회자 보조자다.',\n  '목표는 지식 확인이 아니라 회개, 믿음, 순종, 공동체적 책임으로 이어지는 깊은 나눔이다.',\n  '',\n  '[핵심 원칙]',\n  '1) 반드시 아래 입력 텍스트(본문/설교대지/설교요약/설교원문)에 근거할 것. 근거 없는 확장 금지.',\n  '2) 질문은 정답형/추상형이 아니라 자기 고백과 삶의 적용을 이끌 것.',\n  '3) 율법주의·도덕주의로 흐르지 않게, 복음(그리스도의 은혜와 십자가)을 동력으로 제시할 것.',\n  '4) 공동체 적용 질문을 포함해 서로 짐을 지는 방향으로 연결할 것.',\n  '5) 섹션(대지/주제)별로 질문 수를 고정하지 말 것. 중요도에 따라 유동적으로 만들 것.',\n  '',\n  `성경 구절: ${reference}`,\n  sTitle ? `설교 제목: ${sTitle}` : '',\n  outline ? `설교 대지:\\n${outline}` : '',\n  summary ? `설교 요약:\\n${summary}` : '',\n  transcript ? `설교 원문:\\n${transcript}` : '',\n  legacyPoints ? `추가 메모(하위호환):\\n${legacyPoints}` : '',\n  '성경 본문(개역개정):',\n  passage,\n  '',\n  '[출력 스키마 - JSON만 반환, 다른 텍스트 금지]',\n  '{',\n  '  \"questions\": {',\n  '    \"sections\": [',\n  '      {',\n  '        \"section_title\": \"대지/주제 이름\",',\n  '        \"summary_anchor\": \"이 섹션의 핵심 진술 1~2문장\",',\n  '        \"questions\": [',\n  '          {',\n  '            \"category\": \"관찰|해석|복음성찰|적용|공동체\",',\n  '            \"explanation\": \"인도자를 위한 의도 설명 1~2문장\",',\n  '            \"question\": \"참여자가 답할 실제 질문(한 문장)\",',\n  '            \"scripture_anchor\": \"관련 구절/표현\",',\n  '            \"follow_up\": \"더 깊이 들어가는 보조 질문(선택)\"',\n  '          }',\n  '        ]',\n  '      }',\n  '    ],',\n  '    \"meta\": {',\n  '      \"theological_focus\": [\"핵심 신학 포인트\"],',\n  '      \"application_focus\": [\"이번 주 적용 키워드\"]',\n  '    }',\n  '  }',\n  '}',\n  '',\n  '[질문 품질 기준]',\n  '- 각 섹션은 최소 2문항 이상 권장 (단, 꼭 필요한 만큼만).',\n  '- 최소 한 문항은 죄 인식/회개를, 최소 한 문항은 은혜/복음 소망을, 최소 한 문항은 공동체 실천을 다룰 것.',\n  '- 청년들이 방어적으로 굳지 않도록 정죄형 문장을 피하고, 진실한 고백을 여는 어조를 사용할 것.'\n];\n\nreturn [{\n  json: {\n    id: item.id,\n    userMsg: lines.filter(Boolean).join('\\n')\n  }\n}];"
+        "jsCode": "const item = $('처리 대상 선택').first().json;\n\nconst reference   = item.reference || '';\nconst passage     = item.passage || '';\nconst sTitle      = item.sermon_title || '';\n\nlet outline = '';\nlet summary = '';\nlet transcript = '';\nlet legacyPoints = '';\n\ntry {\n  const parsedPoints = item.sermon_points ? JSON.parse(item.sermon_points) : null;\n  if (parsedPoints && typeof parsedPoints === 'object') {\n    outline = parsedPoints.outline || '';\n    summary = parsedPoints.summary || '';\n    transcript = parsedPoints.transcript || '';\n    legacyPoints = parsedPoints.legacy_points || '';\n  } else if (item.sermon_points) {\n    legacyPoints = item.sermon_points;\n  }\n} catch (e) {\n  legacyPoints = item.sermon_points || '';\n}\n\nconst lines = [\n  '너는 개혁주의(성경의 충분성, 하나님의 주권, 인간의 전적 타락, 은혜 중심 구원, 그리스도 중심 해석) 신학적 틀 위에서 청년부 소그룹 나눔 질문지를 만드는 목회자 보조자다.',\n  '목표는 지식 확인이 아니라 회개, 믿음, 순종, 공동체적 책임으로 이어지는 깊은 나눔이다.',\n  '',\n  '[핵심 원칙]',\n  '1) 반드시 아래 입력 텍스트(본문/설교대지/설교요약/설교원문)에 근거할 것. 근거 없는 확장 금지.',\n  '2) 질문은 정답형/추상형이 아니라 자기 고백과 삶의 적용을 이끌 것.',\n  '3) 율법주의·도덕주의로 흐르지 않게, 복음(그리스도의 은혜와 십자가)을 동력으로 제시할 것.',\n  '4) 공동체 적용 질문을 포함해 서로 짐을 지는 방향으로 연결할 것.',\n  '5) 섹션(대지/주제)별로 질문 수를 고정하지 말 것. 중요도에 따라 유동적으로 만들 것.',\n  '',\n  `성경 구절: ${reference}`,\n  sTitle ? `설교 제목: ${sTitle}` : '',\n  outline ? `설교 대지:\\n${outline}` : '',\n  summary ? `설교 요약:\\n${summary}` : '',\n  transcript ? `설교 원문:\\n${transcript}` : '',\n  legacyPoints ? `추가 메모(하위호환):\\n${legacyPoints}` : '',\n  '성경 본문(개역개정):',\n  passage,\n  '',\n  '[출력 스키마 - JSON만 반환, 다른 텍스트 금지]',\n  '{',\n  '  \"questions\": {',\n  '    \"sections\": [',\n  '      {',\n  '        \"section_title\": \"대지/주제 이름\",',\n  '        \"summary_anchor\": \"이 섹션의 핵심 진술 1~2문장\",',\n  '        \"questions\": [',\n  '          {',\n  '            \"category\": \"관찰|해석|복음성찰|적용|공동체\",',\n  '            \"explanation\": \"인도자를 위한 의도 설명 1~2문장\",',\n  '            \"question\": \"참여자가 답할 실제 질문(한 문장)\",',\n  '            \"scripture_anchor\": \"관련 구절/표현\",',\n  '            \"follow_up\": \"더 깊이 들어가는 보조 질문(선택)\"',\n  '          }',\n  '        ]',\n  '      }',\n  '    ],',\n  '    \"meta\": {',\n  '      \"theological_focus\": [\"핵심 신학 포인트\"],',\n  '      \"application_focus\": [\"이번 주 적용 키워드\"]',\n  '    }',\n  '  }',\n  '}',\n  '',\n  '[질문 품질 기준]',\n  '- 각 섹션은 최소 2문항 이상 권장 (단, 꼭 필요한 만큼만).',\n  '- 최소 한 문항은 죄 인식/회개를, 최소 한 문항은 은혜/복음 소망을, 최소 한 문항은 공동체 실천을 다룰 것.',\n  '- 청년들이 방어적으로 굳지 않도록 정죄형 문장을 피하고, 진실한 고백을 여는 어조를 사용할 것.'\n];\n\nreturn [{\n  json: {\n    id: item.id,\n    userMsg: lines.filter(Boolean).join('\\n')\n  }\n}];"
       },
       "id": "99000c2c-a2f2-4616-a108-7483a189e976",
       "name": "프롬프트 생성",
@@ -160,7 +151,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\n\nfunction pickRaw(i) {\n  if (i.content?.[0]?.text) return i.content[0].text;\n  if (i.text) return i.text;\n  if (i.output) return i.output;\n  if (i.message) return i.message;\n  return JSON.stringify(i);\n}\n\nfunction extractJsonText(raw) {\n  let t = String(raw || '').trim();\n  t = t.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\n  const first = t.indexOf('{');\n  const last = t.lastIndexOf('}');\n  if (first !== -1 && last !== -1 && last > first) {\n    t = t.slice(first, last + 1);\n  }\n  return t;\n}\n\nfunction repairJson(text) {\n  let t = text;\n  t = t.replace(/[“”]/g, '\"').replace(/[‘’]/g, \"'\");\n  t = t.replace(/,\\s*([}\\]])/g, '$1');\n  t = t.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/g, '');\n  return t;\n}\n\nconst raw = pickRaw(input);\nconst candidate = extractJsonText(raw);\n\nlet parsed;\nlet lastErr = '';\n\ntry {\n  parsed = JSON.parse(candidate);\n} catch (e1) {\n  lastErr = e1.message;\n  try {\n    parsed = JSON.parse(repairJson(candidate));\n  } catch (e2) {\n    lastErr = e2.message;\n    throw new Error('JSON 파싱 실패: ' + lastErr + '\\n---원본 일부---\\n' + String(raw).slice(0, 700));\n  }\n}\n\nconst qRoot = parsed.questions || parsed;\n\nlet sections = [];\nif (Array.isArray(qRoot?.sections)) {\n  sections = qRoot.sections;\n} else if (Array.isArray(qRoot)) {\n  sections = [{ section_title: '통합 나눔', summary_anchor: '', questions: qRoot }];\n}\n\nconst normalizedSections = sections\n  .map((sec, secIdx) => {\n    const title = sec?.section_title || sec?.title || sec?.topic || `섹션 ${secIdx + 1}`;\n    const anchor = sec?.summary_anchor || sec?.summary || '';\n    const qList = Array.isArray(sec?.questions) ? sec.questions : [];\n\n    const normalizedQuestions = qList\n      .map((q) => {\n        if (typeof q === 'string') {\n          return {\n            section_title: title,\n            category: '적용',\n            explanation: '',\n            question: q,\n            scripture_anchor: '',\n            follow_up: ''\n          };\n        }\n        return {\n          section_title: title,\n          category: q?.category || q?.type || '적용',\n          explanation: q?.explanation || q?.context || '',\n          question: q?.question || q?.text || q?.content || '',\n          scripture_anchor: q?.scripture_anchor || q?.anchor || '',\n          follow_up: q?.follow_up || q?.followup || ''\n        };\n      })\n      .filter((q) => q.question);\n\n    return {\n      section_title: title,\n      summary_anchor: anchor,\n      questions: normalizedQuestions\n    };\n  })\n  .filter((sec) => sec.questions.length > 0);\n\nif (!normalizedSections.length) {\n  throw new Error('유효한 sections/questions가 없습니다. 받은 키: ' + Object.keys(parsed).join(', '));\n}\n\nconst flattened = normalizedSections.flatMap((sec) => sec.questions);\nconst output = {\n  sections: normalizedSections,\n  flat: flattened,\n  meta: qRoot?.meta || {}\n};\n\nconst id = $('프롬프트 생성').first().json.id;\n\nreturn [{\n  json: {\n    id,\n    questions: output\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\n\nfunction pickRaw(i) {\n  if (i.content?.[0]?.text) return i.content[0].text;\n  if (i.text) return i.text;\n  if (i.output) return i.output;\n  if (i.message) return i.message;\n  return JSON.stringify(i);\n}\n\nfunction extractJsonText(raw) {\n  let t = String(raw || '').trim();\n  t = t.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\n  const first = t.indexOf('{');\n  const last = t.lastIndexOf('}');\n  if (first !== -1 && last !== -1 && last > first) {\n    t = t.slice(first, last + 1);\n  }\n  return t;\n}\n\nfunction repairJson(text) {\n  let t = text;\n  t = t.replace(/[“”]/g, '\"').replace(/[‘’]/g, \"'\");\n  t = t.replace(/,\\s*([}\\]])/g, '$1');\n  t = t.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/g, '');\n  return t;\n}\n\nconst raw = pickRaw(input);\nconst candidate = extractJsonText(raw);\n\nlet parsed;\nlet lastErr = '';\n\ntry {\n  parsed = JSON.parse(candidate);\n} catch (e1) {\n  lastErr = e1.message;\n  try {\n    parsed = JSON.parse(repairJson(candidate));\n  } catch (e2) {\n    lastErr = e2.message;\n    throw new Error('JSON 파싱 실패: ' + lastErr + '\\n---원본 일부---\\n' + String(raw).slice(0, 700));\n  }\n}\n\nconst qRoot = parsed.questions || parsed;\n\nlet sections = [];\nif (Array.isArray(qRoot?.sections)) {\n  sections = qRoot.sections;\n} else if (Array.isArray(qRoot)) {\n  sections = [{ section_title: '통합 나눔', summary_anchor: '', questions: qRoot }];\n}\n\nconst normalizedSections = sections\n  .map((sec, secIdx) => {\n    const title = sec?.section_title || sec?.title || sec?.topic || `섹션 ${secIdx + 1}`;\n    const anchor = sec?.summary_anchor || sec?.summary || '';\n    const qList = Array.isArray(sec?.questions) ? sec.questions : [];\n\n    const normalizedQuestions = qList\n      .map((q) => {\n        if (typeof q === 'string') {\n          return {\n            section_title: title,\n            category: '적용',\n            explanation: '',\n            question: q,\n            scripture_anchor: '',\n            follow_up: ''\n          };\n        }\n        return {\n          section_title: title,\n          category: q?.category || q?.type || '적용',\n          explanation: q?.explanation || q?.context || '',\n          question: q?.question || q?.text || q?.content || '',\n          scripture_anchor: q?.scripture_anchor || q?.anchor || '',\n          follow_up: q?.follow_up || q?.followup || ''\n        };\n      })\n      .filter((q) => q.question);\n\n    return {\n      section_title: title,\n      summary_anchor: anchor,\n      questions: normalizedQuestions\n    };\n  })\n  .filter((sec) => sec.questions.length > 0);\n\nif (!normalizedSections.length) {\n  throw new Error('유효한 sections/questions가 없습니다. 받은 키: ' + Object.keys(parsed).join(', '));\n}\n\nconst flattened = normalizedSections.flatMap((sec) => sec.questions);\nconst output = {\n  sections: normalizedSections,\n  flat: flattened,\n  meta: qRoot?.meta || {}\n};\n\nconst id = $('처리 대상 선택').first().json.id;\n\nreturn [{\n  json: {\n    id,\n    questions: output\n  }\n}];"
       },
       "id": "61d7c0a6-2cc1-4967-8028-dcf043ea9c4b",
       "name": "JSON 파싱",
@@ -219,6 +210,19 @@
           "name": "Supabase account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json || {});\nconst now = Date.now();\nconst STALE_MIN = 10;\nconst staleMs = STALE_MIN * 60 * 1000;\n\nconst isPending = (r) => r?.status === 'pending';\nconst isStaleProcessing = (r) => {\n  if (r?.status !== 'processing') return false;\n  const t = r?.updated_at || r?.created_at;\n  if (!t) return true;\n  const ts = new Date(t).getTime();\n  if (Number.isNaN(ts)) return true;\n  return (now - ts) >= staleMs;\n};\n\nconst pending = rows\n  .filter(isPending)\n  .sort((a,b)=> new Date(a.created_at||0)-new Date(b.created_at||0));\n\nconst staleProcessing = rows\n  .filter(isStaleProcessing)\n  .sort((a,b)=> new Date(a.updated_at||a.created_at||0)-new Date(b.updated_at||b.created_at||0));\n\nconst target = pending[0] || staleProcessing[0];\n\nif (!target) return [];\n\nreturn [{ json: target }];"
+      },
+      "id": "pick-target-1",
+      "name": "처리 대상 선택",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -584,
+        -520
+      ]
     }
   ],
   "pinData": {},
@@ -238,7 +242,7 @@
       "main": [
         [
           {
-            "node": "Pending 있음?",
+            "node": "처리 대상 선택",
             "type": "main",
             "index": 0
           }
@@ -300,6 +304,17 @@
         [
           {
             "node": "status → done 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "처리 대상 선택": {
+      "main": [
+        [
+          {
+            "node": "Pending 있음?",
             "type": "main",
             "index": 0
           }
