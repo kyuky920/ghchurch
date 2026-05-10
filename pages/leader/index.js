@@ -1760,6 +1760,12 @@ function DashboardTab() {
     return group?.[tabKey] || { participation: { present_count: 0, denominator: 0, rate: 0 }, coverage: { present_members: 0, denominator: 0, rate: 0 } }
   }
 
+  function weekMetricForRow(row, tabKey) {
+    if (!row) return { count: 0, denominator: 0, rate: 0 }
+    if (tabKey === 'total') return row.total || { count: 0, denominator: 0, rate: 0 }
+    return row.tracks?.[tabKey] || { count: 0, denominator: 0, rate: 0 }
+  }
+
   return (
     <div style={S.cont}>
       <div style={S.card}>
@@ -1819,31 +1825,25 @@ function DashboardTab() {
                 ))}
               </div>
 
-              {[
-                { key:'week', label:'주간' },
-                { key:'month', label:'월간' },
-                { key:'year', label:'연간' },
-              ].map((p) => {
-                const pack = metricPackFor(p.key, attendanceTab)
-                return (
-                  <div key={p.key} style={{marginBottom:8}}>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginBottom:4}}>
-                      <span>{p.label} 참석률</span>
-                      <strong style={{color:'#4a3520'}}>{pack.participation.present_count} / {pack.participation.denominator} ({pack.participation.rate}%)</strong>
+              <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 8px'}}>월 단위 주차별 참석 현황</p>
+              {(data.출석.month_by_week || []).length === 0 ? (
+                <p style={{fontSize:11,color:'#b8a090',margin:0,fontStyle:'italic'}}>선택한 월의 주차 데이터가 없어요.</p>
+              ) : (
+                (data.출석.month_by_week || []).map((row) => {
+                  const m = weekMetricForRow(row, attendanceTab)
+                  return (
+                    <div key={row.week} style={{marginBottom:8}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginBottom:4}}>
+                        <span>{weekLabel(row.week)}</span>
+                        <strong style={{color:'#4a3520'}}>{m.count} / {m.denominator}명 ({m.rate}%)</strong>
+                      </div>
+                      <div style={{height:8,background:'#f0e7d9',borderRadius:8,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${Math.max(0, Math.min(100, m.rate))}%`,background:'#a0784e'}}/>
+                      </div>
                     </div>
-                    <div style={{height:8,background:'#f0e7d9',borderRadius:8,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${Math.max(0, Math.min(100, pack.participation.rate))}%`,background:'#a0784e'}}/>
-                    </div>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginTop:5,marginBottom:3}}>
-                      <span>{p.label} 출석 경험률</span>
-                      <strong style={{color:'#4a3520'}}>{pack.coverage.present_members} / {pack.coverage.denominator}명 ({pack.coverage.rate}%)</strong>
-                    </div>
-                    <div style={{height:8,background:'#e8f1ea',borderRadius:8,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${Math.max(0, Math.min(100, pack.coverage.rate))}%`,background:'#5a8f67'}}/>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
 
             <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>

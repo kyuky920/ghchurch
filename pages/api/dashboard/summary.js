@@ -215,10 +215,24 @@ export default async function handler(req, res) {
       if (!monthByWeekMap[r.week]) monthByWeekMap[r.week] = []
       monthByWeekMap[r.week].push(r)
     })
-    const monthByWeek = Object.keys(monthByWeekMap).sort().map((week) => ({
-      week,
-      ...aggregateRows(monthByWeekMap[week], totalMembers),
-    }))
+    const monthByWeek = Object.keys(monthByWeekMap).sort().map((week) => {
+      const rows = monthByWeekMap[week]
+      const total = aggregateRows(rows, totalMembers)
+      const tracks = aggregateTracks(rows, totalMembers)
+      return {
+        week,
+        total: {
+          present: total.present,
+          denominator: totalMembers,
+          rate: total.rate,
+        },
+        tracks: {
+          sunday_morning: { count: tracks.sunday_morning.count, denominator: totalMembers, rate: tracks.sunday_morning.rate },
+          sunday_afternoon: { count: tracks.sunday_afternoon.count, denominator: totalMembers, rate: tracks.sunday_afternoon.rate },
+          young_adult_meeting: { count: tracks.young_adult_meeting.count, denominator: totalMembers, rate: tracks.young_adult_meeting.rate },
+        },
+      }
+    })
 
     const yearByMonthMap = {}
     yearRows.forEach((r) => {
