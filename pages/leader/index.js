@@ -1455,6 +1455,12 @@ function MemberTab() {
 
 // ── 탭4: 출석 관리 ───────────────────────────────────
 function AttendanceTab() {
+  const TRACKS = [
+    { key: 'sunday_morning', label: '주일 오전', onBg: '#2e7d32', onBorder: '#1b5e20', offBg: '#edf5ee', offBorder: '#d6e6d8', onColor: '#fff', offColor: '#2e7d32' },
+    { key: 'sunday_afternoon', label: '주일 오후', onBg: '#1565c0', onBorder: '#0d47a1', offBg: '#eef4fb', offBorder: '#d6e3f5', onColor: '#fff', offColor: '#1565c0' },
+    { key: 'young_adult_meeting', label: '청년부모임', onBg: '#7b1fa2', onBorder: '#4a148c', offBg: '#f4eef8', offBorder: '#e3d3f0', onColor: '#fff', offColor: '#7b1fa2' },
+  ]
+
   const [week, setWeek] = useState(getWeekStr())
   const [members, setMembers] = useState([])
   const [attendanceMap, setAttendanceMap] = useState({})
@@ -1472,6 +1478,26 @@ function AttendanceTab() {
   })
 
   useEffect(() => { loadData() }, [week])
+
+  function parseTrackState(noteValue, status) {
+    const blank = { sunday_morning: false, sunday_afternoon: false, young_adult_meeting: false }
+    if (!noteValue) return status === 'present' ? { ...blank, sunday_morning: true } : blank
+    try {
+      const parsed = typeof noteValue === 'string' ? JSON.parse(noteValue) : noteValue
+      if (!parsed || typeof parsed !== 'object') return blank
+      return {
+        sunday_morning: !!parsed.sunday_morning,
+        sunday_afternoon: !!parsed.sunday_afternoon,
+        young_adult_meeting: !!parsed.young_adult_meeting,
+      }
+    } catch (e) {
+      return status === 'present' ? { ...blank, sunday_morning: true } : blank
+    }
+  }
+
+  function hasAnyTrack(track) {
+    return !!(track?.sunday_morning || track?.sunday_afternoon || track?.young_adult_meeting)
+  }
 
   async function loadData() {
     setLoading(true)
@@ -1496,7 +1522,10 @@ function AttendanceTab() {
 
       const map = {}
       ;(attendanceData.data || []).forEach((row) => {
-        if (row?.member_id) map[row.member_id] = { status: row.status, note: row.note || '' }
+        if (row?.member_id) {
+          const track = parseTrackState(row.note, row.status)
+          map[row.member_id] = { status: row.status, note: row.note || '', track }
+        }
       })
 
       // 셀모임 참여자 자동 인식: 세션이 존재하는 조의 멤버를 참여자로 간주
@@ -1512,10 +1541,20 @@ function AttendanceTab() {
       })
       setCellParticipantIds(participantDeviceIds)
 
-      // 자동 출석: 아직 체크 안 된 회원 중 셀모임 참여자는 출석으로 즉시 저장
-      const autoRows = list
-        .filter((m) => !map[m.id]?.status && participantDeviceIds.has(m.device_id))
-        .map((m) => ({ member_id: m.id, status: 'present', note: '' }))
+      // 셀모임 참여자 자동 체크: 청년부모임 토글 on
+      const autoRows = list.reduce((acc, m) => {
+        if (!participantDeviceIds.has(m.device_id)) return acc
+        const current = map[m.id]?.track || { sunday_morning: false, sunday_afternoon: false, young_adult_meeting: false }
+        if (current.young_adult_meeting) return acc
+        const nextTrack = { ...current, young_adult_meeting: true }
+        acc.push({
+          member_id: m.id,
+          status: hasAnyTrack(nextTrack) ? 'present' : 'absent',
+          note: JSON.stringify(nextTrack),
+        })
+        map[m.id] = { status: hasAnyTrack(nextTrack) ? 'present' : 'absent', note: JSON.stringify(nextTrack), track: nextTrack }
+        return acc
+      }, [])
 
       if (autoRows.length) {
         const checkedBy = typeof window !== 'undefined' ? (localStorage.getItem('wl_member_name') || 'leader') : 'leader'
@@ -1524,7 +1563,9 @@ function AttendanceTab() {
           headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
           body: JSON.stringify({ action:'upsert_bulk', week, rows: autoRows, checked_by: `${checkedBy} (auto)` })
         })
-        autoRows.forEach((r) => { map[r.member_id] = { status: 'present', note: '' } })
+        autoRows.forEach((r) => {
+          map[r.member_id] = { status: r.status, note: r.note, track: parseTrackState(r.note, r.status) }
+        })
         setMsg(`셀모임 참여자 ${autoRows.length}명을 자동 출석 처리했어요.`)
         setTimeout(() => setMsg(''), 1800)
       }
@@ -1537,11 +1578,13 @@ function AttendanceTab() {
     }
   }
 
-  async function upsertOne(memberId, status, note = '') {
+  async function upsertOne(memberId, track) {
     setSavingMemberId(memberId)
     setErr('')
     try {
       const checkedBy = typeof window !== 'undefined' ? (localStorage.getItem('wl_member_name') || 'leader') : 'leader'
+      const note = JSON.stringify(track)
+      const status = hasAnyTrack(track) ? 'present' : 'absent'
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
@@ -1549,17 +1592,13 @@ function AttendanceTab() {
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
-      setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), status, note } }))
+      setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), status, note, track } }))
       await loadData()
     } catch (e) {
       setErr('저장 오류: ' + e.message)
     } finally {
       setSavingMemberId('')
     }
-  }
-
-  function updateNote(memberId, note) {
-    setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), note } }))
   }
 
   return (
@@ -1577,7 +1616,7 @@ function AttendanceTab() {
           </select>
         </div>
 
-        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>상태 버튼을 누르면 즉시 저장됩니다. 셀모임 참여자는 자동 출석 처리됩니다.</p>
+        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>토글을 누르면 즉시 저장됩니다. 체크된 항목은 진하게 표시됩니다.</p>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 10px'}}>
           <span style={{background:'#e8f5e9',border:'1px solid #c8e6c9',color:'#2e7d32',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>출석 {summary.present}명</span>
           <span style={{background:'#fff5f5',border:'1px solid #f5c6bb',color:'#c0392b',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>결석 {summary.absent}명</span>
@@ -1594,9 +1633,8 @@ function AttendanceTab() {
           <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:520,overflowY:'auto',paddingRight:2}}>
             {members.map((m) => {
               const status = attendanceMap[m.id]?.status || ''
-              const note = attendanceMap[m.id]?.note || ''
               const isParticipant = cellParticipantIds.has(m.device_id)
-              const isAbsent = status === 'absent' || status === 'excused'
+              const track = attendanceMap[m.id]?.track || parseTrackState(attendanceMap[m.id]?.note, status)
               return (
                 <div key={m.id} style={{display:'flex',alignItems:'flex-start',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'9px 10px',background:'#fff'}}>
                   <div style={{flex:1,minWidth:0}}>
@@ -1604,31 +1642,31 @@ function AttendanceTab() {
                     <p style={{fontSize:10,color:'#a08060',margin:0}}>
                       {isParticipant ? '셀모임 참여자' : (m.last_seen ? `최근 접속: ${getLastSeenLabel(m.last_seen)}` : '미접속 회원')}
                     </p>
-                    {isAbsent && (
-                      <input
-                        value={note}
-                        onChange={(e)=>updateNote(m.id, e.target.value)}
-                        onBlur={()=>upsertOne(m.id, 'absent', note)}
-                        placeholder="사유 입력 후 포커스를 벗어나면 저장"
-                        style={{...S.input,marginTop:6,padding:'7px 9px',fontSize:12}}
-                      />
-                    )}
                   </div>
-                  <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-                    <button
-                      onClick={()=>upsertOne(m.id, 'present', note)}
-                      disabled={savingMemberId === m.id}
-                      style={{background:status==='present'?'#2e7d32':'#eef6ef',color:status==='present'?'#fff':'#2e7d32',border:'1px solid #c8e6c9',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
-                    >
-                      출석
-                    </button>
-                    <button
-                      onClick={()=>upsertOne(m.id, 'absent', note)}
-                      disabled={savingMemberId === m.id}
-                      style={{background:isAbsent?'#c0392b':'#fff1f1',color:isAbsent?'#fff':'#c0392b',border:'1px solid #f5c6bb',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
-                    >
-                      결석
-                    </button>
+                  <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end'}}>
+                    {TRACKS.map((meta) => {
+                      const checked = !!track[meta.key]
+                      return (
+                        <button
+                          key={`${m.id}-${meta.key}`}
+                          onClick={() => upsertOne(m.id, { ...track, [meta.key]: !checked })}
+                          disabled={savingMemberId === m.id}
+                          style={{
+                            background: checked ? meta.onBg : meta.offBg,
+                            color: checked ? meta.onColor : meta.offColor,
+                            border: `1px solid ${checked ? meta.onBorder : meta.offBorder}`,
+                            borderRadius: 8,
+                            padding: '6px 10px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            opacity: checked ? 1 : 0.62,
+                          }}
+                        >
+                          {meta.label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )
