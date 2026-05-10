@@ -110,10 +110,10 @@ function normalizeQuestions(raw) {
 }
 
 const OPENING_QUESTION = {
-  section_title: '말씀 나눔 시작',
+  section_title: '오늘 예배 돌아보기',
   category: '오프닝',
   explanation: '오늘 말씀을 먼저 자유롭게 돌아보며 마음을 여는 질문입니다.',
-  question: '오늘 말씀을 들으시면서 어떠셨나요? 특별히 마음에 남았던 부분이나 느끼신 점이 있으셨다면 함께 나눠주세요.',
+  question: '오늘 예배와 말씀은 어땠나요? 특별히 마음에 남았던 부분이나 느끼신 점이 있으셨다면 함께 나눠주세요.',
 }
 
 const S = {
