@@ -1228,6 +1228,8 @@ function MemberTab() {
   const [allMembers, setAllMembers] = useState([])
   const [onlineIds, setOnlineIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
+  const [newMemberName, setNewMemberName] = useState('')
+  const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState('')
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -1266,6 +1268,38 @@ function MemberTab() {
     setEditingId('')
     setEditName('')
     setErr('')
+  }
+
+  async function addMember() {
+    const name = (newMemberName || '').trim()
+    if (!name) {
+      setErr('추가할 이름을 입력해 주세요.')
+      return
+    }
+    setAdding(true)
+    setErr('')
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PATCH',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({ action:'admin_add', name })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+
+      setAllMembers(prev => {
+        const exists = prev.some(m => m.device_id === d.data?.device_id)
+        if (exists) return prev
+        return [d.data, ...prev]
+      })
+      setNewMemberName('')
+      setMsg(d.created === false ? '이미 등록된 이름이라 기존 회원을 유지했어요.' : '회원을 추가했어요.')
+      setTimeout(() => setMsg(''), 2200)
+    } catch (e) {
+      setErr('추가 오류: ' + e.message)
+    } finally {
+      setAdding(false)
+    }
   }
 
   async function saveMemberName(deviceId) {
@@ -1331,7 +1365,23 @@ function MemberTab() {
           <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>회원 정보 관리</p>
           <button onClick={loadMembers} style={S.btnSm}>🔄 새로고침</button>
         </div>
-        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>이름 수정과 회원 삭제만 지원합니다.</p>
+        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>이름으로 회원을 추가하거나, 이름 수정/삭제를 할 수 있어요.</p>
+        <div style={{display:'flex',gap:8,margin:'0 0 12px'}}>
+          <input
+            value={newMemberName}
+            onChange={e=>setNewMemberName(e.target.value)}
+            onKeyDown={e=>{ if (e.key === 'Enter') addMember() }}
+            placeholder="추가할 회원 이름"
+            style={{...S.input,flex:1,padding:'9px 12px',fontSize:13}}
+          />
+          <button
+            onClick={addMember}
+            disabled={adding}
+            style={{background:adding?'#c4a882':'#4a3520',color:'#fff',border:'none',borderRadius:10,padding:'9px 14px',fontSize:12,fontWeight:700,cursor:adding?'not-allowed':'pointer',whiteSpace:'nowrap'}}
+          >
+            {adding ? '추가 중...' : '회원 추가'}
+          </button>
+        </div>
         {err && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {err}</p>}
         {msg && <p style={{...S.ok,margin:'0 0 8px'}}>✓ {msg}</p>}
 

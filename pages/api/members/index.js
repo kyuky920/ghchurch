@@ -7,6 +7,12 @@ function normalizeName(name) {
   return String(name || '').trim()
 }
 
+function makeManualDeviceId(name) {
+  const base = normalizeName(name).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_가-힣]/g, '')
+  const suffix = Math.random().toString(36).slice(2, 8)
+  return `manual_${base || 'member'}_${Date.now().toString(36)}_${suffix}`
+}
+
 async function syncDeviceIdInGroups({ oldDeviceId, newDeviceId, memberName }) {
   if (!oldDeviceId || !newDeviceId || oldDeviceId === newDeviceId) return
 
@@ -113,6 +119,41 @@ export default async function handler(req, res) {
   // PATCH — last_seen 업데이트 (heartbeat)
   if (req.method === 'PATCH') {
     const { action, device_id, week, service, name } = req.body
+
+    // 리더 전용 회원 수동 추가 (이름 기준)
+    if (action === 'admin_add') {
+      const auth = req.headers.authorization || ''
+      if (auth !== `Bearer ${LEADER_SECRET}`) {
+        return res.status(401).json({ ok: false, error: 'Unauthorized' })
+      }
+      const normalized = normalizeName(name)
+      if (!normalized) return res.status(400).json({ ok: false, error: 'name 필수' })
+
+      try {
+        const { data: existingByName, error: findByNameError } = await supabase
+          .from('members')
+          .select('id,device_id,name,week,service,last_seen,created_at')
+          .eq('name', normalized)
+          .single()
+        if (findByNameError && findByNameError.code !== NOT_FOUND_CODE) throw findByNameError
+
+        if (existingByName?.id) {
+          return res.status(200).json({ ok: true, data: existingByName, created: false })
+        }
+
+        const manualDeviceId = makeManualDeviceId(normalized)
+        const { data: created, error: createError } = await supabase
+          .from('members')
+          .insert({ device_id: manualDeviceId, name: normalized, week: week || null, service: service || null, last_seen: null })
+          .select('id,device_id,name,week,service,last_seen,created_at')
+          .single()
+        if (createError) throw createError
+
+        return res.status(200).json({ ok: true, data: created, created: true })
+      } catch (e) {
+        return res.status(500).json({ ok: false, error: e.message })
+      }
+    }
 
     // 리더 전용 회원 정보 수정
     if (action === 'admin_update') {
