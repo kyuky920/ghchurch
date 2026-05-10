@@ -1499,6 +1499,14 @@ function AttendanceTab() {
     return !!(track?.sunday_morning || track?.sunday_afternoon || track?.young_adult_meeting)
   }
 
+  function summarizeFromMap(map, memberList) {
+    const vals = memberList.map((m) => map[m.id]).filter(Boolean)
+    const present = vals.filter((v) => v.status === 'present').length
+    const absent = vals.filter((v) => v.status === 'absent' || v.status === 'excused').length
+    const checked = vals.length
+    return { total_checked: checked, present, absent, excused: 0 }
+  }
+
   async function loadData() {
     setLoading(true)
     setErr('')
@@ -1571,6 +1579,7 @@ function AttendanceTab() {
       }
 
       setAttendanceMap(map)
+      setSummary(summarizeFromMap(map, list))
     } catch (e) {
       setErr('출석 정보를 불러오지 못했어요. ' + e.message)
     } finally {
@@ -1592,8 +1601,11 @@ function AttendanceTab() {
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
-      setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), status, note, track } }))
-      await loadData()
+      setAttendanceMap((prev) => {
+        const next = { ...prev, [memberId]: { ...(prev[memberId] || {}), status, note, track } }
+        setSummary(summarizeFromMap(next, members))
+        return next
+      })
     } catch (e) {
       setErr('저장 오류: ' + e.message)
     } finally {
