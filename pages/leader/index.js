@@ -468,7 +468,15 @@ function SermonTab() {
         <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:10}}>나눔 질문</p>
         {(resultForm.questions || []).map((item, i) => (
           <div key={i} style={{marginBottom:10,padding:'10px 12px',background:'#fdf5ec',borderRadius:10,border:'1px solid #e8c9a0'}}>
-            <label style={S.label}>질문 {i + 1}</label>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <label style={{...S.label,marginBottom:0}}>질문 {i + 1}</label>
+              <button
+                onClick={()=>setResultForm(prev=>({...prev, questions: (prev.questions || []).filter((_, idx) => idx !== i)}))}
+                style={{...S.btnSm,background:'#fff5f5',border:'1px solid #f5c6bb',color:'#c0392b',padding:'4px 10px'}}
+              >
+                질문 삭제
+              </button>
+            </div>
             <input value={item.section_title || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, section_title: e.target.value } : q)}))} placeholder="대지/주제" style={{...S.input,marginBottom:6}}/>
             <input value={item.category || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, category: e.target.value } : q)}))} placeholder="카테고리(선택)" style={{...S.input,marginBottom:6}}/>
             <textarea value={item.explanation || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, explanation: e.target.value } : q)}))} placeholder="질문 의도/진행 가이드" style={{...S.input,minHeight:62,resize:'vertical',marginBottom:6}}/>
