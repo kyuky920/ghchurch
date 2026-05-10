@@ -109,6 +109,13 @@ function normalizeQuestions(raw) {
   return []
 }
 
+const OPENING_QUESTION = {
+  section_title: '말씀 나눔 시작',
+  category: '오프닝',
+  explanation: '오늘 말씀을 먼저 자유롭게 돌아보며 마음을 여는 질문입니다.',
+  question: '오늘 말씀을 들으시면서 어떠셨나요? 특별히 마음에 남았던 부분이나 느끼신 점이 있으셨다면 함께 나눠주세요.',
+}
+
 const S = {
   wrap:   { minHeight:'100vh', background:'#f6f3ee', fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif", color:'#2f281f' },
   header: { background:'linear-gradient(160deg,#ede2d2,#d8c8ad)', padding:'20px 20px 16px', borderBottom:'1px solid #ccbda3', position:'relative', overflow:'hidden' },
@@ -339,7 +346,7 @@ export default function CellWord() {
     if (typeof val === 'object') return val
     try { return JSON.parse(val) } catch(e) { return [] }
   }
-  const qs   = normalizeQuestions(parseField(selected?.questions))
+  const qs   = [OPENING_QUESTION, ...normalizeQuestions(parseField(selected?.questions))]
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
@@ -542,12 +549,10 @@ export default function CellWord() {
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                   {qs.map((item, i) => {
                     const q  = item.question
-                    const ex = item.explanation
                     const m  = QMETA[i] || QMETA[0]
                     return (
                       <div key={i} style={{ background:m.bg, borderRadius:14, padding:'16px 18px', borderLeft:`4px solid ${m.color}`, animation:`fadeUp 0.4s ease ${i*0.1}s both` }}>
                         <p style={{ fontSize:10, color:m.color, fontWeight:700, margin:'0 0 7px', letterSpacing:'0.06em' }}>{item.section_title || item.category || m.type}</p>
-                        {ex && <div style={{ background:'rgba(255,255,255,0.78)', borderRadius:8, padding:'10px 12px', marginBottom:9, borderLeft:`2px solid ${m.color}60` }}><p style={{ margin:0, color:'#5a4737', fontSize:13, lineHeight:1.85 }}>{ex}</p></div>}
                         <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:16, lineHeight:1.9, fontWeight:700 }}>{q}</p>
                         <div style={{marginTop:10}}>
                           <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>

@@ -35,6 +35,13 @@ function normalizeQuestions(raw) {
   return []
 }
 
+const OPENING_QUESTION = {
+  section_title: '말씀 나눔 시작',
+  category: '오프닝',
+  explanation: '오늘 말씀을 먼저 자유롭게 돌아보며 마음을 여는 질문입니다.',
+  question: '오늘 말씀을 들으시면서 어떠셨나요? 특별히 마음에 남았던 부분이나 느끼신 점이 있으셨다면 함께 나눠주세요.',
+}
+
 function weekLabel(week) {
   if (!week) return ''
   // YYYY-MM-DD 형식
@@ -134,7 +141,7 @@ export default function Home() {
     }
     return []
   }
-  const qs      = normalizeQuestions(parseField(selected?.questions))
+  const qs      = [OPENING_QUESTION, ...normalizeQuestions(parseField(selected?.questions))]
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
@@ -332,12 +339,10 @@ export default function Home() {
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0'}}>✦ {selected.reference} 나눔 질문</p>
                       {qs.map((item,i)=>{
                         const q=item.question
-                        const ex=item.explanation
                         const m=QMETA[i]||QMETA[0]
                         return (
                           <div key={i} style={{background:m.bg,borderRadius:14,padding:'16px 18px',borderLeft:`4px solid ${m.color}`,animation:`fadeUp 0.4s ease ${i*0.1}s both`}}>
                             <p style={{fontSize:10,color:m.color,fontWeight:700,margin:'0 0 7px',letterSpacing:'0.06em'}}>{item.section_title || item.category || m.type}</p>
-                            {ex&&<div style={{background:'rgba(255,255,255,0.65)',borderRadius:8,padding:'9px 12px',marginBottom:8,borderLeft:`2px solid ${m.color}60`}}><p style={{margin:0,color:'#6b5040',fontSize:12,lineHeight:1.8}}>{ex}</p></div>}
                             <p style={{margin:0,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:15,lineHeight:1.85,fontWeight:700}}>{q}</p>
                           </div>
                         )
