@@ -1581,7 +1581,6 @@ function AttendanceTab() {
         <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 10px'}}>
           <span style={{background:'#e8f5e9',border:'1px solid #c8e6c9',color:'#2e7d32',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>출석 {summary.present}명</span>
           <span style={{background:'#fff5f5',border:'1px solid #f5c6bb',color:'#c0392b',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>결석 {summary.absent}명</span>
-          <span style={{background:'#f5f3fa',border:'1px solid #ddd0f0',color:'#6a5d9a',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>사유결석 {summary.excused}명</span>
           <span style={{background:'#f5f5f5',border:'1px solid #e0e0e0',color:'#757575',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>체크완료 {summary.total_checked}명</span>
         </div>
         {err && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {err}</p>}
@@ -1597,6 +1596,7 @@ function AttendanceTab() {
               const status = attendanceMap[m.id]?.status || ''
               const note = attendanceMap[m.id]?.note || ''
               const isParticipant = cellParticipantIds.has(m.device_id)
+              const isAbsent = status === 'absent' || status === 'excused'
               return (
                 <div key={m.id} style={{display:'flex',alignItems:'flex-start',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'9px 10px',background:'#fff'}}>
                   <div style={{flex:1,minWidth:0}}>
@@ -1604,11 +1604,11 @@ function AttendanceTab() {
                     <p style={{fontSize:10,color:'#a08060',margin:0}}>
                       {isParticipant ? '셀모임 참여자' : (m.last_seen ? `최근 접속: ${getLastSeenLabel(m.last_seen)}` : '미접속 회원')}
                     </p>
-                    {status === 'excused' && (
+                    {isAbsent && (
                       <input
                         value={note}
                         onChange={(e)=>updateNote(m.id, e.target.value)}
-                        onBlur={()=>upsertOne(m.id, 'excused', note)}
+                        onBlur={()=>upsertOne(m.id, 'absent', note)}
                         placeholder="사유 입력 후 포커스를 벗어나면 저장"
                         style={{...S.input,marginTop:6,padding:'7px 9px',fontSize:12}}
                       />
@@ -1625,16 +1625,9 @@ function AttendanceTab() {
                     <button
                       onClick={()=>upsertOne(m.id, 'absent', note)}
                       disabled={savingMemberId === m.id}
-                      style={{background:status==='absent'?'#c0392b':'#fff1f1',color:status==='absent'?'#fff':'#c0392b',border:'1px solid #f5c6bb',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                      style={{background:isAbsent?'#c0392b':'#fff1f1',color:isAbsent?'#fff':'#c0392b',border:'1px solid #f5c6bb',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
                     >
                       결석
-                    </button>
-                    <button
-                      onClick={()=>upsertOne(m.id, 'excused', note)}
-                      disabled={savingMemberId === m.id}
-                      style={{background:status==='excused'?'#6a5d9a':'#f3f1fb',color:status==='excused'?'#fff':'#6a5d9a',border:'1px solid #ddd0f0',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
-                    >
-                      사유결석
                     </button>
                   </div>
                 </div>
