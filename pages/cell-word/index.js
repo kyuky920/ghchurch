@@ -549,10 +549,13 @@ export default function CellWord() {
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                   {qs.map((item, i) => {
                     const q  = item.question
+                    const ex = item.explanation
+                    const isOpening = item.category === '오프닝'
                     const m  = QMETA[i] || QMETA[0]
                     return (
                       <div key={i} style={{ background:m.bg, borderRadius:14, padding:'16px 18px', borderLeft:`4px solid ${m.color}`, animation:`fadeUp 0.4s ease ${i*0.1}s both` }}>
                         <p style={{ fontSize:10, color:m.color, fontWeight:700, margin:'0 0 7px', letterSpacing:'0.06em' }}>{item.section_title || item.category || m.type}</p>
+                        {!isOpening && ex && <div style={{ background:'rgba(255,255,255,0.78)', borderRadius:8, padding:'10px 12px', marginBottom:9, borderLeft:`2px solid ${m.color}60` }}><p style={{ margin:0, color:'#5a4737', fontSize:13, lineHeight:1.85 }}>{ex}</p></div>}
                         <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:16, lineHeight:1.9, fontWeight:700 }}>{q}</p>
                         <div style={{marginTop:10}}>
                           <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
