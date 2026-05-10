@@ -1453,7 +1453,149 @@ function MemberTab() {
   )
 }
 
-// ── 탭4: 딕싯 게임 관리 ──────────────────────────────
+// ── 탭4: 출석 관리 ───────────────────────────────────
+function AttendanceTab() {
+  const [week, setWeek] = useState(getWeekStr())
+  const [members, setMembers] = useState([])
+  const [attendanceMap, setAttendanceMap] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  const weeks = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + (1 - i) * 7)
+    return getWeekStr(d)
+  })
+
+  useEffect(() => { loadData() }, [week])
+
+  async function loadData() {
+    setLoading(true)
+    setErr('')
+    try {
+      const [membersRes, attendanceRes] = await Promise.all([
+        fetch('/api/members?all=true'),
+        fetch(`/api/attendance?week=${week}`),
+      ])
+      const membersData = await membersRes.json()
+      const attendanceData = await attendanceRes.json()
+      if (!membersData.ok) throw new Error(membersData.error || 'members 조회 실패')
+      if (!attendanceData.ok) throw new Error(attendanceData.error || 'attendance 조회 실패')
+
+      const list = (membersData.data || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko'))
+      setMembers(list)
+
+      const map = {}
+      ;(attendanceData.data || []).forEach((row) => {
+        if (row?.member_id) map[row.member_id] = { status: row.status, note: row.note || '' }
+      })
+      setAttendanceMap(map)
+    } catch (e) {
+      setErr('출석 정보를 불러오지 못했어요. ' + e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function updateStatus(memberId, status) {
+    setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), status } }))
+  }
+
+  async function saveAttendance() {
+    setSaving(true)
+    setErr('')
+    setMsg('')
+    try {
+      const rows = members
+        .map((m) => ({
+          member_id: m.id,
+          status: attendanceMap[m.id]?.status || null,
+          note: attendanceMap[m.id]?.note || '',
+        }))
+        .filter((r) => !!r.status)
+
+      if (!rows.length) throw new Error('저장할 출석 상태가 없어요.')
+
+      const checkedBy = typeof window !== 'undefined' ? (localStorage.getItem('wl_member_name') || 'leader') : 'leader'
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+        body: JSON.stringify({ action:'upsert_bulk', week, rows, checked_by: checkedBy })
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setMsg(`출석 ${d.count || rows.length}건을 저장했어요.`)
+      setTimeout(() => setMsg(''), 2200)
+    } catch (e) {
+      setErr('저장 오류: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={S.cont}>
+      <div style={S.card}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>주일 출석 체크</p>
+          <button onClick={loadData} style={S.btnSm}>🔄 새로고침</button>
+        </div>
+
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+          <label style={{...S.label,margin:0,whiteSpace:'nowrap'}}>주차</label>
+          <select value={week} onChange={e=>setWeek(e.target.value)} style={{...S.input,cursor:'pointer',padding:'9px 12px'}}>
+            {weeks.map(w => <option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
+          </select>
+        </div>
+
+        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>회원별로 출석 상태를 체크한 뒤 저장해 주세요.</p>
+        {err && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {err}</p>}
+        {msg && <p style={{...S.ok,margin:'0 0 8px'}}>✓ {msg}</p>}
+
+        {loading ? (
+          <p style={{color:'#a0784e',fontSize:13,textAlign:'center',padding:'12px 0'}}>불러오는 중...</p>
+        ) : members.length === 0 ? (
+          <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>등록된 회원이 없어요.</p>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:520,overflowY:'auto',paddingRight:2}}>
+            {members.map((m) => {
+              const status = attendanceMap[m.id]?.status || ''
+              return (
+                <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'9px 10px',background:'#fff'}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{m.name}</p>
+                    <p style={{fontSize:10,color:'#a08060',margin:0}}>{m.last_seen ? `최근 접속: ${getLastSeenLabel(m.last_seen)}` : '미접속 회원'}</p>
+                  </div>
+                  <select
+                    value={status}
+                    onChange={(e)=>updateStatus(m.id, e.target.value)}
+                    style={{fontSize:12,padding:'6px 8px',border:'1px solid #ddd0ba',borderRadius:8,color:'#4a3520',background:'#fff'}}
+                  >
+                    <option value="">미선택</option>
+                    <option value="present">출석</option>
+                    <option value="late">지각</option>
+                    <option value="excused">사유결석</option>
+                    <option value="absent">결석</option>
+                  </select>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <div style={{marginTop:12}}>
+          <button onClick={saveAttendance} disabled={saving} style={saving?S.btnGray:S.btnDark}>
+            {saving ? '저장 중...' : '💾 출석 저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 탭5: 딕싯 게임 관리 ──────────────────────────────
 function DixitTab() {
   const [rooms, setRooms]         = useState([])
   const [creating, setCreating]   = useState(false)
@@ -1608,7 +1750,7 @@ export default function Leader() {
           <p style={S.sub}>시냇가에 심은 나무 WORD &amp; LIFE</p>
           <h1 style={S.h1}>리더 도구</h1>
           <div style={{display:'flex'}}>
-            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','🃏 딕싯'].map((t,i)=>(
+            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','✅ 출석 관리','🃏 딕싯'].map((t,i)=>(
               <button key={i} onClick={()=>setActiveTab(i)} style={{flex:1,padding:'12px 8px',border:'none',background:'none',fontSize:13,fontFamily:"'Gowun Batang',serif",color:activeTab===i?'#4a3520':'#a08060',fontWeight:activeTab===i?700:400,borderBottom:activeTab===i?'2.5px solid #a0784e':'2.5px solid transparent',cursor:'pointer',transition:'all 0.2s'}}>
                 {t}
               </button>
@@ -1618,7 +1760,8 @@ export default function Leader() {
         {activeTab===0 && <SermonTab/>}
         {activeTab===1 && <CellTab/>}
         {activeTab===2 && <MemberTab/>}
-        {activeTab===3 && <DixitTab/>}
+        {activeTab===3 && <AttendanceTab/>}
+        {activeTab===4 && <DixitTab/>}
       </div>
     </>
   )
