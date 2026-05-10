@@ -1640,7 +1640,134 @@ function AttendanceTab() {
   )
 }
 
-// ── 탭5: 딕싯 게임 관리 ──────────────────────────────
+// ── 탭5: 운영 대시보드 ──────────────────────────────
+function DashboardTab() {
+  const [week, setWeek] = useState(getWeekStr())
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState('')
+
+  const weeks = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + (1 - i) * 7)
+    return getWeekStr(d)
+  })
+
+  useEffect(() => { loadSummary() }, [week])
+
+  async function loadSummary() {
+    setLoading(true)
+    setErr('')
+    try {
+      const res = await fetch(`/api/dashboard/summary?week=${week}`, {
+        headers: { 'Authorization': `Bearer ${LEADER_SECRET}` }
+      })
+      const d = await res.json()
+      if (!d.ok) throw new Error(d.error)
+      setData(d.data)
+    } catch (e) {
+      setErr('대시보드 데이터를 불러오지 못했어요. ' + e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function BarRow({ label, value, max = 100, color = '#a0784e' }) {
+    const width = max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0
+    return (
+      <div style={{marginBottom:8}}>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginBottom:4}}>
+          <span>{label}</span>
+          <strong style={{color:'#4a3520'}}>{value}</strong>
+        </div>
+        <div style={{height:8,background:'#f0e7d9',borderRadius:8,overflow:'hidden'}}>
+          <div style={{height:'100%',width:`${width}%`,background:color}}/>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={S.cont}>
+      <div style={S.card}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:0}}>운영 대시보드</p>
+          <button onClick={loadSummary} style={S.btnSm}>🔄 새로고침</button>
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+          <label style={{...S.label,margin:0,whiteSpace:'nowrap'}}>기준 주차</label>
+          <select value={week} onChange={e=>setWeek(e.target.value)} style={{...S.input,cursor:'pointer',padding:'9px 12px'}}>
+            {weeks.map(w => <option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
+          </select>
+        </div>
+        {err && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {err}</p>}
+        {loading ? (
+          <p style={{color:'#a0784e',fontSize:13,textAlign:'center',padding:'12px 0'}}>불러오는 중...</p>
+        ) : !data ? (
+          <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>표시할 데이터가 없어요.</p>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
+              <div style={{background:'#fdf5ec',border:'1px solid #e8c9a0',borderRadius:10,padding:'10px 12px'}}>
+                <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 3px'}}>전체 회원</p>
+                <p style={{fontSize:20,color:'#4a3520',margin:0,fontWeight:700}}>{data.구성원.total_members}명</p>
+              </div>
+              <div style={{background:'#eef6ef',border:'1px solid #c8e6c9',borderRadius:10,padding:'10px 12px'}}>
+                <p style={{fontSize:11,color:'#2e7d32',margin:'0 0 3px'}}>현재 접속</p>
+                <p style={{fontSize:20,color:'#2e7d32',margin:0,fontWeight:700}}>{data.구성원.online_members}명</p>
+              </div>
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>출석률 요약</p>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                <span style={{background:'#f7f7f7',border:'1px solid #e5e5e5',borderRadius:16,padding:'4px 10px',fontSize:11}}>주간 {data.출석.week.rate}%</span>
+                <span style={{background:'#f7f7f7',border:'1px solid #e5e5e5',borderRadius:16,padding:'4px 10px',fontSize:11}}>월간 {data.출석.month.rate}%</span>
+                <span style={{background:'#f7f7f7',border:'1px solid #e5e5e5',borderRadius:16,padding:'4px 10px',fontSize:11}}>연간 {data.출석.year.rate}%</span>
+              </div>
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>월간 주차별 출석(체크완료)</p>
+              {(data.출석.month_by_week || []).length === 0 ? (
+                <p style={{fontSize:11,color:'#b8a090',margin:0,fontStyle:'italic'}}>월간 데이터가 없어요.</p>
+              ) : (
+                (data.출석.month_by_week || []).map((row) => (
+                  <BarRow key={row.week} label={weekLabel(row.week)} value={row.checked} max={data.구성원.total_members || 1} color="#a0784e" />
+                ))
+              )}
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>연간 월별 출석률</p>
+              {(data.출석.year_by_month || []).length === 0 ? (
+                <p style={{fontSize:11,color:'#b8a090',margin:0,fontStyle:'italic'}}>연간 데이터가 없어요.</p>
+              ) : (
+                (data.출석.year_by_month || []).map((row) => (
+                  <BarRow key={row.month} label={row.month} value={row.rate} max={100} color="#7a9e7e" />
+                ))
+              )}
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>운영 지표</p>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:8}}>
+                <div style={{fontSize:11,color:'#6b5040'}}>말씀 생성 대기: <strong>{data.운영.sermon_status.pending}</strong></div>
+                <div style={{fontSize:11,color:'#6b5040'}}>말씀 생성 중: <strong>{data.운영.sermon_status.processing}</strong></div>
+                <div style={{fontSize:11,color:'#6b5040'}}>말씀 생성 완료: <strong>{data.운영.sermon_status.done}</strong></div>
+                <div style={{fontSize:11,color:'#6b5040'}}>말씀 생성 오류: <strong>{data.운영.sermon_status.error}</strong></div>
+                <div style={{fontSize:11,color:'#6b5040'}}>주간 세션 수: <strong>{data.운영.sessions.week_total}</strong></div>
+                <div style={{fontSize:11,color:'#6b5040'}}>진행 중 세션: <strong>{data.운영.sessions.week_active}</strong></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── 탭6: 딕싯 게임 관리 ──────────────────────────────
 function DixitTab() {
   const [rooms, setRooms]         = useState([])
   const [creating, setCreating]   = useState(false)
@@ -1795,7 +1922,7 @@ export default function Leader() {
           <p style={S.sub}>시냇가에 심은 나무 WORD &amp; LIFE</p>
           <h1 style={S.h1}>리더 도구</h1>
           <div style={{display:'flex'}}>
-            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','✅ 출석 관리','🃏 딕싯'].map((t,i)=>(
+            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','✅ 출석 관리','📊 운영 대시보드','🃏 딕싯'].map((t,i)=>(
               <button key={i} onClick={()=>setActiveTab(i)} style={{flex:1,padding:'12px 8px',border:'none',background:'none',fontSize:13,fontFamily:"'Gowun Batang',serif",color:activeTab===i?'#4a3520':'#a08060',fontWeight:activeTab===i?700:400,borderBottom:activeTab===i?'2.5px solid #a0784e':'2.5px solid transparent',cursor:'pointer',transition:'all 0.2s'}}>
                 {t}
               </button>
@@ -1806,7 +1933,8 @@ export default function Leader() {
         {activeTab===1 && <CellTab/>}
         {activeTab===2 && <MemberTab/>}
         {activeTab===3 && <AttendanceTab/>}
-        {activeTab===4 && <DixitTab/>}
+        {activeTab===4 && <DashboardTab/>}
+        {activeTab===5 && <DixitTab/>}
       </div>
     </>
   )
