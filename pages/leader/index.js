@@ -1458,6 +1458,7 @@ function AttendanceTab() {
   const [week, setWeek] = useState(getWeekStr())
   const [members, setMembers] = useState([])
   const [attendanceMap, setAttendanceMap] = useState({})
+  const [summary, setSummary] = useState({ total_checked: 0, present: 0, absent: 0, excused: 0 })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
@@ -1486,6 +1487,7 @@ function AttendanceTab() {
 
       const list = (membersData.data || []).slice().sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ko'))
       setMembers(list)
+      setSummary(attendanceData.summary || { total_checked: 0, present: 0, absent: 0, excused: 0 })
 
       const map = {}
       ;(attendanceData.data || []).forEach((row) => {
@@ -1527,6 +1529,7 @@ function AttendanceTab() {
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
       setMsg(`출석 ${d.count || rows.length}건을 저장했어요.`)
+      await loadData()
       setTimeout(() => setMsg(''), 2200)
     } catch (e) {
       setErr('저장 오류: ' + e.message)
@@ -1551,6 +1554,12 @@ function AttendanceTab() {
         </div>
 
         <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>회원별로 출석 상태를 체크한 뒤 저장해 주세요.</p>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 10px'}}>
+          <span style={{background:'#e8f5e9',border:'1px solid #c8e6c9',color:'#2e7d32',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>출석 {summary.present}명</span>
+          <span style={{background:'#fff5f5',border:'1px solid #f5c6bb',color:'#c0392b',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>결석 {summary.absent}명</span>
+          <span style={{background:'#f5f3fa',border:'1px solid #ddd0f0',color:'#6a5d9a',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>사유결석 {summary.excused}명</span>
+          <span style={{background:'#f5f5f5',border:'1px solid #e0e0e0',color:'#757575',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>체크완료 {summary.total_checked}명</span>
+        </div>
         {err && <p style={{...S.err,margin:'0 0 8px'}}>⚠ {err}</p>}
         {msg && <p style={{...S.ok,margin:'0 0 8px'}}>✓ {msg}</p>}
 
@@ -1575,7 +1584,6 @@ function AttendanceTab() {
                   >
                     <option value="">미선택</option>
                     <option value="present">출석</option>
-                    <option value="late">지각</option>
                     <option value="excused">사유결석</option>
                     <option value="absent">결석</option>
                   </select>

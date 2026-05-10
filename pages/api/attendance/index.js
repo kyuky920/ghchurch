@@ -1,7 +1,7 @@
 import { supabase } from '../../../lib/supabase'
 
 const LEADER_SECRET = process.env.LEADER_API_SECRET || process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
-const ALLOWED = new Set(['present', 'absent', 'late', 'excused'])
+const ALLOWED = new Set(['present', 'absent', 'excused'])
 
 function normalizeWeek(week) {
   if (!week) return ''
@@ -29,7 +29,14 @@ export default async function handler(req, res) {
         .eq('week', week)
         .order('checked_at', { ascending: false })
       if (error) throw error
-      return res.status(200).json({ ok: true, data: data || [] })
+      const rows = data || []
+      const summary = {
+        total_checked: rows.length,
+        present: rows.filter(r => r.status === 'present').length,
+        absent: rows.filter(r => r.status === 'absent').length,
+        excused: rows.filter(r => r.status === 'excused').length,
+      }
+      return res.status(200).json({ ok: true, data: rows, summary })
     } catch (e) {
       return res.status(500).json({ ok: false, error: e.message })
     }
@@ -103,4 +110,3 @@ export default async function handler(req, res) {
 
   return res.status(405).json({ ok: false, error: 'Method not allowed' })
 }
-
