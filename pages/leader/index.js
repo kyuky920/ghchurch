@@ -1778,6 +1778,27 @@ function DashboardTab() {
             </div>
 
             <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>예배/모임별 출석 통계</p>
+              {[
+                { label:'주간', key:'week_tracks' },
+                { label:'월간', key:'month_tracks' },
+                { label:'연간', key:'year_tracks' },
+              ].map((row) => {
+                const t = data.출석?.[row.key] || {}
+                return (
+                  <div key={row.key} style={{marginBottom:8,paddingBottom:8,borderBottom:'1px dashed #eee'}}>
+                    <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 5px',fontWeight:700}}>{row.label}</p>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      <span style={{background:'#edf5ee',border:'1px solid #d6e6d8',color:'#2e7d32',borderRadius:14,padding:'3px 8px',fontSize:10}}>주일 오전 {t.sunday_morning?.count || 0}명 ({t.sunday_morning?.rate || 0}%)</span>
+                      <span style={{background:'#eef4fb',border:'1px solid #d6e3f5',color:'#1565c0',borderRadius:14,padding:'3px 8px',fontSize:10}}>주일 오후 {t.sunday_afternoon?.count || 0}명 ({t.sunday_afternoon?.rate || 0}%)</span>
+                      <span style={{background:'#f4eef8',border:'1px solid #e3d3f0',color:'#7b1fa2',borderRadius:14,padding:'3px 8px',fontSize:10}}>청년부모임 {t.young_adult_meeting?.count || 0}명 ({t.young_adult_meeting?.rate || 0}%)</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
               <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>월간 주차별 출석(체크완료)</p>
               {(data.출석.month_by_week || []).length === 0 ? (
                 <p style={{fontSize:11,color:'#b8a090',margin:0,fontStyle:'italic'}}>월간 데이터가 없어요.</p>

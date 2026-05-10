@@ -59,6 +59,38 @@ function weekDiffFrom(baseWeek, targetWeek) {
   return Math.round((a - b) / (7 * 24 * 60 * 60 * 1000))
 }
 
+function parseTrackState(noteValue, status) {
+  const blank = { sunday_morning: false, sunday_afternoon: false, young_adult_meeting: false }
+  if (!noteValue) return status === 'present' ? { ...blank, sunday_morning: true } : blank
+  try {
+    const parsed = typeof noteValue === 'string' ? JSON.parse(noteValue) : noteValue
+    if (!parsed || typeof parsed !== 'object') return blank
+    return {
+      sunday_morning: !!parsed.sunday_morning,
+      sunday_afternoon: !!parsed.sunday_afternoon,
+      young_adult_meeting: !!parsed.young_adult_meeting,
+    }
+  } catch (e) {
+    return status === 'present' ? { ...blank, sunday_morning: true } : blank
+  }
+}
+
+function aggregateTracks(rows, totalMembers) {
+  const counts = { sunday_morning: 0, sunday_afternoon: 0, young_adult_meeting: 0 }
+  rows.forEach((r) => {
+    const t = parseTrackState(r.note, r.status)
+    if (t.sunday_morning) counts.sunday_morning += 1
+    if (t.sunday_afternoon) counts.sunday_afternoon += 1
+    if (t.young_adult_meeting) counts.young_adult_meeting += 1
+  })
+  const rate = (v) => (totalMembers > 0 ? Math.round((v / totalMembers) * 1000) / 10 : 0)
+  return {
+    sunday_morning: { count: counts.sunday_morning, rate: rate(counts.sunday_morning) },
+    sunday_afternoon: { count: counts.sunday_afternoon, rate: rate(counts.sunday_afternoon) },
+    young_adult_meeting: { count: counts.young_adult_meeting, rate: rate(counts.young_adult_meeting) },
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -79,7 +111,7 @@ export default async function handler(req, res) {
     const [membersRes, onlineRes, attendanceRes, sermonsRes, sessionsRes] = await Promise.all([
       supabase.from('members').select('id,device_id,name,last_seen,created_at'),
       supabase.from('members').select('id,device_id').gte('last_seen', since),
-      supabase.from('attendance').select('week,member_id,status,checked_at'),
+      supabase.from('attendance').select('week,member_id,status,note,checked_at'),
       supabase.from('sermons').select('id,status,created_at'),
       supabase.from('cell_sessions').select('id,week,is_active,started_at,ended_at'),
     ])
@@ -104,6 +136,9 @@ export default async function handler(req, res) {
     const weekStats = aggregateRows(weekRows, totalMembers)
     const monthStats = aggregateRows(monthRows, totalMembers)
     const yearStats = aggregateRows(yearRows, totalMembers)
+    const weekTracks = aggregateTracks(weekRows, totalMembers)
+    const monthTracks = aggregateTracks(monthRows, totalMembers)
+    const yearTracks = aggregateTracks(yearRows, totalMembers)
 
     const monthByWeekMap = {}
     monthRows.forEach((r) => {
@@ -210,6 +245,9 @@ export default async function handler(req, res) {
           week: weekStats,
           month: monthStats,
           year: yearStats,
+          week_tracks: weekTracks,
+          month_tracks: monthTracks,
+          year_tracks: yearTracks,
           month_by_week: monthByWeek,
           year_by_month: yearByMonth,
           target_month: targetMonth,
