@@ -1,6 +1,50 @@
 import { supabase } from '../../../lib/supabase'
 
 const LEADER_SECRET = process.env.LEADER_API_SECRET || process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
+const NOT_FOUND_CODE = 'PGRST116'
+
+function normalizeName(name) {
+  return String(name || '').trim()
+}
+
+async function syncDeviceIdInGroups({ oldDeviceId, newDeviceId, memberName }) {
+  if (!oldDeviceId || !newDeviceId || oldDeviceId === newDeviceId) return
+
+  const { data: groupRows, error: groupsError } = await supabase
+    .from('cell_groups')
+    .select('week,groups')
+  if (groupsError) throw groupsError
+
+  for (const row of groupRows || []) {
+    const parsed = typeof row.groups === 'string' ? JSON.parse(row.groups) : (row.groups || [])
+    let changed = false
+
+    const nextGroups = (Array.isArray(parsed) ? parsed : []).map(group => {
+      const next = { ...group }
+
+      if (next?.leader?.device_id === oldDeviceId) {
+        next.leader = { ...next.leader, device_id: newDeviceId, name: memberName || next.leader.name }
+        changed = true
+      }
+
+      const members = Array.isArray(next.members) ? next.members : []
+      next.members = members.map(m => {
+        if (m?.device_id !== oldDeviceId) return m
+        changed = true
+        return { ...m, device_id: newDeviceId, name: memberName || m.name }
+      })
+      return next
+    })
+
+    if (changed) {
+      const { error: updateError } = await supabase
+        .from('cell_groups')
+        .update({ groups: nextGroups })
+        .eq('week', row.week)
+      if (updateError) throw updateError
+    }
+  }
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -26,14 +70,42 @@ export default async function handler(req, res) {
   // POST — 멤버 등록 (이름 + device_id)
   if (req.method === 'POST') {
     const { device_id, name, week, service } = req.body
-    if (!device_id || !name) return res.status(400).json({ ok: false, error: 'device_id, name 필수' })
+    const normalized = normalizeName(name)
+    if (!device_id || !normalized) return res.status(400).json({ ok: false, error: 'device_id, name 필수' })
     try {
-      const { data, error } = await supabase
+      const now = new Date().toISOString()
+      let data
+
+      // 동일 이름이 이미 있으면 기존 회원으로 간주하고 device_id를 새 기기로 재연결
+      const { data: existingByName, error: findByNameError } = await supabase
         .from('members')
-        .upsert({ device_id, name, week: week||null, service: service||null, last_seen: new Date().toISOString() },
-          { onConflict: 'device_id' })
-        .select().single()
-      if (error) throw error
+        .select('id,device_id,name,week,service,last_seen,created_at')
+        .eq('name', normalized)
+        .single()
+      if (findByNameError && findByNameError.code !== NOT_FOUND_CODE) throw findByNameError
+
+      if (existingByName?.id) {
+        const oldDeviceId = existingByName.device_id
+        const { data: updated, error: updateError } = await supabase
+          .from('members')
+          .update({ device_id, name: normalized, week: week || null, service: service || null, last_seen: now })
+          .eq('id', existingByName.id)
+          .select('id,device_id,name,week,service,last_seen,created_at')
+          .single()
+        if (updateError) throw updateError
+        data = updated
+        await syncDeviceIdInGroups({ oldDeviceId, newDeviceId: device_id, memberName: normalized })
+      } else {
+        const { data: created, error } = await supabase
+          .from('members')
+          .upsert({ device_id, name: normalized, week: week || null, service: service || null, last_seen: now },
+            { onConflict: 'device_id' })
+          .select('id,device_id,name,week,service,last_seen,created_at')
+          .single()
+        if (error) throw error
+        data = created
+      }
+
       return res.status(200).json({ ok: true, data })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
   }
@@ -75,15 +147,41 @@ export default async function handler(req, res) {
 
     if (!device_id) return res.status(400).json({ ok: false, error: 'device_id 필수' })
     try {
+      const now = new Date().toISOString()
       const { data, error } = await supabase
         .from('members')
-        .update({ last_seen: new Date().toISOString(), week: week||null, service: service||null })
+        .update({ last_seen: now, week: week||null, service: service||null })
         .eq('device_id', device_id)
-        .select('device_id')
-        .single()
+        .select('id,device_id,name')
+        .maybeSingle()
       if (error) throw error
-      if (!data?.device_id) return res.status(404).json({ ok: false, error: 'member_not_found', needs_register: true })
-      return res.status(200).json({ ok: true, data })
+      if (data?.device_id) return res.status(200).json({ ok: true, data })
+
+      // 다른 브라우저/기기에서 동일 이름으로 heartbeat 온 경우 기존 회원을 현재 기기로 재연결
+      const normalized = normalizeName(name)
+      if (normalized) {
+        const { data: existingByName, error: findByNameError } = await supabase
+          .from('members')
+          .select('id,device_id,name')
+          .eq('name', normalized)
+          .single()
+        if (findByNameError && findByNameError.code !== NOT_FOUND_CODE) throw findByNameError
+
+        if (existingByName?.id) {
+          const oldDeviceId = existingByName.device_id
+          const { data: relinked, error: relinkError } = await supabase
+            .from('members')
+            .update({ device_id, name: normalized, last_seen: now, week: week || null, service: service || null })
+            .eq('id', existingByName.id)
+            .select('id,device_id,name')
+            .single()
+          if (relinkError) throw relinkError
+          await syncDeviceIdInGroups({ oldDeviceId, newDeviceId: device_id, memberName: normalized })
+          return res.status(200).json({ ok: true, data: relinked, relinked_by_name: true })
+        }
+      }
+
+      return res.status(404).json({ ok: false, error: 'member_not_found', needs_register: true })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
   }
 
