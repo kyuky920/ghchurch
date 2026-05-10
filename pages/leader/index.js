@@ -1760,6 +1760,48 @@ function DashboardTab() {
                 <div style={{fontSize:11,color:'#6b5040'}}>진행 중 세션: <strong>{data.운영.sessions.week_active}</strong></div>
               </div>
             </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>개인 출석률 TOP 5 (최근 {data.운영.member_attendance?.recent_window_weeks || 8}주)</p>
+              {(data.운영.member_attendance?.top || []).length === 0 ? (
+                <p style={{fontSize:11,color:'#b8a090',margin:0,fontStyle:'italic'}}>집계할 데이터가 없어요.</p>
+              ) : (
+                (data.운영.member_attendance.top || []).map((r, idx) => (
+                  <div key={`${r.member_id}-top`} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#4a3520',padding:'4px 0',borderTop:idx===0?'none':'1px dashed #eee'}}>
+                    <span>{idx + 1}. {r.name}</span>
+                    <strong>{r.rate}% ({r.present}/{r.checked})</strong>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>케어 필요 대상 (출석률 하위 5명)</p>
+              {(data.운영.member_attendance?.bottom || []).length === 0 ? (
+                <p style={{fontSize:11,color:'#b8a090',margin:0,fontStyle:'italic'}}>집계할 데이터가 없어요.</p>
+              ) : (
+                (data.운영.member_attendance.bottom || []).map((r, idx) => (
+                  <div key={`${r.member_id}-bottom`} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#4a3520',padding:'4px 0',borderTop:idx===0?'none':'1px dashed #eee'}}>
+                    <span>{idx + 1}. {r.name}</span>
+                    <strong>{r.rate}% ({r.present}/{r.checked})</strong>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>연속 결석자 (최근 기준 연속 2주 이상)</p>
+              {(data.운영.member_attendance?.streak_absentees || []).length === 0 ? (
+                <p style={{fontSize:11,color:'#2e7d32',margin:0}}>현재 연속 결석자가 없어요.</p>
+              ) : (
+                (data.운영.member_attendance.streak_absentees || []).map((r, idx) => (
+                  <div key={`${r.member_id}-streak`} style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#4a3520',padding:'4px 0',borderTop:idx===0?'none':'1px dashed #eee'}}>
+                    <span>{r.name}</span>
+                    <strong style={{color:'#c0392b'}}>{r.streak_weeks}주 연속</strong>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>

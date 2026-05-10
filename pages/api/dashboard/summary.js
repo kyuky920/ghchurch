@@ -53,6 +53,12 @@ function aggregateRows(rows, totalMembers) {
   return { present, absent, checked, rate }
 }
 
+function weekDiffFrom(baseWeek, targetWeek) {
+  const a = new Date(`${baseWeek}T00:00:00`).getTime()
+  const b = new Date(`${targetWeek}T00:00:00`).getTime()
+  return Math.round((a - b) / (7 * 24 * 60 * 60 * 1000))
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -130,6 +136,67 @@ export default async function handler(req, res) {
     const activeSessions = weekSessions.filter((s) => s.is_active).length
     const endedSessions = weekSessions.filter((s) => !s.is_active && s.ended_at).length
 
+    // 개인 출석률(최근 8주) + 연속 결석(최근 8주)
+    const recentWindow = 8
+    const recentRows = attendance.filter((r) => {
+      const diff = weekDiffFrom(targetWeek, r.week)
+      return diff >= 0 && diff < recentWindow
+    })
+    const memberById = {}
+    members.forEach((m) => { memberById[m.id] = m })
+
+    const groupedByMember = {}
+    recentRows.forEach((r) => {
+      if (!groupedByMember[r.member_id]) groupedByMember[r.member_id] = []
+      groupedByMember[r.member_id].push(r)
+    })
+
+    const memberRates = members.map((m) => {
+      const rows = groupedByMember[m.id] || []
+      const presentCnt = rows.filter((r) => r.status === 'present').length
+      const checkedCnt = rows.length
+      const rate = checkedCnt > 0 ? Math.round((presentCnt / checkedCnt) * 1000) / 10 : 0
+      return {
+        member_id: m.id,
+        name: m.name,
+        checked: checkedCnt,
+        present: presentCnt,
+        rate,
+      }
+    }).filter((r) => r.checked > 0)
+
+    const topAttendance = memberRates
+      .slice()
+      .sort((a, b) => (b.rate - a.rate) || (b.checked - a.checked) || String(a.name).localeCompare(String(b.name), 'ko'))
+      .slice(0, 5)
+
+    const bottomAttendance = memberRates
+      .slice()
+      .sort((a, b) => (a.rate - b.rate) || (b.checked - a.checked) || String(a.name).localeCompare(String(b.name), 'ko'))
+      .slice(0, 5)
+
+    // 최근 주차 순서 생성
+    const recentWeeks = Array.from({ length: recentWindow }, (_, i) => {
+      const d = new Date(`${targetWeek}T00:00:00`)
+      d.setDate(d.getDate() - i * 7)
+      return ymd(d)
+    })
+
+    const streakAbsentees = members.map((m) => {
+      const rows = groupedByMember[m.id] || []
+      const byWeek = {}
+      rows.forEach((r) => { byWeek[r.week] = r.status })
+      let streak = 0
+      for (const w of recentWeeks) {
+        const s = byWeek[w]
+        if (s === 'absent' || s === 'excused') streak += 1
+        else break
+      }
+      return { member_id: m.id, name: m.name, streak_weeks: streak }
+    }).filter((r) => r.streak_weeks >= 2)
+      .sort((a, b) => b.streak_weeks - a.streak_weeks)
+      .slice(0, 10)
+
     return res.status(200).json({
       ok: true,
       data: {
@@ -160,6 +227,12 @@ export default async function handler(req, res) {
             week_active: activeSessions,
             week_ended: endedSessions,
           },
+          member_attendance: {
+            recent_window_weeks: recentWindow,
+            top: topAttendance,
+            bottom: bottomAttendance,
+            streak_absentees: streakAbsentees,
+          }
         },
       }
     })
@@ -167,4 +240,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: e.message })
   }
 }
-
