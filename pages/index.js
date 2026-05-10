@@ -343,10 +343,10 @@ export default function Home() {
                         const isOpening=item.category==='오프닝'
                         const m=QMETA[i]||QMETA[0]
                         return (
-                          <div key={i} style={{background:m.bg,borderRadius:14,padding:'16px 18px',borderLeft:`4px solid ${m.color}`,animation:`fadeUp 0.4s ease ${i*0.1}s both`}}>
-                            <p style={{fontSize:10,color:m.color,fontWeight:700,margin:'0 0 7px',letterSpacing:'0.06em'}}>{item.section_title || item.category || m.type}</p>
-                            {!isOpening && ex&&<div style={{background:'rgba(255,255,255,0.65)',borderRadius:8,padding:'9px 12px',marginBottom:8,borderLeft:`2px solid ${m.color}60`}}><p style={{margin:0,color:'#6b5040',fontSize:12,lineHeight:1.8}}>{ex}</p></div>}
-                            <p style={{margin:0,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:15,lineHeight:1.85,fontWeight:700}}>{q}</p>
+                          <div key={i} style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)',animation:`fadeUp 0.4s ease ${i*0.1}s both`}}>
+                            <p style={{fontSize:10,color:'#8b6e4e',fontWeight:700,margin:'0 0 8px',letterSpacing:'0.05em'}}>{item.section_title || item.category || m.type}</p>
+                            {!isOpening && ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginBottom:8,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:12,lineHeight:1.8}}>{ex}</p></div>}
+                            <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:16,lineHeight:1.95,fontWeight:700}}>{q}</p>
                           </div>
                         )
                       })}
