@@ -1459,8 +1459,9 @@ function AttendanceTab() {
   const [members, setMembers] = useState([])
   const [attendanceMap, setAttendanceMap] = useState({})
   const [summary, setSummary] = useState({ total_checked: 0, present: 0, absent: 0, excused: 0 })
+  const [cellParticipantIds, setCellParticipantIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [savingMemberId, setSavingMemberId] = useState('')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
 
@@ -1476,12 +1477,16 @@ function AttendanceTab() {
     setLoading(true)
     setErr('')
     try {
-      const [membersRes, attendanceRes] = await Promise.all([
+      const [membersRes, attendanceRes, groupsRes, sessionsRes] = await Promise.all([
         fetch('/api/members?all=true'),
         fetch(`/api/attendance?week=${week}`),
+        fetch(`/api/cell-groups?week=${week}`),
+        fetch(`/api/cell-sessions?all=true&week=${week}`),
       ])
       const membersData = await membersRes.json()
       const attendanceData = await attendanceRes.json()
+      const groupsData = await groupsRes.json()
+      const sessionsData = await sessionsRes.json()
       if (!membersData.ok) throw new Error(membersData.error || 'members 조회 실패')
       if (!attendanceData.ok) throw new Error(attendanceData.error || 'attendance 조회 실패')
 
@@ -1493,6 +1498,37 @@ function AttendanceTab() {
       ;(attendanceData.data || []).forEach((row) => {
         if (row?.member_id) map[row.member_id] = { status: row.status, note: row.note || '' }
       })
+
+      // 셀모임 참여자 자동 인식: 세션이 존재하는 조의 멤버를 참여자로 간주
+      const participantDeviceIds = new Set()
+      const groups = groupsData?.ok ? (groupsData.data?.groups || []) : []
+      const sessions = sessionsData?.ok ? (sessionsData.data || []) : []
+      const activeGroupNos = new Set(sessions.map((s) => String(s.group_no)))
+      groups.forEach((g) => {
+        if (!activeGroupNos.has(String(g.group_no))) return
+        ;(g.members || []).forEach((m) => {
+          if (m?.device_id) participantDeviceIds.add(m.device_id)
+        })
+      })
+      setCellParticipantIds(participantDeviceIds)
+
+      // 자동 출석: 아직 체크 안 된 회원 중 셀모임 참여자는 출석으로 즉시 저장
+      const autoRows = list
+        .filter((m) => !map[m.id]?.status && participantDeviceIds.has(m.device_id))
+        .map((m) => ({ member_id: m.id, status: 'present', note: '' }))
+
+      if (autoRows.length) {
+        const checkedBy = typeof window !== 'undefined' ? (localStorage.getItem('wl_member_name') || 'leader') : 'leader'
+        await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
+          body: JSON.stringify({ action:'upsert_bulk', week, rows: autoRows, checked_by: `${checkedBy} (auto)` })
+        })
+        autoRows.forEach((r) => { map[r.member_id] = { status: 'present', note: '' } })
+        setMsg(`셀모임 참여자 ${autoRows.length}명을 자동 출석 처리했어요.`)
+        setTimeout(() => setMsg(''), 1800)
+      }
+
       setAttendanceMap(map)
     } catch (e) {
       setErr('출석 정보를 불러오지 못했어요. ' + e.message)
@@ -1501,41 +1537,29 @@ function AttendanceTab() {
     }
   }
 
-  function updateStatus(memberId, status) {
-    setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), status } }))
-  }
-
-  async function saveAttendance() {
-    setSaving(true)
+  async function upsertOne(memberId, status, note = '') {
+    setSavingMemberId(memberId)
     setErr('')
-    setMsg('')
     try {
-      const rows = members
-        .map((m) => ({
-          member_id: m.id,
-          status: attendanceMap[m.id]?.status || null,
-          note: attendanceMap[m.id]?.note || '',
-        }))
-        .filter((r) => !!r.status)
-
-      if (!rows.length) throw new Error('저장할 출석 상태가 없어요.')
-
       const checkedBy = typeof window !== 'undefined' ? (localStorage.getItem('wl_member_name') || 'leader') : 'leader'
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify({ action:'upsert_bulk', week, rows, checked_by: checkedBy })
+        body: JSON.stringify({ week, member_id: memberId, status, note, checked_by: checkedBy })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
-      setMsg(`출석 ${d.count || rows.length}건을 저장했어요.`)
+      setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), status, note } }))
       await loadData()
-      setTimeout(() => setMsg(''), 2200)
     } catch (e) {
       setErr('저장 오류: ' + e.message)
     } finally {
-      setSaving(false)
+      setSavingMemberId('')
     }
+  }
+
+  function updateNote(memberId, note) {
+    setAttendanceMap((prev) => ({ ...prev, [memberId]: { ...(prev[memberId] || {}), note } }))
   }
 
   return (
@@ -1553,7 +1577,7 @@ function AttendanceTab() {
           </select>
         </div>
 
-        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>회원별로 출석 상태를 체크한 뒤 저장해 주세요.</p>
+        <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 10px'}}>상태 버튼을 누르면 즉시 저장됩니다. 셀모임 참여자는 자동 출석 처리됩니다.</p>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'0 0 10px'}}>
           <span style={{background:'#e8f5e9',border:'1px solid #c8e6c9',color:'#2e7d32',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>출석 {summary.present}명</span>
           <span style={{background:'#fff5f5',border:'1px solid #f5c6bb',color:'#c0392b',borderRadius:16,padding:'4px 10px',fontSize:11,fontWeight:700}}>결석 {summary.absent}명</span>
@@ -1571,33 +1595,53 @@ function AttendanceTab() {
           <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:520,overflowY:'auto',paddingRight:2}}>
             {members.map((m) => {
               const status = attendanceMap[m.id]?.status || ''
+              const note = attendanceMap[m.id]?.note || ''
+              const isParticipant = cellParticipantIds.has(m.device_id)
               return (
-                <div key={m.id} style={{display:'flex',alignItems:'center',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'9px 10px',background:'#fff'}}>
+                <div key={m.id} style={{display:'flex',alignItems:'flex-start',gap:10,border:'1px solid #ebe2d4',borderRadius:10,padding:'9px 10px',background:'#fff'}}>
                   <div style={{flex:1,minWidth:0}}>
                     <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{m.name}</p>
-                    <p style={{fontSize:10,color:'#a08060',margin:0}}>{m.last_seen ? `최근 접속: ${getLastSeenLabel(m.last_seen)}` : '미접속 회원'}</p>
+                    <p style={{fontSize:10,color:'#a08060',margin:0}}>
+                      {isParticipant ? '셀모임 참여자' : (m.last_seen ? `최근 접속: ${getLastSeenLabel(m.last_seen)}` : '미접속 회원')}
+                    </p>
+                    {status === 'excused' && (
+                      <input
+                        value={note}
+                        onChange={(e)=>updateNote(m.id, e.target.value)}
+                        onBlur={()=>upsertOne(m.id, 'excused', note)}
+                        placeholder="사유 입력 후 포커스를 벗어나면 저장"
+                        style={{...S.input,marginTop:6,padding:'7px 9px',fontSize:12}}
+                      />
+                    )}
                   </div>
-                  <select
-                    value={status}
-                    onChange={(e)=>updateStatus(m.id, e.target.value)}
-                    style={{fontSize:12,padding:'6px 8px',border:'1px solid #ddd0ba',borderRadius:8,color:'#4a3520',background:'#fff'}}
-                  >
-                    <option value="">미선택</option>
-                    <option value="present">출석</option>
-                    <option value="excused">사유결석</option>
-                    <option value="absent">결석</option>
-                  </select>
+                  <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                    <button
+                      onClick={()=>upsertOne(m.id, 'present', note)}
+                      disabled={savingMemberId === m.id}
+                      style={{background:status==='present'?'#2e7d32':'#eef6ef',color:status==='present'?'#fff':'#2e7d32',border:'1px solid #c8e6c9',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                    >
+                      출석
+                    </button>
+                    <button
+                      onClick={()=>upsertOne(m.id, 'absent', note)}
+                      disabled={savingMemberId === m.id}
+                      style={{background:status==='absent'?'#c0392b':'#fff1f1',color:status==='absent'?'#fff':'#c0392b',border:'1px solid #f5c6bb',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                    >
+                      결석
+                    </button>
+                    <button
+                      onClick={()=>upsertOne(m.id, 'excused', note)}
+                      disabled={savingMemberId === m.id}
+                      style={{background:status==='excused'?'#6a5d9a':'#f3f1fb',color:status==='excused'?'#fff':'#6a5d9a',border:'1px solid #ddd0f0',borderRadius:8,padding:'6px 10px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                    >
+                      사유결석
+                    </button>
+                  </div>
                 </div>
               )
             })}
           </div>
         )}
-
-        <div style={{marginTop:12}}>
-          <button onClick={saveAttendance} disabled={saving} style={saving?S.btnGray:S.btnDark}>
-            {saving ? '저장 중...' : '💾 출석 저장'}
-          </button>
-        </div>
       </div>
     </div>
   )
