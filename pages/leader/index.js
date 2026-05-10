@@ -1696,6 +1696,7 @@ function DashboardTab() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
+  const [attendanceTab, setAttendanceTab] = useState('total')
 
   const weeks = Array.from({ length: 12 }, (_, i) => {
     const d = new Date()
@@ -1737,6 +1738,19 @@ function DashboardTab() {
     )
   }
 
+  function metricFor(periodKey, tabKey) {
+    if (!data) return { count: 0, rate: 0 }
+    if (tabKey === 'total') {
+      const base = data.출석?.[periodKey] || {}
+      return { count: base.present || 0, rate: base.rate || 0 }
+    }
+    const tracks = data.출석?.[`${periodKey}_tracks`] || {}
+    return {
+      count: tracks?.[tabKey]?.count || 0,
+      rate: tracks?.[tabKey]?.rate || 0,
+    }
+  }
+
   return (
     <div style={S.cont}>
       <div style={S.card}>
@@ -1769,29 +1783,47 @@ function DashboardTab() {
             </div>
 
             <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
-              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>출석률 요약</p>
-              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-                <span style={{background:'#f7f7f7',border:'1px solid #e5e5e5',borderRadius:16,padding:'4px 10px',fontSize:11}}>주간 {data.출석.week.rate}%</span>
-                <span style={{background:'#f7f7f7',border:'1px solid #e5e5e5',borderRadius:16,padding:'4px 10px',fontSize:11}}>월간 {data.출석.month.rate}%</span>
-                <span style={{background:'#f7f7f7',border:'1px solid #e5e5e5',borderRadius:16,padding:'4px 10px',fontSize:11}}>연간 {data.출석.year.rate}%</span>
+              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>출석 비율 관리 (전체 인원 대비)</p>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+                {[
+                  { key:'total', label:'총합' },
+                  { key:'sunday_morning', label:'주일 오전' },
+                  { key:'sunday_afternoon', label:'주일 오후' },
+                  { key:'young_adult_meeting', label:'청년부모임' },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setAttendanceTab(t.key)}
+                    style={{
+                      border:'none',
+                      borderRadius:14,
+                      padding:'5px 10px',
+                      fontSize:11,
+                      cursor:'pointer',
+                      fontWeight:700,
+                      background: attendanceTab===t.key ? '#4a3520' : '#f5f0ea',
+                      color: attendanceTab===t.key ? '#fff' : '#8b6e4e',
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
-            </div>
 
-            <div style={{background:'#fff',border:'1px solid #ebe2d4',borderRadius:10,padding:'10px 12px'}}>
-              <p style={{fontSize:12,color:'#4a3520',fontWeight:700,margin:'0 0 8px'}}>예배/모임별 출석 통계</p>
               {[
-                { label:'주간', key:'week_tracks' },
-                { label:'월간', key:'month_tracks' },
-                { label:'연간', key:'year_tracks' },
-              ].map((row) => {
-                const t = data.출석?.[row.key] || {}
+                { key:'week', label:'주간' },
+                { key:'month', label:'월간' },
+                { key:'year', label:'연간' },
+              ].map((p) => {
+                const m = metricFor(p.key, attendanceTab)
                 return (
-                  <div key={row.key} style={{marginBottom:8,paddingBottom:8,borderBottom:'1px dashed #eee'}}>
-                    <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 5px',fontWeight:700}}>{row.label}</p>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      <span style={{background:'#edf5ee',border:'1px solid #d6e6d8',color:'#2e7d32',borderRadius:14,padding:'3px 8px',fontSize:10}}>주일 오전 {t.sunday_morning?.count || 0}명 ({t.sunday_morning?.rate || 0}%)</span>
-                      <span style={{background:'#eef4fb',border:'1px solid #d6e3f5',color:'#1565c0',borderRadius:14,padding:'3px 8px',fontSize:10}}>주일 오후 {t.sunday_afternoon?.count || 0}명 ({t.sunday_afternoon?.rate || 0}%)</span>
-                      <span style={{background:'#f4eef8',border:'1px solid #e3d3f0',color:'#7b1fa2',borderRadius:14,padding:'3px 8px',fontSize:10}}>청년부모임 {t.young_adult_meeting?.count || 0}명 ({t.young_adult_meeting?.rate || 0}%)</span>
+                  <div key={p.key} style={{marginBottom:8}}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginBottom:3}}>
+                      <span>{p.label}</span>
+                      <strong style={{color:'#4a3520'}}>{m.count} / {data.구성원.total_members}명 ({m.rate}%)</strong>
+                    </div>
+                    <div style={{height:8,background:'#f0e7d9',borderRadius:8,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${Math.max(0, Math.min(100, m.rate))}%`,background:'#a0784e'}}/>
                     </div>
                   </div>
                 )
