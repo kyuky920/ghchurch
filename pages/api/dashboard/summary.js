@@ -49,7 +49,7 @@ function aggregateRows(rows, totalMembers) {
   const present = rows.filter((r) => r.status === 'present').length
   const absent = rows.filter((r) => r.status === 'absent' || r.status === 'excused').length
   const checked = rows.length
-  const rate = totalMembers > 0 ? Math.round((present / totalMembers) * 1000) / 10 : 0
+  const rate = totalMembers > 0 ? Math.round((present / totalMembers) * 1000) / 10 : 0 // legacy
   return { present, absent, checked, rate }
 }
 
@@ -57,6 +57,34 @@ function weekDiffFrom(baseWeek, targetWeek) {
   const a = new Date(`${baseWeek}T00:00:00`).getTime()
   const b = new Date(`${targetWeek}T00:00:00`).getTime()
   return Math.round((a - b) / (7 * 24 * 60 * 60 * 1000))
+}
+
+function uniqWeeks(rows) {
+  return [...new Set((rows || []).map((r) => r.week).filter(Boolean))]
+}
+
+function aggregateMetrics(rows, totalMembers) {
+  const presentRows = rows.filter((r) => r.status === 'present')
+  const weeks = uniqWeeks(rows)
+  const weekCount = weeks.length
+  const participationDenom = totalMembers * weekCount
+  const participationRate = participationDenom > 0 ? Math.round((presentRows.length / participationDenom) * 1000) / 10 : 0
+  const presentMemberSet = new Set(presentRows.map((r) => r.member_id).filter(Boolean))
+  const coverageCount = presentMemberSet.size
+  const coverageRate = totalMembers > 0 ? Math.round((coverageCount / totalMembers) * 1000) / 10 : 0
+  return {
+    week_count: weekCount,
+    participation: {
+      present_count: presentRows.length,
+      denominator: participationDenom,
+      rate: participationRate,
+    },
+    coverage: {
+      present_members: coverageCount,
+      denominator: totalMembers,
+      rate: coverageRate,
+    },
+  }
 }
 
 function parseTrackState(noteValue, status) {
@@ -89,6 +117,42 @@ function aggregateTracks(rows, totalMembers) {
     sunday_afternoon: { count: counts.sunday_afternoon, rate: rate(counts.sunday_afternoon) },
     young_adult_meeting: { count: counts.young_adult_meeting, rate: rate(counts.young_adult_meeting) },
   }
+}
+
+function aggregateTrackMetrics(rows, totalMembers) {
+  const weeks = uniqWeeks(rows)
+  const weekCount = weeks.length
+  const keys = ['sunday_morning', 'sunday_afternoon', 'young_adult_meeting']
+  const out = {}
+  for (const key of keys) {
+    let checkedCount = 0
+    const memberSet = new Set()
+    rows.forEach((r) => {
+      const t = parseTrackState(r.note, r.status)
+      if (t[key]) {
+        checkedCount += 1
+        if (r.member_id) memberSet.add(r.member_id)
+      }
+    })
+    const participationDenom = totalMembers * weekCount
+    const participationRate = participationDenom > 0 ? Math.round((checkedCount / participationDenom) * 1000) / 10 : 0
+    const coverageCount = memberSet.size
+    const coverageRate = totalMembers > 0 ? Math.round((coverageCount / totalMembers) * 1000) / 10 : 0
+    out[key] = {
+      week_count: weekCount,
+      participation: {
+        present_count: checkedCount,
+        denominator: participationDenom,
+        rate: participationRate,
+      },
+      coverage: {
+        present_members: coverageCount,
+        denominator: totalMembers,
+        rate: coverageRate,
+      },
+    }
+  }
+  return out
 }
 
 export default async function handler(req, res) {
@@ -136,9 +200,15 @@ export default async function handler(req, res) {
     const weekStats = aggregateRows(weekRows, totalMembers)
     const monthStats = aggregateRows(monthRows, totalMembers)
     const yearStats = aggregateRows(yearRows, totalMembers)
+    const weekMetrics = aggregateMetrics(weekRows, totalMembers)
+    const monthMetrics = aggregateMetrics(monthRows, totalMembers)
+    const yearMetrics = aggregateMetrics(yearRows, totalMembers)
     const weekTracks = aggregateTracks(weekRows, totalMembers)
     const monthTracks = aggregateTracks(monthRows, totalMembers)
     const yearTracks = aggregateTracks(yearRows, totalMembers)
+    const weekTrackMetrics = aggregateTrackMetrics(weekRows, totalMembers)
+    const monthTrackMetrics = aggregateTrackMetrics(monthRows, totalMembers)
+    const yearTrackMetrics = aggregateTrackMetrics(yearRows, totalMembers)
 
     const monthByWeekMap = {}
     monthRows.forEach((r) => {
@@ -245,9 +315,15 @@ export default async function handler(req, res) {
           week: weekStats,
           month: monthStats,
           year: yearStats,
+          week_metrics: weekMetrics,
+          month_metrics: monthMetrics,
+          year_metrics: yearMetrics,
           week_tracks: weekTracks,
           month_tracks: monthTracks,
           year_tracks: yearTracks,
+          week_track_metrics: weekTrackMetrics,
+          month_track_metrics: monthTrackMetrics,
+          year_track_metrics: yearTrackMetrics,
           month_by_week: monthByWeek,
           year_by_month: yearByMonth,
           target_month: targetMonth,

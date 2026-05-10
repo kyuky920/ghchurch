@@ -1751,6 +1751,15 @@ function DashboardTab() {
     }
   }
 
+  function metricPackFor(periodKey, tabKey) {
+    if (!data) return { participation: { present_count: 0, denominator: 0, rate: 0 }, coverage: { present_members: 0, denominator: 0, rate: 0 } }
+    if (tabKey === 'total') {
+      return data.출석?.[`${periodKey}_metrics`] || { participation: { present_count: 0, denominator: 0, rate: 0 }, coverage: { present_members: 0, denominator: 0, rate: 0 } }
+    }
+    const group = data.출석?.[`${periodKey}_track_metrics`] || {}
+    return group?.[tabKey] || { participation: { present_count: 0, denominator: 0, rate: 0 }, coverage: { present_members: 0, denominator: 0, rate: 0 } }
+  }
+
   return (
     <div style={S.cont}>
       <div style={S.card}>
@@ -1815,15 +1824,22 @@ function DashboardTab() {
                 { key:'month', label:'월간' },
                 { key:'year', label:'연간' },
               ].map((p) => {
-                const m = metricFor(p.key, attendanceTab)
+                const pack = metricPackFor(p.key, attendanceTab)
                 return (
                   <div key={p.key} style={{marginBottom:8}}>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginBottom:3}}>
-                      <span>{p.label}</span>
-                      <strong style={{color:'#4a3520'}}>{m.count} / {data.구성원.total_members}명 ({m.rate}%)</strong>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginBottom:4}}>
+                      <span>{p.label} 참석률</span>
+                      <strong style={{color:'#4a3520'}}>{pack.participation.present_count} / {pack.participation.denominator} ({pack.participation.rate}%)</strong>
                     </div>
                     <div style={{height:8,background:'#f0e7d9',borderRadius:8,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${Math.max(0, Math.min(100, m.rate))}%`,background:'#a0784e'}}/>
+                      <div style={{height:'100%',width:`${Math.max(0, Math.min(100, pack.participation.rate))}%`,background:'#a0784e'}}/>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8b6e4e',marginTop:5,marginBottom:3}}>
+                      <span>{p.label} 출석 경험률</span>
+                      <strong style={{color:'#4a3520'}}>{pack.coverage.present_members} / {pack.coverage.denominator}명 ({pack.coverage.rate}%)</strong>
+                    </div>
+                    <div style={{height:8,background:'#e8f1ea',borderRadius:8,overflow:'hidden'}}>
+                      <div style={{height:'100%',width:`${Math.max(0, Math.min(100, pack.coverage.rate))}%`,background:'#5a8f67'}}/>
                     </div>
                   </div>
                 )
