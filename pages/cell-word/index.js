@@ -130,6 +130,7 @@ export default function CellWord() {
   const [loading, setLoading]           = useState(true)
   const [tab, setTab]                   = useState(2)
   const [savingImage, setSavingImage]   = useState(false)
+  const [copyingKakao, setCopyingKakao] = useState(false)
 
   const [activeSession, setActiveSession] = useState(null)
   const [myGroup, setMyGroup]             = useState(null)
@@ -376,6 +377,75 @@ export default function CellWord() {
     }
   }
 
+  function buildKakaoCopyText() {
+    if (!selected) return ''
+    const lines = []
+    const title = selected.sermon_title || selected.reference || '말씀 나눔'
+    lines.push(`📖 ${title}`)
+    if (selected.reference) lines.push(selected.reference)
+    lines.push('')
+
+    if (tab === 0) {
+      lines.push('【성경말씀】')
+      if (selected.passage) lines.push(selected.passage)
+      else lines.push('본문 말씀을 준비 중입니다.')
+    } else if (tab === 1) {
+      lines.push('【말씀 요약】')
+      if (!summary) {
+        lines.push('말씀 요약을 준비 중입니다.')
+      } else {
+        if (summary.key_point) lines.push(`핵심 메시지: ${summary.key_point}`)
+        if (summary.overview) {
+          lines.push('')
+          lines.push('전체 흐름')
+          lines.push(summary.overview)
+        }
+        const sections = Array.isArray(summary.sections) ? summary.sections : []
+        if (sections.length) {
+          lines.push('')
+          lines.push('단락별 요약')
+          sections.forEach((sec, idx) => {
+            const t = sec?.title || `단락 ${idx + 1}`
+            const c = sec?.content || ''
+            lines.push(`${idx + 1}. ${t}`)
+            if (c) lines.push(c)
+          })
+        }
+      }
+    } else {
+      lines.push('【나눔 질문】')
+      if (!qs.length) {
+        lines.push('질문을 준비 중입니다.')
+      } else {
+        qs.forEach((item, idx) => {
+          const q = item?.question || ''
+          const ex = item?.explanation || ''
+          const section = item?.section_title || item?.category || `질문 ${idx + 1}`
+          lines.push(`${idx + 1}. ${section}`)
+          if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
+          if (q) lines.push(`- ${q}`)
+          lines.push('')
+        })
+      }
+    }
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  }
+
+  async function copyForKakao() {
+    if (!selected) return
+    const text = buildKakaoCopyText()
+    if (!text) return
+    setCopyingKakao(true)
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('카카오톡에 붙여넣을 내용이 복사되었습니다.')
+    } catch (e) {
+      alert('복사에 실패했어요. 브라우저 권한을 확인해 주세요.')
+    } finally {
+      setCopyingKakao(false)
+    }
+  }
+
   return (
     <>
       <Head>
@@ -584,13 +654,22 @@ export default function CellWord() {
                   </div>
                 </div>
               )}
-              <button
-                onClick={saveCurrentViewAsImage}
-                disabled={savingImage}
-                style={{width:'100%',marginTop:16,background:savingImage?'#c4a882':'linear-gradient(135deg,#4a3520,#7a5c38)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
-              >
-                {savingImage ? '이미지 저장 중...' : '🖼 현재 화면 이미지로 저장'}
-              </button>
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button
+                  onClick={copyForKakao}
+                  disabled={copyingKakao}
+                  style={{flex:1,background:copyingKakao?'#c8b79e':'linear-gradient(135deg,#f8e5bf,#f0c77a)',color:'#5c4323',border:'1px solid #e0c08a',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:copyingKakao?'not-allowed':'pointer'}}
+                >
+                  {copyingKakao ? '복사 중...' : '💬 카톡으로 복사하기'}
+                </button>
+                <button
+                  onClick={saveCurrentViewAsImage}
+                  disabled={savingImage}
+                  style={{flex:1,background:savingImage?'#c4a882':'linear-gradient(135deg,#4a3520,#7a5c38)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                >
+                  {savingImage ? '이미지 저장 중...' : '🖼 이미지로 저장'}
+                </button>
+              </div>
             </div>
           )}
         </div>
