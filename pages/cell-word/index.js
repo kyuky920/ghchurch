@@ -386,24 +386,24 @@ export default function CellWord() {
     lines.push('')
 
     if (tab === 0) {
-      lines.push('【성경말씀】')
+      lines.push('(성경말씀)')
       if (selected.passage) lines.push(selected.passage)
       else lines.push('본문 말씀을 준비 중입니다.')
     } else if (tab === 1) {
-      lines.push('【말씀 요약】')
+      lines.push('(말씀요약)')
       if (!summary) {
         lines.push('말씀 요약을 준비 중입니다.')
       } else {
-        if (summary.key_point) lines.push(`핵심 메시지: ${summary.key_point}`)
+        if (summary.key_point) lines.push(`(핵심메시지) ${summary.key_point}`)
         if (summary.overview) {
           lines.push('')
-          lines.push('전체 흐름')
+          lines.push('(전체흐름)')
           lines.push(summary.overview)
         }
         const sections = Array.isArray(summary.sections) ? summary.sections : []
         if (sections.length) {
           lines.push('')
-          lines.push('단락별 요약')
+          lines.push('(단락별요약)')
           sections.forEach((sec, idx) => {
             const t = sec?.title || `단락 ${idx + 1}`
             const c = sec?.content || ''
@@ -413,7 +413,7 @@ export default function CellWord() {
         }
       }
     } else {
-      lines.push('【나눔 질문】')
+      lines.push('(나눔질문)')
       if (!qs.length) {
         lines.push('질문을 준비 중입니다.')
       } else {
