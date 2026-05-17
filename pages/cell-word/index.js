@@ -126,6 +126,7 @@ const S = {
 export default function CellWord() {
   const router = useRouter()
 
+  const [sermonList, setSermonList]       = useState([])
   const [selected, setSelected]         = useState(null)
   const [loading, setLoading]           = useState(true)
   const [tab, setTab]                   = useState(2)
@@ -221,6 +222,7 @@ export default function CellWord() {
       .then(d => {
         if (!alive) return
         if (d.ok && d.data?.length) {
+          setSermonList(d.data)
           const requestedWeek = week || null
           const requestedService = service || null
           const sessionWeek = activeSession?.sermon_week || null
@@ -242,6 +244,7 @@ export default function CellWord() {
             else if (parsedTab >= 0 && parsedTab <= 2) setTab(parsedTab)
           }
         } else {
+          setSermonList([])
           setSelected(null)
         }
       })
@@ -340,6 +343,10 @@ export default function CellWord() {
   }
 
   const TABS = ['성경말씀', '말씀 요약', '나눔질문']
+  const currentWeek = selected?.week || activeSession?.sermon_week || pickQueryValue(router.query.week) || ''
+  const serviceOptions = sermonList
+    .filter((s) => sameWeek(s.week, currentWeek))
+    .sort((a, b) => (a.service === 'morning' ? -1 : 1))
 
   const parseField = (val) => {
     if (!val) return []
@@ -568,6 +575,34 @@ export default function CellWord() {
                   </button>
                 ))}
               </div>
+
+              {serviceOptions.length > 1 && (
+                <div style={{display:'flex',gap:8,margin:'-6px 0 14px'}}>
+                  {serviceOptions.map((s) => {
+                    const isMorning = s.service === 'morning'
+                    const isSelected = selected?.id === s.id
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelected(s)}
+                        style={{
+                          flex:1,
+                          padding:'10px 12px',
+                          borderRadius:10,
+                          border:`1.5px solid ${isSelected ? (isMorning ? '#f6a623' : '#7a6e9e') : '#ddcfba'}`,
+                          background:isSelected ? (isMorning ? '#fff6e9' : '#f5f2fb') : '#fff',
+                          color:isSelected ? (isMorning ? '#9f6510' : '#5e4f86') : '#7f6a53',
+                          fontSize:13,
+                          fontWeight:700,
+                          cursor:'pointer',
+                        }}
+                      >
+                        {isMorning ? '☀️ 주일 오전 말씀' : '🌙 주일 오후 말씀'}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
             {/* 탭 0: 성경말씀 */}
               {tab===0 && (
