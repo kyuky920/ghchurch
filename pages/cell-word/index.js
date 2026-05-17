@@ -76,6 +76,10 @@ function getDeviceId() {
   }
   return id
 }
+function getSavedName() {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('wl_member_name') || ''
+}
 
 const QMETA = [
   { type:'말씀 속으로',  color:'#7a5a33', bg:'#fff8ef' },
@@ -142,6 +146,7 @@ export default function CellWord() {
   const [personalNotes, setPersonalNotes] = useState({ questionNotes: {}, prayer: '' })
 
   const pollRef      = useRef(null)
+  const heartbeatRef = useRef(null)
   const captureRef   = useRef(null)
 
   const activeNoticeKey = activeSession?.notice
@@ -206,6 +211,40 @@ export default function CellWord() {
     pollRef.current = setInterval(() => pollFn.current(), 5000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [router.isReady, router.query.week, router.query.group_no])
+
+  async function sendHeartbeat() {
+    const device_id = getDeviceId()
+    const name = getSavedName()
+    if (!device_id || !name) return
+    try {
+      await fetch('/api/members', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id, name })
+      })
+    } catch (e) {}
+  }
+
+  // ── 접속 하트비트 (cell-word에서도 유지) ──
+  useEffect(() => {
+    sendHeartbeat()
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+    heartbeatRef.current = setInterval(() => sendHeartbeat(), 30000)
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') sendHeartbeat()
+    }
+    const onFocus = () => sendHeartbeat()
+
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible)
+    if (typeof window !== 'undefined') window.addEventListener('focus', onFocus)
+
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible)
+      if (typeof window !== 'undefined') window.removeEventListener('focus', onFocus)
+    }
+  }, [])
 
   // ── 말씀 로드 ──
   useEffect(() => {
