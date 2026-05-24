@@ -789,7 +789,7 @@ function CellTab() {
   }
 
   function handleRandom() {
-    const candidates = allMembers.length ? allMembers : members
+    const candidates = members
     if (candidates.length === 0) { setErrMsg('편성할 회원이 없어요.'); return }
     setErrMsg('')
     const shuffled = [...candidates].sort(() => Math.random() - 0.5)
@@ -883,6 +883,9 @@ function CellTab() {
         <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.7}}>
           📌 조 편성 완료 후 저장하면, <strong>셀 리더로 지정된 청년이 /cell 페이지에서 직접 모임을 시작</strong>할 수 있어요.
         </p>
+        <p style={{fontSize:12,color:'#8b6e4e',margin:'6px 0 0',lineHeight:1.7}}>
+          현재 조 편성 대상은 <strong>접속 중인 인원만</strong> 포함됩니다.
+        </p>
       </div>
 
       {/* 주차/예배 선택 — 어느 예배 조 편성인지 */}
@@ -968,14 +971,13 @@ function CellTab() {
         </div>
       </div>
 
-      {/* 미배정 멤버 (접속 중 + 미접속) */}
+      {/* 미배정 멤버 (접속 중만 편성 가능) */}
       {groups.length>0 && (unassigned.length>0||offlineUnassigned.length>0) && (
         <div style={{background:'#fff8e1',borderRadius:12,padding:'14px 16px',border:'1px solid #ffe082'}}>
           <p style={{fontSize:12,color:'#f57f17',fontWeight:700,margin:'0 0 10px'}}>
-            ⚠ 미배정 {unassigned.length+offlineUnassigned.length}명 — 조를 선택해서 배정하세요
+            ⚠ 접속 중 미배정 {unassigned.length}명 — 조를 선택해서 배정하세요
           </p>
           <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
-            {/* 접속 중 미배정 */}
             {unassigned.map(m=>(
               <div key={m.device_id} style={{display:'flex',alignItems:'center',gap:6,background:'#fff',borderRadius:10,padding:'6px 10px',border:'1px solid #ffe082'}}>
                 <span style={{width:6,height:6,borderRadius:'50%',background:'#4caf50',flexShrink:0}}/>
@@ -987,20 +989,22 @@ function CellTab() {
                 </select>
               </div>
             ))}
-            {/* 미접속 미배정 */}
-            {offlineUnassigned.map(m=>(
-              <div key={m.device_id} style={{display:'flex',alignItems:'center',gap:6,background:'#f5f5f5',borderRadius:10,padding:'6px 10px',border:'1px solid #e0e0e0'}}>
-                <span style={{width:6,height:6,borderRadius:'50%',background:'#bdbdbd',flexShrink:0}}/>
-                <span style={{fontSize:13,color:'#757575',fontWeight:600}}>{m.name}</span>
-                <span style={{fontSize:10,color:'#bdbdbd'}}>미접속</span>
-                <select onChange={e=>{ if(e.target.value){ addToGroup(m,Number(e.target.value)); e.target.value='' } }}
-                  style={{fontSize:11,padding:'3px 6px',border:'1px solid #ddd0ba',borderRadius:6,color:'#8b6e4e',cursor:'pointer',background:'#fdf5ec'}}>
-                  <option value="">→ 배정</option>
-                  {groups.map(g=><option key={g.group_no} value={g.group_no}>{formatGroupName(g)}</option>)}
-                </select>
-              </div>
-            ))}
           </div>
+          {offlineUnassigned.length > 0 && (
+            <div style={{marginTop:10,paddingTop:10,borderTop:'1px dashed #f0d79c'}}>
+              <p style={{fontSize:11,color:'#9e9e9e',fontWeight:700,margin:'0 0 8px'}}>
+                참고: 미접속 {offlineUnassigned.length}명은 조편성 대상에서 제외됩니다
+              </p>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                {offlineUnassigned.map(m=>(
+                  <span key={m.device_id} style={{display:'inline-flex',alignItems:'center',gap:6,background:'#f5f5f5',borderRadius:20,padding:'4px 10px',border:'1px solid #e0e0e0',fontSize:12,color:'#757575',fontWeight:500}}>
+                    <span style={{width:6,height:6,borderRadius:'50%',background:'#bdbdbd',flexShrink:0}}/>
+                    {m.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
