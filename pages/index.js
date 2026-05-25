@@ -179,9 +179,16 @@ export default function Home() {
             el.style.position = 'static'
             el.style.top = 'auto'
             el.style.zIndex = 'auto'
+            el.style.backdropFilter = 'none'
           })
           clonedDoc.querySelectorAll('.capture-actions').forEach((el) => {
             el.style.display = 'none'
+          })
+          clonedDoc.querySelectorAll('*').forEach((el) => {
+            el.style.animation = 'none'
+            el.style.transition = 'none'
+            el.style.transform = 'none'
+            el.style.opacity = '1'
           })
         },
       })
