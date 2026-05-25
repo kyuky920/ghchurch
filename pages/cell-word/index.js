@@ -420,6 +420,10 @@ export default function CellWord() {
         scrollX: 0,
         scrollY: -window.scrollY,
         onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll('.capture-root').forEach((el) => {
+            el.style.padding = '20px'
+            el.style.background = '#faf6f0'
+          })
           clonedDoc.querySelectorAll('.tab-bar').forEach((el) => {
             el.style.position = 'static'
             el.style.top = 'auto'
@@ -616,7 +620,7 @@ export default function CellWord() {
               <p style={{ fontFamily:"'Gowun Batang',serif", fontSize:15 }}>말씀을 찾을 수 없어요</p>
             </div>
           ) : (
-            <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
+            <div ref={captureRef} className="capture-root" style={{display:'flex',flexDirection:'column'}}>
               {isLeaderNoticeVisible && (
                 <div style={{
                   background:'linear-gradient(135deg,#1f6b26,#2f8b3a)',

@@ -176,6 +176,10 @@ export default function Home() {
         scrollX: 0,
         scrollY: -window.scrollY,
         onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll('.capture-root').forEach((el) => {
+            el.style.padding = '20px'
+            el.style.background = '#faf6f0'
+          })
           clonedDoc.querySelectorAll('.tab-bar').forEach((el) => {
             el.style.position = 'static'
             el.style.top = 'auto'
@@ -355,7 +359,7 @@ export default function Home() {
               )}
 
               {selected && (
-                <div ref={captureRef} style={{display:'flex',flexDirection:'column'}}>
+                <div ref={captureRef} className="capture-root" style={{display:'flex',flexDirection:'column'}}>
                   {/* 말씀 정보 */}
                   <div style={{...S.card,marginBottom:14}}>
                     <span style={{background:selected.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:11,fontWeight:700,display:'inline-block',marginBottom:8}}>
