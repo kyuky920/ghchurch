@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import InstallShortcutButton from '../../components/InstallShortcutButton'
 
 function getWeekStr(date) {
   const d = new Date(date || new Date())
@@ -439,14 +438,9 @@ export default function CellPage() {
           background: amLeader ? 'linear-gradient(160deg,#1a4a1a,#2a6a2a)' : 'linear-gradient(160deg,#e8dcc8,#d4c4a8)',
           padding:'24px 20px', borderBottom: amLeader?'1px solid #3a7a3a':'1px solid #c8b898', transition:'all 0.4s'
         }}>
-          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
-            <div>
-              <p style={{fontSize:10,color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
-              <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
-              <p style={{fontSize:11,color:amLeader?'rgba(150,230,150,0.78)':'#8b6e4e',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
-            </div>
-            <InstallShortcutButton light={amLeader} />
-          </div>
+          <p style={{fontSize:10,color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
+          <p style={{fontSize:11,color:amLeader?'rgba(150,230,150,0.78)':'#8b6e4e',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
           {registered && amLeader ? (
             <div style={{background:'linear-gradient(135deg,#ffd700,#ffab00)',borderRadius:16,padding:'10px 18px',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(255,180,0,0.5)',animation:'glow 2s ease-in-out infinite',width:'fit-content'}}>
               <span style={{fontSize:26}}>👑</span>
