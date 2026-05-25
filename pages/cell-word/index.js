@@ -409,6 +409,18 @@ export default function CellWord() {
         backgroundColor: '#faf6f0',
         scale: 2,
         useCORS: true,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        onclone: (clonedDoc) => {
+          clonedDoc.querySelectorAll('.tab-bar').forEach((el) => {
+            el.style.position = 'static'
+            el.style.top = 'auto'
+            el.style.zIndex = 'auto'
+          })
+          clonedDoc.querySelectorAll('.capture-actions').forEach((el) => {
+            el.style.display = 'none'
+          })
+        },
       })
       const link = document.createElement('a')
       const safeRef = (selected.reference || 'cell-word').replace(/[^\w\-가-힣]+/g, '_')
@@ -728,7 +740,7 @@ export default function CellWord() {
                   </div>
                 </div>
               )}
-              <div style={{display:'flex',gap:8,marginTop:16}}>
+              <div className="capture-actions" style={{display:'flex',gap:8,marginTop:16}}>
                 <button
                   onClick={copyForKakao}
                   disabled={copyingKakao}
