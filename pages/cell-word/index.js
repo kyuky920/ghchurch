@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import html2canvas from 'html2canvas'
+import InstallShortcutButton from '../components/InstallShortcutButton'
 
 // 구형식(YYYY-Www) → YYYY-MM-DD 변환
 function normalizeWeek(week) {
@@ -604,7 +605,8 @@ export default function CellWord() {
         <div style={S.header}>
           <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <div>
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flex:1}}>
+              <div>
               <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
               {selected
                 ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.sermon_title || selected.reference}</h1>
@@ -620,6 +622,8 @@ export default function CellWord() {
                   ⏰ {formatSessionPeriod(activeSession)}
                 </p>
               )}
+              </div>
+              <InstallShortcutButton />
             </div>
             {myGroup && (
               <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>

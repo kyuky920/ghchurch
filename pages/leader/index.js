@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
+import InstallShortcutButton from '../components/InstallShortcutButton'
 
 const LEADER_SECRET = process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
 
@@ -2084,8 +2085,13 @@ export default function Leader() {
       </Head>
       <div style={S.wrap}>
         <div style={S.header}>
-          <p style={S.sub}>시냇가에 심은 나무 WORD &amp; LIFE</p>
-          <h1 style={S.h1}>리더 도구</h1>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+            <div>
+              <p style={S.sub}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+              <h1 style={S.h1}>리더 도구</h1>
+            </div>
+            <InstallShortcutButton />
+          </div>
           <div style={{display:'flex'}}>
             {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','✅ 출석 관리','📊 운영 대시보드','🃏 딕싯'].map((t,i)=>(
               <button key={i} onClick={()=>setActiveTab(i)} style={{flex:1,padding:'12px 8px',border:'none',background:'none',fontSize:13,fontFamily:"'Gowun Batang',serif",color:activeTab===i?'#4a3520':'#a08060',fontWeight:activeTab===i?700:400,borderBottom:activeTab===i?'2.5px solid #a0784e':'2.5px solid transparent',cursor:'pointer',transition:'all 0.2s'}}>

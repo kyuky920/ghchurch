@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import html2canvas from 'html2canvas'
+import InstallShortcutButton from '../components/InstallShortcutButton'
 
 const QMETA = [
   { type:'말씀 속으로',  color:'#a0784e', bg:'#fdf5ec' },
@@ -323,9 +324,14 @@ export default function Home() {
         {/* 헤더 */}
         <div style={S.header}>
           <div style={{position:'absolute',top:-40,right:-40,width:200,height:200,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
-          <p style={{fontSize:10,color:'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
-          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:24,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>말씀 나눔</h1>
-          <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>청년부 주간 말씀 &amp; 묵상 가이드</p>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+            <div>
+              <p style={{fontSize:10,color:'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+              <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:24,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>말씀 나눔</h1>
+              <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>청년부 주간 말씀 &amp; 묵상 가이드</p>
+            </div>
+            <InstallShortcutButton />
+          </div>
         </div>
 
         <div style={S.cont}>
