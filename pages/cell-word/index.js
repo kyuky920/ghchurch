@@ -136,10 +136,10 @@ const S = {
 }
 
 const FONT_SCALE_OPTIONS = [
-  { key: 'sm', label: '작게', value: 0.92 },
-  { key: 'md', label: '보통', value: 1 },
-  { key: 'lg', label: '크게', value: 1.12 },
-  { key: 'xl', label: '아주 크게', value: 1.24 },
+  { key: 'sm', label: '작게', value: 1 },
+  { key: 'md', label: '보통', value: 1.12 },
+  { key: 'lg', label: '크게', value: 1.24 },
+  { key: 'xl', label: '아주 크게', value: 1.42 },
 ]
 
 function scalePx(size, factor) {
