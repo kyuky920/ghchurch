@@ -60,6 +60,7 @@ function weekLabel(week) {
   }
   return week
 }
+
 function weekToComparableDate(week) {
   if (!week) return ''
   if (/^\d{4}-\d{2}-\d{2}$/.test(week)) return week
@@ -361,7 +362,9 @@ export default function Home() {
                       {selected.service==='morning'?'주일 오전':'주일 오후'}
                     </span>
                     <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{selected.sermon_title || selected.reference}</h2>
-                    {selected.sermon_title && selected.reference && <p style={{fontSize:13,color:'#8b6e4e',margin:0}}>{selected.reference}</p>}
+                    <p style={{fontSize:13,color:'#8b6e4e',margin:0}}>
+                      {[weekLabel(selected.week), selected.reference].filter(Boolean).join(' · ')}
+                    </p>
                   </div>
 
                   {/* 탭 */}

@@ -17,6 +17,14 @@ function normalizeWeek(week) {
   return week
 }
 
+function weekLabel(week) {
+  const normalized = normalizeWeek(week)
+  if (!normalized || !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return week || ''
+  const d = new Date(`${normalized}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return normalized
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 주`
+}
+
 function pickQueryValue(value) {
   return Array.isArray(value) ? value[0] : value
 }
@@ -572,7 +580,11 @@ export default function CellWord() {
                 ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.sermon_title || selected.reference}</h1>
                 : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:0 }}>말씀 나눔</h1>
               }
-              {selected?.sermon_title && selected?.reference && <p style={{ fontSize:12, color:'#6b5740', margin:0, fontWeight:500 }}>{selected.reference}</p>}
+              {selected && (
+                <p style={{ fontSize:12, color:'#6b5740', margin:0, fontWeight:500 }}>
+                  {[weekLabel(selected.week || currentWeek), selected.reference].filter(Boolean).join(' · ')}
+                </p>
+              )}
               {activeSession?.started_at && (
                 <p style={{ fontSize:11, color:'#6b5740', margin:'4px 0 0' }}>
                   ⏰ {formatSessionPeriod(activeSession)}
