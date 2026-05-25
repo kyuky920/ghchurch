@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import html2canvas from 'html2canvas'
-import InstallShortcutButton from '../components/InstallShortcutButton'
+import InstallShortcutButton from '../../components/InstallShortcutButton'
 
 // 구형식(YYYY-Www) → YYYY-MM-DD 변환
 function normalizeWeek(week) {

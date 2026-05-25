@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import InstallShortcutButton from '../components/InstallShortcutButton'
+import InstallShortcutButton from '../../components/InstallShortcutButton'
 
 function getWeekStr(date) {
   const d = new Date(date || new Date())

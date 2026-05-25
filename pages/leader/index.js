@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
-import InstallShortcutButton from '../components/InstallShortcutButton'
+import InstallShortcutButton from '../../components/InstallShortcutButton'
 
 const LEADER_SECRET = process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
 
