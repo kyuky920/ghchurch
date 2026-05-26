@@ -11,13 +11,15 @@ function normalizePhone(value) {
 function mapAnswer(answer) {
   if (answer === 'yes') return '참석'
   if (answer === 'no') return '불참'
-  return '미정'
+  if (answer === 'maybe') return '미정'
+  return answer || ''
 }
 
 function mapAnswerToDb(choice) {
   if (choice === '참석') return 'yes'
   if (choice === '불참') return 'no'
-  return 'maybe'
+  if (choice === '미정') return 'maybe'
+  return String(choice || '')
 }
 
 function isManager(role, missionRole) {
@@ -85,6 +87,7 @@ async function buildStore(missionGroupId) {
     bibleLogsRes,
     schedulesRes,
     votesRes,
+    voteOptionsRes,
     voteResponsesRes,
     documentsRes,
   ] = await Promise.all([
@@ -125,6 +128,10 @@ async function buildStore(missionGroupId) {
       .eq('mission_group_id', missionGroupId)
       .order('created_at', { ascending: false }),
     supabase
+      .from('mission_vote_options')
+      .select('id,vote_id,label,sort_order')
+      .order('sort_order', { ascending: true }),
+    supabase
       .from('mission_vote_responses')
       .select('vote_id,member_id,answer,note'),
     supabase
@@ -143,6 +150,7 @@ async function buildStore(missionGroupId) {
     bibleLogsRes,
     schedulesRes,
     votesRes,
+    voteOptionsRes,
     voteResponsesRes,
     documentsRes,
   ]) {
@@ -209,6 +217,16 @@ async function buildStore(missionGroupId) {
     }
   }
 
+  const optionsByVote = new Map()
+  for (const row of voteOptionsRes.data || []) {
+    if (!optionsByVote.has(row.vote_id)) optionsByVote.set(row.vote_id, [])
+    optionsByVote.get(row.vote_id).push({
+      id: row.id,
+      label: row.label,
+      sortOrder: row.sort_order || 0,
+    })
+  }
+
   const votes = (votesRes.data || []).map((row) => ({
     id: row.id,
     title: row.title,
@@ -216,6 +234,10 @@ async function buildStore(missionGroupId) {
     visibility: row.visibility,
     status: row.status,
     createdAt: row.created_at?.slice(0, 10) || '',
+    options: optionsByVote.get(row.id)?.sort((a, b) => a.sortOrder - b.sortOrder) || [
+      { id: `${row.id}-yes`, label: '참석', sortOrder: 0 },
+      { id: `${row.id}-no`, label: '불참', sortOrder: 1 },
+    ],
     responses: responsesByVote.get(row.id) || {},
   }))
 
@@ -399,7 +421,26 @@ export default async function handler(req, res) {
           status: 'open',
           created_by: payload.actorId,
         })
+        .select('id')
+        .single()
       if (insert.error) throw insert.error
+
+      const rawOptions = Array.isArray(payload.options) ? payload.options : []
+      const normalizedOptions = rawOptions
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+
+      const finalOptions = normalizedOptions.length ? normalizedOptions : ['참석', '불참']
+      const optionInsert = await supabase
+        .from('mission_vote_options')
+        .insert(
+          finalOptions.map((label, index) => ({
+            vote_id: insert.data.id,
+            label,
+            sort_order: index,
+          }))
+        )
+      if (optionInsert.error) throw optionInsert.error
     } else if (action === 'respondVote') {
       const context = await getMissionContext(payload.actorId)
       const upsert = await supabase

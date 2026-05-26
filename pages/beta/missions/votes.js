@@ -10,7 +10,12 @@ export default function BetaMissionVotesPage() {
   const isWide = useIsWide(920)
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
-  const [form, setForm] = useState({ title: '', description: '', visibility: 'public' })
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    visibility: 'public',
+    optionsText: '참석\n불참',
+  })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -41,9 +46,10 @@ export default function BetaMissionVotesPage() {
         title: form.title.trim(),
         description: form.description.trim(),
         visibility: form.visibility,
+        options: form.optionsText.split('\n').map((item) => item.trim()).filter(Boolean),
       })
       setStore(result.store)
-      setForm({ title: '', description: '', visibility: 'public' })
+      setForm({ title: '', description: '', visibility: 'public', optionsText: '참석\n불참' })
       setError('')
     } catch (err) {
       setError(err.message)
@@ -76,6 +82,7 @@ export default function BetaMissionVotesPage() {
             <form onSubmit={createVote} style={{ display: 'grid', gap: 12 }}>
               <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="투표 제목" style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af' }} />
               <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="설명 (예: 자녀 이름을 함께 적어 주세요)" style={{ minHeight: 120, padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af', resize: 'vertical' }} />
+              <textarea value={form.optionsText} onChange={(e) => setForm({ ...form, optionsText: e.target.value })} placeholder="선택지를 한 줄에 하나씩 입력해 주세요" style={{ minHeight: 110, padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af', resize: 'vertical' }} />
               <select value={form.visibility} onChange={(e) => setForm({ ...form, visibility: e.target.value })} style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af' }}>
                 <option value="public">공개</option>
                 <option value="private">비공개</option>
@@ -89,16 +96,17 @@ export default function BetaMissionVotesPage() {
         <div style={{ display: 'grid', gap: 14 }}>
           {store.votes.map((vote) => {
             const myResponse = vote.responses[session.id] || { choice: '', note: '' }
-            const yesCount = Object.values(vote.responses).filter((response) => response.choice === '참석').length
-            const noCount = Object.values(vote.responses).filter((response) => response.choice === '불참').length
-            const total = Math.max(yesCount + noCount, 1)
+            const optionCounts = vote.options.map((option) => ({
+              label: option.label,
+              count: Object.values(vote.responses).filter((response) => response.choice === option.label).length,
+            }))
+            const total = Math.max(optionCounts.reduce((sum, item) => sum + item.count, 0), 1)
             return (
               <VoteCard
                 key={vote.id}
                 vote={vote}
                 myResponse={myResponse}
-                yesCount={yesCount}
-                noCount={noCount}
+                optionCounts={optionCounts}
                 total={total}
                 canManage={canManageMissions(session)}
                 onSave={saveResponse}
@@ -111,7 +119,7 @@ export default function BetaMissionVotesPage() {
   )
 }
 
-function VoteCard({ vote, myResponse, yesCount, noCount, total, canManage, onSave }) {
+function VoteCard({ vote, myResponse, optionCounts, total, canManage, onSave }) {
   const [choice, setChoice] = useState(myResponse.choice || '')
   const [note, setNote] = useState(myResponse.note || '')
 
@@ -130,9 +138,27 @@ function VoteCard({ vote, myResponse, yesCount, noCount, total, canManage, onSav
       </div>
       <p style={{ margin: '0 0 12px', color: '#6e5b48', lineHeight: 1.7 }}>{vote.description}</p>
       <div style={{ display: 'grid', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => setChoice('참석')} style={{ flex: 1, border: choice === '참석' ? 'none' : '1px solid #d8c8af', background: choice === '참석' ? '#2f7d4c' : '#fff', color: choice === '참석' ? '#fff' : '#6e5b48', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontWeight: 700 }}>참석</button>
-          <button onClick={() => setChoice('불참')} style={{ flex: 1, border: choice === '불참' ? 'none' : '1px solid #d8c8af', background: choice === '불참' ? '#a34d4d' : '#fff', color: choice === '불참' ? '#fff' : '#6e5b48', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', fontWeight: 700 }}>불참</button>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: vote.options.length > 2 ? '1fr' : '1fr 1fr' }}>
+          {vote.options.map((option) => {
+            const active = choice === option.label
+            return (
+              <button
+                key={option.id || option.label}
+                onClick={() => setChoice(option.label)}
+                style={{
+                  border: active ? 'none' : '1px solid #d8c8af',
+                  background: active ? '#8f693f' : '#fff',
+                  color: active ? '#fff' : '#6e5b48',
+                  borderRadius: 12,
+                  padding: '12px 14px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                }}
+              >
+                {option.label}
+              </button>
+            )
+          })}
         </div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="비고 또는 자녀 이름" style={{ minHeight: 90, padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af', resize: 'vertical' }} />
         <button onClick={() => onSave(vote.id, choice, note)} style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
@@ -140,14 +166,23 @@ function VoteCard({ vote, myResponse, yesCount, noCount, total, canManage, onSav
         </button>
         {(vote.visibility === 'public' || canManage) && (
           <div style={{ marginTop: 4, display: 'grid', gap: 8 }}>
-            <VoteBar label="참석" value={yesCount} total={total} tone="#2f7d4c" />
-            <VoteBar label="불참" value={noCount} total={total} tone="#a34d4d" />
+            {optionCounts.map((item, index) => (
+              <VoteBar
+                key={`${item.label}-${index}`}
+                label={item.label}
+                value={item.count}
+                total={total}
+                tone={BAR_COLORS[index % BAR_COLORS.length]}
+              />
+            ))}
           </div>
         )}
       </div>
     </div>
   )
 }
+
+const BAR_COLORS = ['#2f7d4c', '#a34d4d', '#5d74b3', '#9b6bb3', '#b27b25', '#4c8b8f']
 
 function VoteBar({ label, value, total, tone }) {
   const width = `${Math.round((value / total) * 100)}%`
