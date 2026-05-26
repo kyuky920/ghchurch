@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { clearBetaSession, getRoleLabel } from './mockAuth'
 import { missionMemberRoleLabel } from './missionsStore'
+import useIsWide from './useIsWide'
 
 const NAV_ITEMS = [
   { href: '/beta/missions', key: 'home', label: '홈', roles: ['member', 'leader', 'admin'] },
@@ -33,6 +34,8 @@ export default function BetaMissionsShell({
   actions = null,
 }) {
   const router = useRouter()
+  const isWide = useIsWide(920)
+  const canManage = canManageMissions(session)
 
   return (
     <>
@@ -73,11 +76,15 @@ export default function BetaMissionsShell({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0,1fr)', gap: 18 }}>
-            <aside style={{ background: '#fffdf8', border: '1px solid #e4d4bd', borderRadius: 18, padding: 14, alignSelf: 'start', position: 'sticky', top: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isWide ? '220px minmax(0,1fr)' : '1fr', gap: 18 }}>
+            <aside style={{ background: '#fffdf8', border: '1px solid #e4d4bd', borderRadius: 18, padding: 14, alignSelf: 'start', position: isWide ? 'sticky' : 'static', top: 16 }}>
               <p style={{ margin: '2px 0 12px', fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>메뉴</p>
-              <div style={{ display: 'grid', gap: 8 }}>
-                {NAV_ITEMS.filter((item) => item.roles.includes(session.role)).map((item) => {
+              <div style={{ display: 'grid', gap: 8, gridTemplateColumns: isWide ? '1fr' : 'repeat(2, minmax(0,1fr))' }}>
+                {NAV_ITEMS.filter((item) => (
+                  ['members', 'dues', 'finance', 'documents'].includes(item.key)
+                    ? canManage
+                    : item.roles.includes(session.role)
+                )).map((item) => {
                   const active = item.key === activeKey
                   return (
                     <Link

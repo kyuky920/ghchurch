@@ -3,9 +3,11 @@ import { useRouter } from 'next/router'
 import BetaMissionsShell, { canManageMissions } from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
 import { fetchMissionsStore, missionDateKey, mutateMissionsStore } from '../../../components/beta/missionsStore'
+import useIsWide from '../../../components/beta/useIsWide'
 
 export default function BetaMissionSchedulesPage() {
   const router = useRouter()
+  const isWide = useIsWide(920)
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [form, setForm] = useState({ date: missionDateKey(), title: '', detail: '', type: 'event' })
@@ -53,7 +55,7 @@ export default function BetaMissionSchedulesPage() {
 
   return (
     <BetaMissionsShell title="일정/공지" subtitle="월 기준 행사와 토요 일정, 공지를 전체 회원에게 보여줍니다." session={session} activeKey="schedules">
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: canManageMissions(session) ? '0.9fr 1.1fr' : '1fr' }}>
+      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: canManageMissions(session) && isWide ? '0.9fr 1.1fr' : '1fr' }}>
         {canManageMissions(session) && (
           <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
             <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>일정/공지 추가</p>

@@ -3,9 +3,11 @@ import { useRouter } from 'next/router'
 import BetaMissionsShell from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
 import { fetchMissionsStore, mutateMissionsStore } from '../../../components/beta/missionsStore'
+import useIsWide from '../../../components/beta/useIsWide'
 
 export default function BetaMissionDocumentsPage() {
   const router = useRouter()
+  const isWide = useIsWide(920)
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [form, setForm] = useState({ title: '', content: '' })
@@ -52,7 +54,7 @@ export default function BetaMissionDocumentsPage() {
 
   return (
     <BetaMissionsShell title="회의록관리" subtitle="회의 내용을 업로드하고 열람합니다." session={session} activeKey="documents">
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '0.9fr 1.1fr' }}>
+      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? '0.9fr 1.1fr' : '1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>회의록 업로드</p>
           <form onSubmit={submitDocument} style={{ display: 'grid', gap: 12 }}>

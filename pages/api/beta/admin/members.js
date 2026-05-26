@@ -1,4 +1,5 @@
 import { supabase } from '../../../../lib/supabase'
+import { hashAdminPassword } from '../../../../lib/password'
 
 function normalizePhone(value) {
   return String(value || '').replace(/\D/g, '')
@@ -206,7 +207,7 @@ export default async function handler(req, res) {
     if (clearAdminPassword) {
       memberUpdate.admin_password_hash = null
     } else if (typeof adminPassword === 'string' && adminPassword.trim()) {
-      memberUpdate.admin_password_hash = adminPassword.trim()
+      memberUpdate.admin_password_hash = hashAdminPassword(adminPassword.trim())
     }
 
     const memberUpdateRes = await supabase

@@ -4,6 +4,10 @@ function mapMemberStatus(status) {
   return status === 'non_member' ? '비회원' : '회원'
 }
 
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '')
+}
+
 function mapAnswer(answer) {
   if (answer === 'yes') return '참석'
   if (answer === 'no') return '불참'
@@ -275,13 +279,15 @@ export default async function handler(req, res) {
       const name = String(payload.name || '').trim()
       if (!name) return res.status(400).json({ error: '이름을 입력해 주세요.' })
 
+      const normalizedPhone = normalizePhone(payload.phone)
       const tempToken = `pending-${Date.now()}`
+      const phoneValue = normalizedPhone || tempToken
       const memberInsert = await supabase
         .from('app_members')
         .insert({
           name,
-          phone: tempToken,
-          phone_normalized: tempToken,
+          phone: phoneValue,
+          phone_normalized: phoneValue,
           birth_year: payload.birthYear ? Number(payload.birthYear) : null,
           note: String(payload.note || '').trim(),
           role: 'member',

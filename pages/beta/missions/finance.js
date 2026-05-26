@@ -3,12 +3,14 @@ import { useRouter } from 'next/router'
 import BetaMissionsShell from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
 import { fetchMissionsStore, missionDateKey, mutateMissionsStore } from '../../../components/beta/missionsStore'
+import useIsWide from '../../../components/beta/useIsWide'
 
 const INCOME_CATEGORIES = ['회비', '찬조금', '기타']
 const EXPENSE_CATEGORIES = ['경조사비', '후원금', '교제비', '기타']
 
 export default function BetaMissionFinancePage() {
   const router = useRouter()
+  const isWide = useIsWide(920)
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [period, setPeriod] = useState(missionDateKey().slice(0, 7))
@@ -85,7 +87,7 @@ export default function BetaMissionFinancePage() {
         </div>
       }
     >
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '0.9fr 1.1fr' }}>
+      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? '0.9fr 1.1fr' : '1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>내역 추가</p>
           <form onSubmit={submitEntry} style={{ display: 'grid', gap: 12 }}>
@@ -112,7 +114,7 @@ export default function BetaMissionFinancePage() {
               <p style={{ margin: 0, fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>기간 요약</p>
               <input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #d8c8af' }} />
             </div>
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isWide ? 'repeat(3, minmax(0,1fr))' : '1fr' }}>
               <div style={{ background: '#f1f8ef', borderRadius: 14, padding: '14px 15px' }}>
                 <p style={{ margin: '0 0 5px', fontSize: 12, color: '#2f7d4c', fontWeight: 700 }}>수입</p>
                 <p style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>{income.toLocaleString()}원</p>

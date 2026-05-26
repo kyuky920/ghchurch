@@ -10,6 +10,7 @@ import {
   writeBetaSession,
 } from '../../components/beta/mockAuth'
 import { fetchAdminMembers, updateAdminMember, verifyBetaAdmin } from '../../components/beta/missionsStore'
+import useIsWide from '../../components/beta/useIsWide'
 
 function buildForm(member) {
   return {
@@ -32,6 +33,7 @@ function buildForm(member) {
 
 export default function BetaAdminPage() {
   const router = useRouter()
+  const isWide = useIsWide(980)
   const [session, setSession] = useState(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -194,7 +196,7 @@ export default function BetaAdminPage() {
               </form>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '320px minmax(0,1fr)', gap: 18 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isWide ? '320px minmax(0,1fr)' : '1fr', gap: 18 }}>
               <aside style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 18, alignSelf: 'start' }}>
                 <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>회원 목록</p>
                 {loading ? (
@@ -229,7 +231,7 @@ export default function BetaAdminPage() {
                 ) : (
                   <form onSubmit={saveMember} style={{ display: 'grid', gap: 18 }}>
                     <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
-                      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr 1fr' }}>
+                      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: isWide ? '1fr 1fr' : '1fr' }}>
                         <label style={{ display: 'grid', gap: 6 }}>
                           <span style={{ fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>이름</span>
                           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af' }} />
@@ -275,7 +277,7 @@ export default function BetaAdminPage() {
 
                     <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
                       <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>관리자 비밀번호</p>
-                      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr auto' }}>
+                      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: isWide ? '1fr auto' : '1fr' }}>
                         <input type="text" value={form.adminPassword} onChange={(e) => setForm({ ...form, adminPassword: e.target.value, clearAdminPassword: false })} placeholder="새 비밀번호를 입력하면 변경됩니다" style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af' }} />
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#6e5b48' }}>
                           <input type="checkbox" checked={form.clearAdminPassword} onChange={(e) => setForm({ ...form, clearAdminPassword: e.target.checked, adminPassword: e.target.checked ? '' : form.adminPassword })} />
@@ -294,7 +296,7 @@ export default function BetaAdminPage() {
                               {category.organizations.map((org) => {
                                 const selected = form.organizations.find((item) => item.organizationId === org.id)
                                 return (
-                                  <div key={org.id} style={{ display: 'grid', gap: 8, gridTemplateColumns: '180px minmax(0,1fr)' }}>
+                                  <div key={org.id} style={{ display: 'grid', gap: 8, gridTemplateColumns: isWide ? '180px minmax(0,1fr)' : '1fr' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#6e5b48' }}>
                                       <input type="checkbox" checked={Boolean(selected)} onChange={(e) => toggleOrganization(org.id, e.target.checked)} />
                                       {org.name}

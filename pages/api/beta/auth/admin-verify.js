@@ -1,4 +1,5 @@
 import { supabase } from '../../../../lib/supabase'
+import { verifyAdminPassword } from '../../../../lib/password'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
     if (!['leader', 'admin'].includes(data.role)) {
       return res.status(403).json({ error: '관리자 권한이 없습니다.' })
     }
-    if (!data.admin_password_hash || data.admin_password_hash !== password) {
+    if (!verifyAdminPassword(password, data.admin_password_hash)) {
       return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' })
     }
 

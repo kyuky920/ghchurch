@@ -9,6 +9,7 @@ import {
   writeBetaSession,
 } from '../../components/beta/mockAuth'
 import { fetchBetaLogin } from '../../components/beta/missionsStore'
+import useIsWide from '../../components/beta/useIsWide'
 
 const MENU_BY_ROLE = {
   member: [
@@ -39,6 +40,7 @@ function cardStyle(tone) {
 
 export default function BetaHome() {
   const router = useRouter()
+  const isWide = useIsWide(900)
   const [session, setSession] = useState(null)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -103,7 +105,7 @@ export default function BetaHome() {
           </div>
 
           {!session ? (
-            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '1.1fr 0.9fr' }}>
+            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? '1.1fr 0.9fr' : '1fr' }}>
               <div style={{ background: '#fffdf8', border: '1px solid #e2d3bd', borderRadius: 18, padding: 22 }}>
                 <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>간편 로그인</p>
                 <form onSubmit={handleLogin} style={{ display: 'grid', gap: 12 }}>
@@ -138,7 +140,7 @@ export default function BetaHome() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '1.2fr 0.8fr' }}>
+              <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? '1.2fr 0.8fr' : '1fr' }}>
                 <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
                   <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>권한별 메뉴</p>
                   <div style={{ display: 'grid', gap: 12 }}>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 import BetaMissionsShell, { canManageMissions } from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
 import { fetchMissionsStore, missionDateKey, missionMonthKey } from '../../../components/beta/missionsStore'
+import useIsWide from '../../../components/beta/useIsWide'
 
 function statCard(title, value, tone, desc) {
   return (
@@ -17,6 +18,7 @@ function statCard(title, value, tone, desc) {
 
 export default function BetaMissionsHomePage() {
   const router = useRouter()
+  const isWide = useIsWide(920)
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [error, setError] = useState('')
@@ -60,14 +62,14 @@ export default function BetaMissionsHomePage() {
       session={session}
       activeKey="home"
     >
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
+      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? 'repeat(4, minmax(0,1fr))' : '1fr' }}>
         {statCard('오늘 성경읽기', todayPlan?.range || '미등록', '#8f693f', '오늘 읽을 범위와 메모를 확인합니다.')}
         {statCard('이번 달 회비', `${paidCount}/${thisMonthDues.length}`, '#2f7d4c', '회원별 회비 납부 현황을 한눈에 봅니다.')}
         {statCard('현재 잔액', `${balance.toLocaleString()}원`, '#5d74b3', '수입과 지출을 합산한 현재 잔액입니다.')}
         {statCard('진행 중 투표', `${openVotes}건`, '#a34d4d', '현재 응답 가능한 투표 수입니다.')}
       </div>
 
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '1.1fr 0.9fr' }}>
+      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? '1.1fr 0.9fr' : '1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>빠른 이동</p>
           <div style={{ display: 'grid', gap: 12 }}>

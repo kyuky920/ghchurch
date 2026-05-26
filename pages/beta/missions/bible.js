@@ -3,9 +3,11 @@ import { useRouter } from 'next/router'
 import BetaMissionsShell, { canManageMissions } from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
 import { fetchMissionsStore, missionDateKey, mutateMissionsStore } from '../../../components/beta/missionsStore'
+import useIsWide from '../../../components/beta/useIsWide'
 
 export default function BetaMissionBiblePage() {
   const router = useRouter()
+  const isWide = useIsWide(920)
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [day, setDay] = useState(missionDateKey())
@@ -74,7 +76,7 @@ export default function BetaMissionBiblePage() {
 
   return (
     <BetaMissionsShell title="성경읽기" subtitle="매일 읽을 범위를 정하고, 회원이 읽음 여부와 메모를 남깁니다." session={session} activeKey="bible">
-      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '1fr 1fr' }}>
+      <div style={{ display: 'grid', gap: 18, gridTemplateColumns: isWide ? '1fr 1fr' : '1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
             <p style={{ margin: 0, fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>오늘의 읽기</p>
