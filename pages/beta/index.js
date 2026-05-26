@@ -13,20 +13,15 @@ import {
 
 const MENU_BY_ROLE = {
   member: [
-    { key: 'word', title: '말씀 나눔', desc: '주간 말씀과 나눔 질문을 확인합니다.', tone: '#8f693f' },
-    { key: 'cell', title: '셀모임', desc: '셀모임 참여와 공지 확인을 진행합니다.', tone: '#6b8f71' },
+    { key: 'missions', title: '선교회 운영', desc: '선교회 회원 기준 메뉴와 참여 화면을 테스트합니다.', tone: '#8f693f' },
     { key: 'profile', title: '내 소속', desc: '나의 교회 소속과 역할을 확인합니다.', tone: '#7a6e9e' },
   ],
   leader: [
-    { key: 'word', title: '말씀 나눔', desc: '주간 말씀과 나눔 질문을 확인합니다.', tone: '#8f693f' },
-    { key: 'attendance', title: '출석 관리', desc: '셀/예배 출석 체크와 현황을 관리합니다.', tone: '#2f7d4c' },
-    { key: 'cell', title: '셀 조 편성', desc: '온라인 접속자 기준으로 셀 조를 관리합니다.', tone: '#5d74b3' },
+    { key: 'missions', title: '선교회 운영', desc: '회원, 회비, 일정, 투표를 포함한 선교회 운영 흐름을 테스트합니다.', tone: '#8f693f' },
     { key: 'admin', title: '관리 도구', desc: '리더 비밀번호 확인 후 관리 영역으로 들어갑니다.', tone: '#a34d4d' },
   ],
   admin: [
-    { key: 'word', title: '말씀 자료', desc: '말씀, 요약, 나눔 자료를 관리합니다.', tone: '#8f693f' },
-    { key: 'members', title: '회원 관리', desc: '회원, 권한, 소속을 관리합니다.', tone: '#2f7d4c' },
-    { key: 'orgs', title: '조직 관리', desc: '선교회, 교육부, 제직부서를 관리합니다.', tone: '#5d74b3' },
+    { key: 'missions', title: '선교회 운영', desc: '권한, 회비, 재정, 문서까지 포함한 운영 기능을 테스트합니다.', tone: '#8f693f' },
     { key: 'admin', title: '관리 도구', desc: '관리자 비밀번호 확인 후 관리 영역으로 들어갑니다.', tone: '#a34d4d' },
   ],
 }
@@ -75,6 +70,10 @@ export default function BetaHome() {
   }
 
   function handleMenuClick(menuKey) {
+    if (menuKey === 'missions') {
+      router.push('/beta/missions')
+      return
+    }
     if (menuKey === 'admin') {
       router.push('/beta/admin')
       return
