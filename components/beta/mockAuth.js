@@ -6,7 +6,12 @@ export function normalizePhone(value) {
 }
 
 export function canAccessAdmin(member) {
-  return member?.role === 'leader' || member?.role === 'admin'
+  return (
+    member?.role === 'leader' ||
+    member?.role === 'admin' ||
+    member?.missionRole === 'sub_admin' ||
+    member?.missionRole === 'admin'
+  )
 }
 
 export function getRoleLabel(role) {
@@ -32,6 +37,15 @@ export function writeBetaSession(member) {
     ...member,
     signedInAt: new Date().toISOString(),
   }))
+}
+
+export function updateBetaSession(patch) {
+  if (typeof window === 'undefined') return null
+  const current = readBetaSession()
+  if (!current) return null
+  const next = { ...current, ...patch }
+  localStorage.setItem(BETA_SESSION_KEY, JSON.stringify(next))
+  return next
 }
 
 export function clearBetaSession() {

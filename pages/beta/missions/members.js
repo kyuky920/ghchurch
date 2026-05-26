@@ -21,7 +21,7 @@ export default function BetaMissionMembersPage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -38,6 +38,7 @@ export default function BetaMissionMembersPage() {
       setSaving(true)
       const result = await mutateMissionsStore('addMember', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         status: form.status,
         name: form.name.trim(),
         phone: form.phone.trim(),

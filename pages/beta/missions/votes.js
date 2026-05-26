@@ -30,7 +30,7 @@ export default function BetaMissionVotesPage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -53,6 +53,7 @@ export default function BetaMissionVotesPage() {
       const action = editingVoteId ? 'updateVote' : 'addVote'
       const result = await mutateMissionsStore(action, {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         voteId: editingVoteId,
         title: form.title.trim(),
         description: form.description.trim(),
@@ -74,6 +75,7 @@ export default function BetaMissionVotesPage() {
     try {
       const result = await mutateMissionsStore('respondVote', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         voteId,
         choice,
         note,
@@ -89,6 +91,7 @@ export default function BetaMissionVotesPage() {
     try {
       const result = await mutateMissionsStore('setVoteStatus', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         voteId,
         status,
       })
@@ -103,6 +106,7 @@ export default function BetaMissionVotesPage() {
     try {
       const result = await mutateMissionsStore('deleteVote', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         voteId,
       })
       setStore(result.store)

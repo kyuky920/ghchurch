@@ -32,6 +32,11 @@ export function missionMemberRoleLabel(role) {
   return '전회원'
 }
 
+export function getCurrentMissionGroup(session) {
+  if (!session) return null
+  return (session.missionGroups || []).find((item) => item.id === session.currentMissionGroupId) || null
+}
+
 export async function fetchBetaLogin(name, phone) {
   const response = await fetch('/api/beta/auth/login', {
     method: 'POST',
@@ -45,11 +50,11 @@ export async function fetchBetaLogin(name, phone) {
   return json
 }
 
-export async function verifyBetaAdmin(memberId, password) {
+export async function verifyBetaAdmin(memberId, password, missionGroupId) {
   const response = await fetch('/api/beta/auth/admin-verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ memberId, password }),
+    body: JSON.stringify({ memberId, password, missionGroupId }),
   })
   const json = await response.json()
   if (!response.ok) {
@@ -58,8 +63,8 @@ export async function verifyBetaAdmin(memberId, password) {
   return json
 }
 
-export async function fetchAdminMembers(actorId) {
-  const search = new URLSearchParams({ actorId })
+export async function fetchAdminMembers(actorId, missionGroupId) {
+  const search = new URLSearchParams({ actorId, missionGroupId })
   const response = await fetch(`/api/beta/admin/members?${search.toString()}`)
   const json = await response.json()
   if (!response.ok) {
@@ -81,8 +86,8 @@ export async function updateAdminMember(payload) {
   return json
 }
 
-export async function fetchMissionsStore(memberId) {
-  const search = new URLSearchParams({ memberId })
+export async function fetchMissionsStore(memberId, missionGroupId) {
+  const search = new URLSearchParams({ memberId, missionGroupId })
   const response = await fetch(`/api/beta/missions/store?${search.toString()}`)
   const json = await response.json()
   if (!response.ok) {

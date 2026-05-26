@@ -25,7 +25,7 @@ export default function BetaMissionFinancePage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -53,6 +53,7 @@ export default function BetaMissionFinancePage() {
       setSaving(true)
       const result = await mutateMissionsStore('addFinanceEntry', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         date: form.date,
         kind: form.kind,
         category: form.category,

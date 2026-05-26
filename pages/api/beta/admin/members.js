@@ -9,7 +9,7 @@ function isAdminRole(role) {
   return role === 'leader' || role === 'admin'
 }
 
-async function getActorContext(actorId) {
+async function getActorContext(actorId, missionGroupId) {
   const memberRes = await supabase
     .from('app_members')
     .select('id,role')
@@ -17,42 +17,38 @@ async function getActorContext(actorId) {
     .maybeSingle()
 
   if (memberRes.error) throw memberRes.error
-  if (!memberRes.data || !isAdminRole(memberRes.data.role)) {
+  if (!memberRes.data) {
     const error = new Error('관리 권한이 없습니다.')
     error.statusCode = 403
     throw error
   }
 
-  const missionRes = await supabase
+  const membershipRoleRes = await supabase
     .from('mission_group_members')
-    .select('mission_group_id')
+    .select('mission_group_id,mission_role')
     .eq('member_id', actorId)
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('mission_group_id', missionGroupId)
     .maybeSingle()
 
-  if (missionRes.error) throw missionRes.error
+  if (membershipRoleRes.error) throw membershipRoleRes.error
 
-  let missionGroupId = missionRes.data?.mission_group_id || null
-  if (!missionGroupId) {
-    const groupRes = await supabase
-      .from('mission_groups')
-      .select('id')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+  const canManage =
+    isAdminRole(memberRes.data.role) ||
+    ['sub_admin', 'admin'].includes(membershipRoleRes.data?.mission_role || '')
 
-    if (groupRes.error) throw groupRes.error
-    missionGroupId = groupRes.data?.id || null
-  }
-
-  if (!missionGroupId) {
-    const error = new Error('선교회 그룹이 없습니다.')
-    error.statusCode = 404
+  if (!canManage) {
+    const error = new Error('관리 권한이 없습니다.')
+    error.statusCode = 403
     throw error
   }
 
-  return { actor: memberRes.data, missionGroupId }
+  if (!membershipRoleRes.data?.mission_group_id) {
+    const error = new Error('해당 선교회 소속이 없습니다.')
+    error.statusCode = 403
+    throw error
+  }
+
+  return { actor: memberRes.data, missionGroupId: membershipRoleRes.data.mission_group_id }
 }
 
 async function loadOrganizationsCatalog() {
@@ -145,15 +141,16 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const actorId = String(req.query?.actorId || '')
-      if (!actorId) return res.status(400).json({ error: 'actorId가 필요합니다.' })
+      const missionGroupId = String(req.query?.missionGroupId || '')
+      if (!actorId || !missionGroupId) return res.status(400).json({ error: 'actorId와 missionGroupId가 필요합니다.' })
 
-      const { missionGroupId } = await getActorContext(actorId)
+      const { missionGroupId: allowedGroupId } = await getActorContext(actorId, missionGroupId)
       const [members, organizationCatalog] = await Promise.all([
-        loadMissionMembers(missionGroupId),
+        loadMissionMembers(allowedGroupId),
         loadOrganizationsCatalog(),
       ])
 
-      return res.status(200).json({ members, organizationCatalog, missionGroupId })
+      return res.status(200).json({ members, organizationCatalog, missionGroupId: allowedGroupId })
     }
 
     if (req.method !== 'POST') {
@@ -176,11 +173,12 @@ export default async function handler(req, res) {
       organizations,
     } = req.body || {}
 
-    if (!actorId || !memberId) {
-      return res.status(400).json({ error: 'actorId와 memberId가 필요합니다.' })
+    const targetMissionGroupId = String(req.body?.missionGroupId || '')
+    if (!actorId || !memberId || !targetMissionGroupId) {
+      return res.status(400).json({ error: 'actorId, memberId, missionGroupId가 필요합니다.' })
     }
 
-    const { missionGroupId } = await getActorContext(actorId)
+    const { missionGroupId } = await getActorContext(actorId, targetMissionGroupId)
 
     const existingRes = await supabase
       .from('app_members')

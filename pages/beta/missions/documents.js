@@ -21,7 +21,7 @@ export default function BetaMissionDocumentsPage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -38,6 +38,7 @@ export default function BetaMissionDocumentsPage() {
       setSaving(true)
       const result = await mutateMissionsStore('addDocument', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         title: form.title.trim(),
         content: form.content.trim(),
         documentType: 'meeting_note',

@@ -1,8 +1,8 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { clearBetaSession, getRoleLabel } from './mockAuth'
-import { missionMemberRoleLabel } from './missionsStore'
+import { clearBetaSession, getRoleLabel, updateBetaSession } from './mockAuth'
+import { getCurrentMissionGroup, missionMemberRoleLabel } from './missionsStore'
 import useIsWide from './useIsWide'
 
 const NAV_ITEMS = [
@@ -36,6 +36,19 @@ export default function BetaMissionsShell({
   const router = useRouter()
   const isWide = useIsWide(920)
   const canManage = canManageMissions(session)
+  const currentGroup = getCurrentMissionGroup(session)
+
+  function changeMissionGroup(nextId) {
+    const nextGroup = (session.missionGroups || []).find((item) => item.id === nextId) || null
+    updateBetaSession({
+      currentMissionGroupId: nextId,
+      missionGroupId: nextId,
+      missionGroupName: nextGroup?.name || '',
+      missionRole: nextGroup?.missionRole || null,
+      memberStatus: nextGroup?.memberStatus || null,
+    })
+    router.replace(router.asPath)
+  }
 
   return (
     <>
@@ -62,6 +75,13 @@ export default function BetaMissionsShell({
                   <p style={{ margin: 0, fontSize: 13, color: '#6e5b48' }}>
                     {session.phone} · {getRoleLabel(session.role)} / {missionMemberRoleLabel(session.missionRole || session.role)}
                   </p>
+                  {!!session.missionGroups?.length && (
+                    <select value={session.currentMissionGroupId || ''} onChange={(e) => changeMissionGroup(e.target.value)} style={{ marginTop: 10, width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d8c8af', background: '#fff' }}>
+                      {session.missionGroups.map((group) => (
+                        <option key={group.id} value={group.id}>{group.name}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <button
                   onClick={() => {
@@ -81,9 +101,10 @@ export default function BetaMissionsShell({
               <p style={{ margin: '2px 0 12px', fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>메뉴</p>
               <div style={{ display: 'grid', gap: 8, gridTemplateColumns: isWide ? '1fr' : 'repeat(2, minmax(0,1fr))' }}>
                 {NAV_ITEMS.filter((item) => (
+                  currentGroup &&
                   ['members', 'dues', 'finance', 'documents'].includes(item.key)
                     ? canManage
-                    : item.roles.includes(session.role)
+                    : currentGroup && item.roles.includes(session.role)
                 )).map((item) => {
                   const active = item.key === activeKey
                   return (

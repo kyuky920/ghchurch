@@ -20,7 +20,7 @@ export default function BetaMissionDuesPage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -37,6 +37,7 @@ export default function BetaMissionDuesPage() {
     try {
       const result = await mutateMissionsStore('setDuesSetting', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         month,
         amount: Number(value) || 0,
       })
@@ -53,6 +54,7 @@ export default function BetaMissionDuesPage() {
       const current = store.duesPayments[key] || { paid: false, amount, memo: '' }
       const result = await mutateMissionsStore('toggleDuesPayment', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         memberId,
         month,
         amount: current.amount || amount,

@@ -10,8 +10,9 @@ export default async function handler(req, res) {
   try {
     const memberId = String(req.body?.memberId || '')
     const password = String(req.body?.password || '')
+    const missionGroupId = String(req.body?.missionGroupId || '')
 
-    if (!memberId || !password) {
+    if (!memberId || !password || !missionGroupId) {
       return res.status(400).json({ error: '비밀번호를 입력해 주세요.' })
     }
 
@@ -23,7 +24,20 @@ export default async function handler(req, res) {
 
     if (error) throw error
     if (!data) return res.status(404).json({ error: '회원을 찾을 수 없습니다.' })
-    if (!['leader', 'admin'].includes(data.role)) {
+    const missionMembership = await supabase
+      .from('mission_group_members')
+      .select('mission_role')
+      .eq('member_id', memberId)
+      .eq('mission_group_id', missionGroupId)
+      .maybeSingle()
+
+    if (missionMembership.error) throw missionMembership.error
+
+    const canManage =
+      ['leader', 'admin'].includes(data.role) ||
+      ['sub_admin', 'admin'].includes(missionMembership.data?.mission_role || '')
+
+    if (!canManage) {
       return res.status(403).json({ error: '관리자 권한이 없습니다.' })
     }
     if (!verifyAdminPassword(password, data.admin_password_hash)) {

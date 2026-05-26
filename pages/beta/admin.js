@@ -6,10 +6,11 @@ import {
   getRoleLabel,
   readAdminVerifiedMemberId,
   readBetaSession,
+  updateBetaSession,
   writeAdminVerifiedMemberId,
   writeBetaSession,
 } from '../../components/beta/mockAuth'
-import { fetchAdminMembers, updateAdminMember, verifyBetaAdmin } from '../../components/beta/missionsStore'
+import { fetchAdminMembers, getCurrentMissionGroup, updateAdminMember, verifyBetaAdmin } from '../../components/beta/missionsStore'
 import useIsWide from '../../components/beta/useIsWide'
 
 function buildForm(member) {
@@ -61,8 +62,9 @@ export default function BetaAdminPage() {
 
   useEffect(() => {
     if (!session || !verified) return
+    if (!session.currentMissionGroupId) return
     setLoading(true)
-    fetchAdminMembers(session.id)
+    fetchAdminMembers(session.id, session.currentMissionGroupId)
       .then((result) => {
         setMembers(result.members || [])
         setOrganizationCatalog(result.organizationCatalog || [])
@@ -93,7 +95,7 @@ export default function BetaAdminPage() {
     event.preventDefault()
     try {
       setLoading(true)
-      await verifyBetaAdmin(session.id, password)
+      await verifyBetaAdmin(session.id, password, session.currentMissionGroupId)
       writeAdminVerifiedMemberId(session.id)
       setVerified(true)
       setError('')
@@ -101,6 +103,23 @@ export default function BetaAdminPage() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  function changeMissionGroup(nextId) {
+    const nextGroup = (session.missionGroups || []).find((item) => item.id === nextId) || null
+    const nextSession = updateBetaSession({
+      currentMissionGroupId: nextId,
+      missionGroupId: nextId,
+      missionGroupName: nextGroup?.name || '',
+      missionRole: nextGroup?.missionRole || null,
+      memberStatus: nextGroup?.memberStatus || null,
+    })
+    if (nextSession) {
+      setSession(nextSession)
+      setMembers([])
+      setSelectedId('')
+      setForm(null)
     }
   }
 
@@ -129,6 +148,7 @@ export default function BetaAdminPage() {
       setSaving(true)
       const result = await updateAdminMember({
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         memberId: form.id,
         name: form.name,
         phone: form.phone,
@@ -182,6 +202,16 @@ export default function BetaAdminPage() {
             <p style={{ margin: '0 0 8px', fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>관리자 화면</p>
             <h1 style={{ margin: '0 0 8px', fontSize: 28, fontFamily: "'Gowun Batang', serif" }}>{session.name} · {getRoleLabel(session.role)}</h1>
             <p style={{ margin: 0, color: '#6e5b48' }}>회원 권한, 전화번호, 선교회 소속과 역할을 이 화면에서 바로 수정할 수 있습니다.</p>
+            {!!session.missionGroups?.length && (
+              <div style={{ marginTop: 12, maxWidth: 320, display: 'grid', gap: 6 }}>
+                <span style={{ fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>현재 선교회</span>
+                <select value={session.currentMissionGroupId || ''} onChange={(e) => changeMissionGroup(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #d8c8af', background: '#fff' }}>
+                  {session.missionGroups.map((group) => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {!verified ? (
@@ -196,6 +226,11 @@ export default function BetaAdminPage() {
               </form>
             </div>
           ) : (
+            !getCurrentMissionGroup(session) ? (
+              <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20, color: '#9a6c4d' }}>
+                관리할 선교회 소속이 없습니다.
+              </div>
+            ) : (
             <div style={{ display: 'grid', gridTemplateColumns: isWide ? '320px minmax(0,1fr)' : '1fr', gap: 18 }}>
               <aside style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 18, alignSelf: 'start' }}>
                 <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>회원 목록</p>
@@ -327,6 +362,7 @@ export default function BetaAdminPage() {
                 )}
               </main>
             </div>
+            )
           )}
         </div>
       </div>

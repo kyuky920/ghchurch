@@ -6,9 +6,10 @@ import {
   canAccessAdmin,
   getRoleLabel,
   readBetaSession,
+  updateBetaSession,
   writeBetaSession,
 } from '../../components/beta/mockAuth'
-import { fetchBetaLogin } from '../../components/beta/missionsStore'
+import { fetchBetaLogin, getCurrentMissionGroup } from '../../components/beta/missionsStore'
 import useIsWide from '../../components/beta/useIsWide'
 
 const MENU_BY_ROLE = {
@@ -86,6 +87,18 @@ export default function BetaHome() {
     alert('이 메뉴는 아직 연결되지 않았습니다.')
   }
 
+  function changeMissionGroup(nextId) {
+    const nextGroup = (session.missionGroups || []).find((item) => item.id === nextId) || null
+    const nextSession = updateBetaSession({
+      currentMissionGroupId: nextId,
+      missionGroupId: nextId,
+      missionGroupName: nextGroup?.name || '',
+      missionRole: nextGroup?.missionRole || null,
+      memberStatus: nextGroup?.memberStatus || null,
+    })
+    if (nextSession) setSession(nextSession)
+  }
+
   return (
     <>
       <Head>
@@ -135,6 +148,19 @@ export default function BetaHome() {
                     <p style={{ margin: '0 0 8px', fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>로그인 완료</p>
                     <h2 style={{ margin: '0 0 8px', fontSize: 26, fontFamily: "'Gowun Batang', serif" }}>{session.name}님 환영합니다</h2>
                     <p style={{ margin: 0, color: '#6e5b48' }}>{session.phone} · {getRoleLabel(session.role)}</p>
+                    {!!session.missionGroups?.length && (
+                      <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
+                        <span style={{ fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>현재 선교회</span>
+                        <select value={session.currentMissionGroupId || ''} onChange={(e) => changeMissionGroup(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #d8c8af', background: '#fff' }}>
+                          {session.missionGroups.map((group) => (
+                            <option key={group.id} value={group.id}>{group.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {!session.missionGroups?.length && (
+                      <p style={{ margin: '10px 0 0', color: '#9a6c4d', fontSize: 13 }}>현재 연결된 선교회 소속이 없습니다.</p>
+                    )}
                   </div>
                   <button onClick={handleLogout} style={{ border: '1px solid #d8c8af', background: '#fff', borderRadius: 999, padding: '10px 14px', cursor: 'pointer', fontWeight: 700, color: '#6e5b48' }}>로그아웃</button>
                 </div>
@@ -144,7 +170,7 @@ export default function BetaHome() {
                 <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
                   <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>권한별 메뉴</p>
                   <div style={{ display: 'grid', gap: 12 }}>
-                    {(MENU_BY_ROLE[session.role] || []).map((menu) => (
+                    {(MENU_BY_ROLE[session.role] || []).filter((menu) => menu.key !== 'missions' || !!getCurrentMissionGroup(session)).map((menu) => (
                       <button key={menu.key} onClick={() => handleMenuClick(menu.key)} style={{ ...cardStyle(menu.tone), textAlign: 'left' }}>
                         <p style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: menu.tone }}>{menu.title}</p>
                         <p style={{ margin: 0, color: '#6e5b48', lineHeight: 1.7 }}>{menu.desc}</p>

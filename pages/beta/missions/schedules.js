@@ -21,7 +21,7 @@ export default function BetaMissionSchedulesPage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -38,6 +38,7 @@ export default function BetaMissionSchedulesPage() {
       setSaving(true)
       const result = await mutateMissionsStore('addSchedule', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         date: form.date,
         title: form.title.trim(),
         detail: form.detail.trim(),

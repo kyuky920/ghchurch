@@ -21,7 +21,7 @@ export default function BetaMissionBiblePage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => setStore(result.store))
       .catch((err) => setError(err.message))
   }, [router])
@@ -43,6 +43,7 @@ export default function BetaMissionBiblePage() {
     try {
       const result = await mutateMissionsStore('upsertBiblePlan', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         day,
         range: todayPlan.range,
         memo: todayPlan.memo,
@@ -58,6 +59,7 @@ export default function BetaMissionBiblePage() {
     try {
       const result = await mutateMissionsStore('upsertBibleLog', {
         actorId: session.id,
+        missionGroupId: session.currentMissionGroupId,
         day,
         done,
         memo: note,

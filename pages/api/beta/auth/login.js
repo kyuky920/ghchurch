@@ -4,33 +4,6 @@ function normalizePhone(value) {
   return String(value || '').replace(/\D/g, '')
 }
 
-function mapMissionRole(role) {
-  if (role === 'admin') return 'admin'
-  if (role === 'leader') return 'sub_admin'
-  return 'member'
-}
-
-async function getDefaultMissionGroup() {
-  const { data, error } = await supabase
-    .from('mission_groups')
-    .select('id,name')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  if (data) return data
-
-  const created = await supabase
-    .from('mission_groups')
-    .insert({ name: '광흥교회 선교회', description: '자동 생성된 기본 선교회 그룹' })
-    .select('id,name')
-    .single()
-
-  if (created.error) throw created.error
-  return created.data
-}
-
 async function loadOrganizations(memberId) {
   const rel = await supabase
     .from('member_organizations')
@@ -70,6 +43,26 @@ async function loadOrganizations(memberId) {
       }
     })
     .filter(Boolean)
+}
+
+async function loadMissionGroups(memberId) {
+  const membershipRes = await supabase
+    .from('mission_group_members')
+    .select('mission_group_id,member_status,mission_role,mission_groups(id,name,description)')
+    .eq('member_id', memberId)
+    .order('created_at', { ascending: true })
+
+  if (membershipRes.error) throw membershipRes.error
+
+  return (membershipRes.data || [])
+    .filter((row) => row.mission_groups?.id)
+    .map((row) => ({
+      id: row.mission_groups.id,
+      name: row.mission_groups.name,
+      description: row.mission_groups.description || '',
+      missionRole: row.mission_role || 'member',
+      memberStatus: row.member_status || 'member',
+    }))
 }
 
 export default async function handler(req, res) {
@@ -124,34 +117,11 @@ export default async function handler(req, res) {
       member = created.data
     }
 
-    const missionGroup = await getDefaultMissionGroup()
-    const membership = await supabase
-      .from('mission_group_members')
-      .select('id,member_status,mission_role')
-      .eq('mission_group_id', missionGroup.id)
-      .eq('member_id', member.id)
-      .maybeSingle()
-
-    if (membership.error) throw membership.error
-
-    let missionMembership = membership.data
-    if (!missionMembership) {
-      const createdMembership = await supabase
-        .from('mission_group_members')
-        .insert({
-          mission_group_id: missionGroup.id,
-          member_id: member.id,
-          member_status: 'member',
-          mission_role: mapMissionRole(member.role),
-        })
-        .select('id,member_status,mission_role')
-        .single()
-
-      if (createdMembership.error) throw createdMembership.error
-      missionMembership = createdMembership.data
-    }
-
-    const organizations = await loadOrganizations(member.id)
+    const [organizations, missionGroups] = await Promise.all([
+      loadOrganizations(member.id),
+      loadMissionGroups(member.id),
+    ])
+    const currentMissionGroup = missionGroups[0] || null
 
     return res.status(200).json({
       member: {
@@ -159,11 +129,13 @@ export default async function handler(req, res) {
         name: member.name,
         phone: member.phone,
         role: member.role,
-        missionRole: missionMembership?.mission_role || 'member',
-        memberStatus: missionMembership?.member_status || 'member',
+        missionRole: currentMissionGroup?.missionRole || null,
+        memberStatus: currentMissionGroup?.memberStatus || null,
         organizations,
-        missionGroupId: missionGroup.id,
-        missionGroupName: missionGroup.name,
+        missionGroups,
+        currentMissionGroupId: currentMissionGroup?.id || null,
+        missionGroupId: currentMissionGroup?.id || null,
+        missionGroupName: currentMissionGroup?.name || '',
       },
     })
   } catch (error) {

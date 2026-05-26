@@ -26,7 +26,7 @@ function isManager(role, missionRole) {
   return role === 'leader' || role === 'admin' || missionRole === 'sub_admin' || missionRole === 'admin'
 }
 
-async function getMissionContext(memberId) {
+async function getMissionContext(memberId, missionGroupId) {
   const memberQuery = await supabase
     .from('app_members')
     .select('id,name,phone,role')
@@ -44,34 +44,19 @@ async function getMissionContext(memberId) {
     .from('mission_group_members')
     .select('mission_group_id,member_status,mission_role')
     .eq('member_id', memberId)
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('mission_group_id', missionGroupId)
     .maybeSingle()
 
   if (membershipQuery.error) throw membershipQuery.error
-
-  let missionGroupId = membershipQuery.data?.mission_group_id || null
-  if (!missionGroupId) {
-    const groupQuery = await supabase
-      .from('mission_groups')
-      .select('id')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-
-    if (groupQuery.error) throw groupQuery.error
-    missionGroupId = groupQuery.data?.id || null
-  }
-
-  if (!missionGroupId) {
-    const error = new Error('선교회 그룹이 없습니다.')
-    error.statusCode = 404
+  if (!membershipQuery.data?.mission_group_id) {
+    const error = new Error('해당 선교회 소속이 없습니다.')
+    error.statusCode = 403
     throw error
   }
 
   return {
     member: memberQuery.data,
-    missionGroupId,
+    missionGroupId: membershipQuery.data.mission_group_id,
     missionRole: membershipQuery.data?.mission_role || 'member',
     memberStatus: membershipQuery.data?.member_status || 'member',
   }
@@ -262,8 +247,8 @@ async function buildStore(missionGroupId) {
   }
 }
 
-async function requireManage(memberId) {
-  const context = await getMissionContext(memberId)
+async function requireManage(memberId, missionGroupId) {
+  const context = await getMissionContext(memberId, missionGroupId)
   if (!isManager(context.member.role, context.missionRole)) {
     const error = new Error('관리 권한이 없습니다.')
     error.statusCode = 403
@@ -276,10 +261,11 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const memberId = String(req.query?.memberId || '')
-      if (!memberId) {
-        return res.status(400).json({ error: 'memberId가 필요합니다.' })
+      const missionGroupId = String(req.query?.missionGroupId || '')
+      if (!memberId || !missionGroupId) {
+        return res.status(400).json({ error: 'memberId와 missionGroupId가 필요합니다.' })
       }
-      const context = await getMissionContext(memberId)
+      const context = await getMissionContext(memberId, missionGroupId)
       const store = await buildStore(context.missionGroupId)
       return res.status(200).json({ store, missionGroupId: context.missionGroupId })
     }
@@ -292,12 +278,12 @@ export default async function handler(req, res) {
     const action = String(req.body?.action || '')
     const payload = req.body?.payload || {}
 
-    if (!payload.actorId) {
-      return res.status(400).json({ error: 'actorId가 필요합니다.' })
+    if (!payload.actorId || !payload.missionGroupId) {
+      return res.status(400).json({ error: 'actorId와 missionGroupId가 필요합니다.' })
     }
 
     if (action === 'addMember') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const name = String(payload.name || '').trim()
       if (!name) return res.status(400).json({ error: '이름을 입력해 주세요.' })
 
@@ -331,7 +317,7 @@ export default async function handler(req, res) {
 
       if (membershipInsert.error) throw membershipInsert.error
     } else if (action === 'setDuesSetting') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const upsert = await supabase
         .from('mission_dues_settings')
         .upsert({
@@ -343,7 +329,7 @@ export default async function handler(req, res) {
         }, { onConflict: 'mission_group_id,month_key' })
       if (upsert.error) throw upsert.error
     } else if (action === 'toggleDuesPayment') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const upsert = await supabase
         .from('mission_dues_payments')
         .upsert({
@@ -358,7 +344,7 @@ export default async function handler(req, res) {
         }, { onConflict: 'mission_group_id,member_id,month_key' })
       if (upsert.error) throw upsert.error
     } else if (action === 'addFinanceEntry') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const insert = await supabase
         .from('mission_finance_entries')
         .insert({
@@ -373,7 +359,7 @@ export default async function handler(req, res) {
         })
       if (insert.error) throw insert.error
     } else if (action === 'upsertBiblePlan') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const upsert = await supabase
         .from('mission_bible_plans')
         .upsert({
@@ -385,7 +371,7 @@ export default async function handler(req, res) {
         }, { onConflict: 'mission_group_id,target_date' })
       if (upsert.error) throw upsert.error
     } else if (action === 'upsertBibleLog') {
-      const context = await getMissionContext(payload.actorId)
+      const context = await getMissionContext(payload.actorId, payload.missionGroupId)
       const upsert = await supabase
         .from('mission_bible_logs')
         .upsert({
@@ -397,7 +383,7 @@ export default async function handler(req, res) {
         }, { onConflict: 'mission_group_id,member_id,target_date' })
       if (upsert.error) throw upsert.error
     } else if (action === 'addSchedule') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const insert = await supabase
         .from('mission_schedules')
         .insert({
@@ -410,7 +396,7 @@ export default async function handler(req, res) {
         })
       if (insert.error) throw insert.error
     } else if (action === 'addVote') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const insert = await supabase
         .from('mission_votes')
         .insert({
@@ -442,7 +428,7 @@ export default async function handler(req, res) {
         )
       if (optionInsert.error) throw optionInsert.error
     } else if (action === 'updateVote') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const voteId = String(payload.voteId || '')
       if (!voteId) return res.status(400).json({ error: 'voteId가 필요합니다.' })
 
@@ -477,7 +463,7 @@ export default async function handler(req, res) {
         )
       if (insertOptionsRes.error) throw insertOptionsRes.error
     } else if (action === 'setVoteStatus') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const updateRes = await supabase
         .from('mission_votes')
         .update({ status: payload.status === 'closed' ? 'closed' : 'open' })
@@ -485,7 +471,7 @@ export default async function handler(req, res) {
         .eq('mission_group_id', context.missionGroupId)
       if (updateRes.error) throw updateRes.error
     } else if (action === 'deleteVote') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const deleteRes = await supabase
         .from('mission_votes')
         .delete()
@@ -493,7 +479,7 @@ export default async function handler(req, res) {
         .eq('mission_group_id', context.missionGroupId)
       if (deleteRes.error) throw deleteRes.error
     } else if (action === 'respondVote') {
-      const context = await getMissionContext(payload.actorId)
+      const context = await getMissionContext(payload.actorId, payload.missionGroupId)
       const upsert = await supabase
         .from('mission_vote_responses')
         .upsert({
@@ -504,7 +490,7 @@ export default async function handler(req, res) {
         }, { onConflict: 'vote_id,member_id' })
       if (upsert.error) throw upsert.error
     } else if (action === 'addDocument') {
-      const context = await requireManage(payload.actorId)
+      const context = await requireManage(payload.actorId, payload.missionGroupId)
       const insert = await supabase
         .from('mission_documents')
         .insert({
@@ -519,7 +505,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '지원하지 않는 action입니다.' })
     }
 
-    const context = await getMissionContext(payload.actorId)
+    const context = await getMissionContext(payload.actorId, payload.missionGroupId)
     const store = await buildStore(context.missionGroupId)
     return res.status(200).json({ ok: true, store })
   } catch (error) {

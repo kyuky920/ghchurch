@@ -30,7 +30,7 @@ export default function BetaMissionsHomePage() {
       return
     }
     setSession(saved)
-    fetchMissionsStore(saved.id)
+    fetchMissionsStore(saved.id, saved.currentMissionGroupId)
       .then((result) => {
         setStore(result.store)
         setError('')
