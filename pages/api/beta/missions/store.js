@@ -441,6 +441,57 @@ export default async function handler(req, res) {
           }))
         )
       if (optionInsert.error) throw optionInsert.error
+    } else if (action === 'updateVote') {
+      const context = await requireManage(payload.actorId)
+      const voteId = String(payload.voteId || '')
+      if (!voteId) return res.status(400).json({ error: 'voteId가 필요합니다.' })
+
+      const updateVoteRes = await supabase
+        .from('mission_votes')
+        .update({
+          title: String(payload.title || '').trim(),
+          description: String(payload.description || '').trim(),
+          visibility: payload.visibility || 'public',
+        })
+        .eq('id', voteId)
+        .eq('mission_group_id', context.missionGroupId)
+      if (updateVoteRes.error) throw updateVoteRes.error
+
+      const deleteOptionsRes = await supabase.from('mission_vote_options').delete().eq('vote_id', voteId)
+      if (deleteOptionsRes.error) throw deleteOptionsRes.error
+
+      const rawOptions = Array.isArray(payload.options) ? payload.options : []
+      const normalizedOptions = rawOptions
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+      const finalOptions = normalizedOptions.length ? normalizedOptions : ['참석', '불참']
+
+      const insertOptionsRes = await supabase
+        .from('mission_vote_options')
+        .insert(
+          finalOptions.map((label, index) => ({
+            vote_id: voteId,
+            label,
+            sort_order: index,
+          }))
+        )
+      if (insertOptionsRes.error) throw insertOptionsRes.error
+    } else if (action === 'setVoteStatus') {
+      const context = await requireManage(payload.actorId)
+      const updateRes = await supabase
+        .from('mission_votes')
+        .update({ status: payload.status === 'closed' ? 'closed' : 'open' })
+        .eq('id', payload.voteId)
+        .eq('mission_group_id', context.missionGroupId)
+      if (updateRes.error) throw updateRes.error
+    } else if (action === 'deleteVote') {
+      const context = await requireManage(payload.actorId)
+      const deleteRes = await supabase
+        .from('mission_votes')
+        .delete()
+        .eq('id', payload.voteId)
+        .eq('mission_group_id', context.missionGroupId)
+      if (deleteRes.error) throw deleteRes.error
     } else if (action === 'respondVote') {
       const context = await getMissionContext(payload.actorId)
       const upsert = await supabase
