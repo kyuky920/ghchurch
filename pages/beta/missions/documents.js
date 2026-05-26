@@ -51,7 +51,7 @@ export default function BetaMissionDocumentsPage() {
   }
 
   return (
-    <BetaMissionsShell title="회의록관리" subtitle="회의 내용 업로드와 열람 흐름을 검증하는 테스트 화면입니다." session={session} activeKey="documents">
+    <BetaMissionsShell title="회의록관리" subtitle="회의 내용을 업로드하고 열람합니다." session={session} activeKey="documents">
       <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '0.9fr 1.1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>회의록 업로드</p>

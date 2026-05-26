@@ -73,7 +73,7 @@ export default function BetaMissionBiblePage() {
   }))
 
   return (
-    <BetaMissionsShell title="성경읽기" subtitle="매일 읽을 범위를 정하고, 회원이 읽음 여부와 메모를 남기는 테스트 화면입니다." session={session} activeKey="bible">
+    <BetaMissionsShell title="성경읽기" subtitle="매일 읽을 범위를 정하고, 회원이 읽음 여부와 메모를 남깁니다." session={session} activeKey="bible">
       <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '1fr 1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>

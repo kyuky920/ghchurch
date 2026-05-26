@@ -52,7 +52,7 @@ export default function BetaMissionSchedulesPage() {
   }
 
   return (
-    <BetaMissionsShell title="일정/공지" subtitle="월 기준 행사와 토요 일정, 공지를 전체 회원에게 보여주는 테스트 화면입니다." session={session} activeKey="schedules">
+    <BetaMissionsShell title="일정/공지" subtitle="월 기준 행사와 토요 일정, 공지를 전체 회원에게 보여줍니다." session={session} activeKey="schedules">
       <div style={{ display: 'grid', gap: 18, gridTemplateColumns: canManageMissions(session) ? '0.9fr 1.1fr' : '1fr' }}>
         {canManageMissions(session) && (
           <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>

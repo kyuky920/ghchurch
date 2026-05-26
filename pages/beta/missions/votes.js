@@ -66,7 +66,7 @@ export default function BetaMissionVotesPage() {
   }
 
   return (
-    <BetaMissionsShell title="투표" subtitle="참석 여부, 신청 의사 등 응답을 받고 공개/비공개 결과를 확인하는 테스트 화면입니다." session={session} activeKey="votes">
+    <BetaMissionsShell title="투표" subtitle="참석 여부, 신청 의사 등 응답을 받고 공개/비공개 결과를 확인합니다." session={session} activeKey="votes">
       <div style={{ display: 'grid', gap: 18, gridTemplateColumns: canManageMissions(session) ? '0.9fr 1.1fr' : '1fr' }}>
         {canManageMissions(session) && (
           <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>

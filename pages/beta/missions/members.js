@@ -52,7 +52,7 @@ export default function BetaMissionMembersPage() {
   }
 
   return (
-    <BetaMissionsShell title="회원관리" subtitle="회원/비회원, 출생년도, 나이, 메모를 관리하는 테스트 화면입니다." session={session} activeKey="members">
+    <BetaMissionsShell title="회원관리" subtitle="회원/비회원, 출생년도, 나이, 메모를 관리합니다." session={session} activeKey="members">
       <div style={{ display: 'grid', gap: 18, gridTemplateColumns: '0.9fr 1.1fr' }}>
         <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>회원 추가</p>

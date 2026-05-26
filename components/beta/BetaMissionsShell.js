@@ -37,7 +37,7 @@ export default function BetaMissionsShell({
   return (
     <>
       <Head>
-        <title>{title} · 선교회 운영 테스트</title>
+        <title>{title} · 선교회 운영</title>
         <meta name="viewport" content="width=device-width,initial-scale=1" />
       </Head>
       <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg,#f6f1e8 0,#f3ede3 100%)' }}>
@@ -46,9 +46,9 @@ export default function BetaMissionsShell({
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
               <div>
                 <Link href="/beta" style={{ display: 'inline-block', marginBottom: 10, fontSize: 12, color: '#8b6e4e', textDecoration: 'none', fontWeight: 700 }}>
-                  테스트 메인으로
+                  메인으로
                 </Link>
-                <p style={{ margin: '0 0 8px', fontSize: 11, letterSpacing: '0.22em', color: '#8b6e4e', fontWeight: 700 }}>MISSIONS BETA</p>
+                <p style={{ margin: '0 0 8px', fontSize: 11, letterSpacing: '0.22em', color: '#8b6e4e', fontWeight: 700 }}>MISSIONS</p>
                 <h1 style={{ margin: '0 0 8px', fontSize: 30, fontFamily: "'Gowun Batang', serif" }}>{title}</h1>
                 <p style={{ margin: 0, color: '#6e5b48', lineHeight: 1.7 }}>{subtitle}</p>
               </div>

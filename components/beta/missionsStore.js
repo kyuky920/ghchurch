@@ -58,6 +58,29 @@ export async function verifyBetaAdmin(memberId, password) {
   return json
 }
 
+export async function fetchAdminMembers(actorId) {
+  const search = new URLSearchParams({ actorId })
+  const response = await fetch(`/api/beta/admin/members?${search.toString()}`)
+  const json = await response.json()
+  if (!response.ok) {
+    throw new Error(json?.error || '회원 정보를 불러오지 못했습니다.')
+  }
+  return json
+}
+
+export async function updateAdminMember(payload) {
+  const response = await fetch('/api/beta/admin/members', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const json = await response.json()
+  if (!response.ok) {
+    throw new Error(json?.error || '회원 정보를 저장하지 못했습니다.')
+  }
+  return json
+}
+
 export async function fetchMissionsStore(memberId) {
   const search = new URLSearchParams({ memberId })
   const response = await fetch(`/api/beta/missions/store?${search.toString()}`)
