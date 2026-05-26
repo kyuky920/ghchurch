@@ -2,17 +2,13 @@ import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import {
-  TEST_MEMBERS,
   canAccessAdmin,
   getRoleLabel,
   readAdminVerifiedMemberId,
   readBetaSession,
   writeAdminVerifiedMemberId,
 } from '../../components/beta/mockAuth'
-
-function getTestMemberById(id) {
-  return TEST_MEMBERS.find((member) => member.id === id) || null
-}
+import { verifyBetaAdmin } from '../../components/beta/missionsStore'
 
 export default function BetaAdminPage() {
   const router = useRouter()
@@ -20,6 +16,7 @@ export default function BetaAdminPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [verified, setVerified] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const saved = readBetaSession()
@@ -37,17 +34,19 @@ export default function BetaAdminPage() {
 
   if (!session) return null
 
-  const member = getTestMemberById(session.id)
-
-  function handleVerify(event) {
+  async function handleVerify(event) {
     event.preventDefault()
-    if (!member || password !== member.adminPassword) {
-      setError('비밀번호가 올바르지 않습니다.')
-      return
+    try {
+      setLoading(true)
+      await verifyBetaAdmin(session.id, password)
+      writeAdminVerifiedMemberId(session.id)
+      setVerified(true)
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    writeAdminVerifiedMemberId(member.id)
-    setVerified(true)
-    setError('')
   }
 
   return (
@@ -74,7 +73,9 @@ export default function BetaAdminPage() {
               <form onSubmit={handleVerify} style={{ display: 'grid', gap: 12 }}>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="관리자 비밀번호" style={{ width: '100%', padding: '14px 15px', borderRadius: 12, border: '1px solid #d8c8af', fontSize: 15 }} />
                 {error && <p style={{ margin: 0, color: '#b33f3f', fontSize: 13 }}>{error}</p>}
-                <button type="submit" style={{ border: 'none', borderRadius: 14, padding: '14px 16px', background: 'linear-gradient(135deg,#684737,#8f5a49)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>관리 권한 확인</button>
+                <button type="submit" disabled={loading} style={{ border: 'none', borderRadius: 14, padding: '14px 16px', background: 'linear-gradient(135deg,#684737,#8f5a49)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.65 : 1 }}>
+                  {loading ? '확인 중...' : '관리 권한 확인'}
+                </button>
               </form>
             </div>
           ) : (

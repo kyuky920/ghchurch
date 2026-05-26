@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import BetaMissionsShell, { canManageMissions } from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
-import { missionDateKey, readMissionsStore, writeMissionsStore } from '../../../components/beta/missionsStore'
+import { fetchMissionsStore, mutateMissionsStore } from '../../../components/beta/missionsStore'
 
 export default function BetaMissionVotesPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [form, setForm] = useState({ title: '', description: '', visibility: 'public' })
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const saved = readBetaSession()
@@ -17,52 +19,50 @@ export default function BetaMissionVotesPage() {
       return
     }
     setSession(saved)
-    setStore(readMissionsStore())
+    fetchMissionsStore(saved.id)
+      .then((result) => setStore(result.store))
+      .catch((err) => setError(err.message))
   }, [router])
 
-  if (!session || !store) return null
-
-  function persist(next) {
-    setStore(next)
-    writeMissionsStore(next)
+  if (!session) return null
+  if (!store) {
+    return <BetaMissionsShell title="투표" subtitle="투표 데이터를 불러오는 중입니다." session={session} activeKey="votes"><div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20, color: '#6e5b48' }}>{error || '불러오는 중...'}</div></BetaMissionsShell>
   }
 
-  function createVote(event) {
+  async function createVote(event) {
     event.preventDefault()
     if (!form.title.trim()) return
-    persist({
-      ...store,
-      votes: [
-        {
-          id: `mv-${Date.now()}`,
-          title: form.title.trim(),
-          description: form.description.trim(),
-          visibility: form.visibility,
-          status: 'open',
-          createdAt: missionDateKey(),
-          responses: {},
-        },
-        ...store.votes,
-      ],
-    })
-    setForm({ title: '', description: '', visibility: 'public' })
+    try {
+      setSaving(true)
+      const result = await mutateMissionsStore('addVote', {
+        actorId: session.id,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        visibility: form.visibility,
+      })
+      setStore(result.store)
+      setForm({ title: '', description: '', visibility: 'public' })
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function saveResponse(voteId, choice, note) {
-    persist({
-      ...store,
-      votes: store.votes.map((vote) => (
-        vote.id !== voteId
-          ? vote
-          : {
-              ...vote,
-              responses: {
-                ...vote.responses,
-                [session.id]: { choice, note },
-              },
-            }
-      )),
-    })
+  async function saveResponse(voteId, choice, note) {
+    try {
+      const result = await mutateMissionsStore('respondVote', {
+        actorId: session.id,
+        voteId,
+        choice,
+        note,
+      })
+      setStore(result.store)
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   return (
@@ -78,7 +78,8 @@ export default function BetaMissionVotesPage() {
                 <option value="public">공개</option>
                 <option value="private">비공개</option>
               </select>
-              <button type="submit" style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>투표 저장</button>
+              {error && <p style={{ margin: 0, color: '#b33f3f', fontSize: 13 }}>{error}</p>}
+              <button type="submit" disabled={saving} style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.65 : 1 }}>{saving ? '저장 중...' : '투표 저장'}</button>
             </form>
           </div>
         )}

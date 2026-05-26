@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import {
-  TEST_MEMBERS,
   clearBetaSession,
   canAccessAdmin,
-  findTestMember,
   getRoleLabel,
   readBetaSession,
   writeBetaSession,
 } from '../../components/beta/mockAuth'
+import { fetchBetaLogin } from '../../components/beta/missionsStore'
 
 const MENU_BY_ROLE = {
   member: [
@@ -44,22 +43,26 @@ export default function BetaHome() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const saved = readBetaSession()
     if (saved) setSession(saved)
   }, [])
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault()
-    const member = findTestMember(name, phone)
-    if (!member) {
-      setError('테스트 회원 정보와 일치하지 않습니다. 이름과 전화번호를 다시 확인해 주세요.')
-      return
+    try {
+      setLoading(true)
+      const result = await fetchBetaLogin(name, phone)
+      writeBetaSession(result.member)
+      setSession(readBetaSession())
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-    writeBetaSession(member)
-    setSession(readBetaSession())
-    setError('')
   }
 
   function handleLogout() {
@@ -107,19 +110,18 @@ export default function BetaHome() {
                   <input value={name} onChange={(e) => setName(e.target.value)} placeholder="이름" style={{ width: '100%', padding: '14px 15px', borderRadius: 12, border: '1px solid #d8c8af', fontSize: 15 }} />
                   <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="전화번호" style={{ width: '100%', padding: '14px 15px', borderRadius: 12, border: '1px solid #d8c8af', fontSize: 15 }} />
                   {error && <p style={{ margin: 0, color: '#b33f3f', fontSize: 13 }}>{error}</p>}
-                  <button type="submit" style={{ border: 'none', borderRadius: 14, padding: '14px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>로그인 테스트</button>
+                  <button type="submit" disabled={loading} style={{ border: 'none', borderRadius: 14, padding: '14px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.65 : 1 }}>
+                    {loading ? '로그인 중...' : '로그인 테스트'}
+                  </button>
                 </form>
               </div>
               <div style={{ background: '#fdf7ef', border: '1px solid #eadbc5', borderRadius: 18, padding: 22 }}>
-                <p style={{ margin: '0 0 10px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>테스트 회원</p>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {TEST_MEMBERS.map((member) => (
-                    <div key={member.id} style={{ border: '1px solid #eadbc5', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
-                      <p style={{ margin: '0 0 4px', fontWeight: 700 }}>{member.name} · {getRoleLabel(member.role)}</p>
-                      <p style={{ margin: '0 0 2px', fontSize: 13, color: '#6e5b48' }}>{member.phone}</p>
-                      {member.adminPassword && <p style={{ margin: 0, fontSize: 12, color: '#9a6c4d' }}>관리 비밀번호: {member.adminPassword}</p>}
-                    </div>
-                  ))}
+                <p style={{ margin: '0 0 10px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>로그인 안내</p>
+                <div style={{ display: 'grid', gap: 10, color: '#6e5b48', lineHeight: 1.8 }}>
+                  <p style={{ margin: 0 }}>이 테스트 로그인은 `app_members` 테이블 기준으로 동작합니다.</p>
+                  <p style={{ margin: 0 }}>처음 로그인하는 이름과 전화번호는 일반 회원으로 자동 생성됩니다.</p>
+                  <p style={{ margin: 0 }}>리더나 관리자 권한은 DB에서 `role` 값을 `leader` 또는 `admin`으로 변경해야 합니다.</p>
+                  <p style={{ margin: 0 }}>관리자 비밀번호는 현재 `admin_password_hash` 값을 그대로 비교하는 테스트 단계입니다.</p>
                 </div>
               </div>
             </div>
@@ -153,12 +155,17 @@ export default function BetaHome() {
                   <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
                     <p style={{ margin: '0 0 10px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>내 소속</p>
                     <div style={{ display: 'grid', gap: 10 }}>
-                      {session.organizations.map((org, index) => (
+                      {(session.organizations || []).map((org, index) => (
                         <div key={`${org.name}-${index}`} style={{ background: '#faf5ec', borderRadius: 12, padding: '12px 13px' }}>
                           <p style={{ margin: '0 0 3px', fontWeight: 700 }}>{org.name}</p>
                           <p style={{ margin: 0, fontSize: 13, color: '#6e5b48' }}>{org.category} · {org.roleInOrg}</p>
                         </div>
                       ))}
+                      {(!session.organizations || session.organizations.length === 0) && (
+                        <div style={{ background: '#faf5ec', borderRadius: 12, padding: '12px 13px', color: '#6e5b48' }}>
+                          아직 연결된 소속이 없습니다.
+                        </div>
+                      )}
                     </div>
                   </div>
 

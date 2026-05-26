@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import BetaMissionsShell, { canManageMissions } from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
-import { missionDateKey, readMissionsStore, writeMissionsStore } from '../../../components/beta/missionsStore'
+import { fetchMissionsStore, missionDateKey, mutateMissionsStore } from '../../../components/beta/missionsStore'
 
 export default function BetaMissionBiblePage() {
   const router = useRouter()
@@ -10,6 +10,7 @@ export default function BetaMissionBiblePage() {
   const [store, setStore] = useState(null)
   const [day, setDay] = useState(missionDateKey())
   const [note, setNote] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const saved = readBetaSession()
@@ -18,7 +19,9 @@ export default function BetaMissionBiblePage() {
       return
     }
     setSession(saved)
-    setStore(readMissionsStore())
+    fetchMissionsStore(saved.id)
+      .then((result) => setStore(result.store))
+      .catch((err) => setError(err.message))
   }, [router])
 
   useEffect(() => {
@@ -29,31 +32,39 @@ export default function BetaMissionBiblePage() {
 
   const todayPlan = useMemo(() => store?.biblePlans?.[day] || { range: '', memo: '' }, [store, day])
 
-  if (!session || !store) return null
-
-  function persist(next) {
-    setStore(next)
-    writeMissionsStore(next)
+  if (!session) return null
+  if (!store) {
+    return <BetaMissionsShell title="성경읽기" subtitle="성경읽기 데이터를 불러오는 중입니다." session={session} activeKey="bible"><div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20, color: '#6e5b48' }}>{error || '불러오는 중...'}</div></BetaMissionsShell>
   }
 
-  function savePlan() {
-    persist({
-      ...store,
-      biblePlans: {
-        ...store.biblePlans,
-        [day]: todayPlan,
-      },
-    })
+  async function savePlan() {
+    try {
+      const result = await mutateMissionsStore('upsertBiblePlan', {
+        actorId: session.id,
+        day,
+        range: todayPlan.range,
+        memo: todayPlan.memo,
+      })
+      setStore(result.store)
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
-  function saveLog(done) {
-    persist({
-      ...store,
-      bibleLogs: {
-        ...store.bibleLogs,
-        [`${session.id}:${day}`]: { done, memo: note },
-      },
-    })
+  async function saveLog(done) {
+    try {
+      const result = await mutateMissionsStore('upsertBibleLog', {
+        actorId: session.id,
+        day,
+        done,
+        memo: note,
+      })
+      setStore(result.store)
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   const recentLogs = store.members.map((member) => ({
@@ -85,6 +96,7 @@ export default function BetaMissionBiblePage() {
               disabled={!canManageMissions(session)}
               style={{ minHeight: 100, padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af', resize: 'vertical', background: canManageMissions(session) ? '#fff' : '#f7f3ed' }}
             />
+            {error && <p style={{ margin: 0, color: '#b33f3f', fontSize: 13 }}>{error}</p>}
             {canManageMissions(session) && (
               <button onClick={savePlan} style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
                 읽기 범위 저장

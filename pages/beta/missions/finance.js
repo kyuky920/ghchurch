@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import BetaMissionsShell from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
-import { missionDateKey, readMissionsStore, writeMissionsStore } from '../../../components/beta/missionsStore'
+import { fetchMissionsStore, missionDateKey, mutateMissionsStore } from '../../../components/beta/missionsStore'
 
 const INCOME_CATEGORIES = ['회비', '찬조금', '기타']
 const EXPENSE_CATEGORIES = ['경조사비', '후원금', '교제비', '기타']
@@ -13,6 +13,8 @@ export default function BetaMissionFinancePage() {
   const [store, setStore] = useState(null)
   const [period, setPeriod] = useState(missionDateKey().slice(0, 7))
   const [form, setForm] = useState({ date: missionDateKey(), kind: 'income', category: '회비', amount: '', note: '' })
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const saved = readBetaSession()
@@ -21,7 +23,9 @@ export default function BetaMissionFinancePage() {
       return
     }
     setSession(saved)
-    setStore(readMissionsStore())
+    fetchMissionsStore(saved.id)
+      .then((result) => setStore(result.store))
+      .catch((err) => setError(err.message))
   }, [router])
 
   const entries = useMemo(() => {
@@ -31,35 +35,36 @@ export default function BetaMissionFinancePage() {
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [store, period])
 
-  if (!session || !store) return null
+  if (!session) return null
+  if (!store) {
+    return <BetaMissionsShell title="수입지출" subtitle="재정 데이터를 불러오는 중입니다." session={session} activeKey="finance"><div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20, color: '#6e5b48' }}>{error || '불러오는 중...'}</div></BetaMissionsShell>
+  }
 
   const income = entries.filter((entry) => entry.kind === 'income').reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
   const expense = entries.filter((entry) => entry.kind === 'expense').reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
   const balance = income - expense
 
-  function persist(next) {
-    setStore(next)
-    writeMissionsStore(next)
-  }
-
-  function submitEntry(event) {
+  async function submitEntry(event) {
     event.preventDefault()
     if (!form.amount) return
-    persist({
-      ...store,
-      financeEntries: [
-        {
-          id: `mf-${Date.now()}`,
-          date: form.date,
-          kind: form.kind,
-          category: form.category,
-          amount: Number(form.amount),
-          note: form.note.trim(),
-        },
-        ...store.financeEntries,
-      ],
-    })
-    setForm({ date: missionDateKey(), kind: 'income', category: '회비', amount: '', note: '' })
+    try {
+      setSaving(true)
+      const result = await mutateMissionsStore('addFinanceEntry', {
+        actorId: session.id,
+        date: form.date,
+        kind: form.kind,
+        category: form.category,
+        amount: Number(form.amount),
+        note: form.note.trim(),
+      })
+      setStore(result.store)
+      setForm({ date: missionDateKey(), kind: 'income', category: '회비', amount: '', note: '' })
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   function printReport() {
@@ -96,7 +101,8 @@ export default function BetaMissionFinancePage() {
             </select>
             <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="금액" style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af' }} />
             <textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="세부 내용" style={{ minHeight: 110, padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af', resize: 'vertical' }} />
-            <button type="submit" style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>저장</button>
+            {error && <p style={{ margin: 0, color: '#b33f3f', fontSize: 13 }}>{error}</p>}
+            <button type="submit" disabled={saving} style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.65 : 1 }}>{saving ? '저장 중...' : '저장'}</button>
           </form>
         </div>
 
@@ -128,7 +134,7 @@ export default function BetaMissionFinancePage() {
               {entries.map((entry) => (
                 <div key={entry.id} style={{ background: '#faf5ec', borderRadius: 14, padding: '14px 15px', display: 'grid', gap: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    <p style={{ margin: 0, fontWeight: 700 }}>{entry.category}</p>
+                    <p style={{ margin: 0, fontWeight: 700 }}>{entry.title || entry.category}</p>
                     <span style={{ color: entry.kind === 'income' ? '#2f7d4c' : '#a34d4d', fontWeight: 700 }}>
                       {entry.kind === 'income' ? '+' : '-'}{Number(entry.amount || 0).toLocaleString()}원
                     </span>

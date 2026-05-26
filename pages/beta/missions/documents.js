@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import BetaMissionsShell from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
-import { missionDateKey, readMissionsStore, writeMissionsStore } from '../../../components/beta/missionsStore'
+import { fetchMissionsStore, mutateMissionsStore } from '../../../components/beta/missionsStore'
 
 export default function BetaMissionDocumentsPage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
   const [form, setForm] = useState({ title: '', content: '' })
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const saved = readBetaSession()
@@ -17,32 +19,35 @@ export default function BetaMissionDocumentsPage() {
       return
     }
     setSession(saved)
-    setStore(readMissionsStore())
+    fetchMissionsStore(saved.id)
+      .then((result) => setStore(result.store))
+      .catch((err) => setError(err.message))
   }, [router])
 
-  if (!session || !store) return null
-
-  function persist(next) {
-    setStore(next)
-    writeMissionsStore(next)
+  if (!session) return null
+  if (!store) {
+    return <BetaMissionsShell title="회의록관리" subtitle="회의록 데이터를 불러오는 중입니다." session={session} activeKey="documents"><div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20, color: '#6e5b48' }}>{error || '불러오는 중...'}</div></BetaMissionsShell>
   }
 
-  function submitDocument(event) {
+  async function submitDocument(event) {
     event.preventDefault()
     if (!form.title.trim()) return
-    persist({
-      ...store,
-      documents: [
-        {
-          id: `md-${Date.now()}`,
-          title: form.title.trim(),
-          content: form.content.trim(),
-          createdAt: missionDateKey(),
-        },
-        ...store.documents,
-      ],
-    })
-    setForm({ title: '', content: '' })
+    try {
+      setSaving(true)
+      const result = await mutateMissionsStore('addDocument', {
+        actorId: session.id,
+        title: form.title.trim(),
+        content: form.content.trim(),
+        documentType: 'meeting_note',
+      })
+      setStore(result.store)
+      setForm({ title: '', content: '' })
+      setError('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -53,7 +58,8 @@ export default function BetaMissionDocumentsPage() {
           <form onSubmit={submitDocument} style={{ display: 'grid', gap: 12 }}>
             <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="회의 제목" style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af' }} />
             <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="회의 내용" style={{ minHeight: 180, padding: '12px 13px', borderRadius: 12, border: '1px solid #d8c8af', resize: 'vertical' }} />
-            <button type="submit" style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>업로드</button>
+            {error && <p style={{ margin: 0, color: '#b33f3f', fontSize: 13 }}>{error}</p>}
+            <button type="submit" disabled={saving} style={{ border: 'none', borderRadius: 14, padding: '13px 16px', background: 'linear-gradient(135deg,#8f693f,#b98657)', color: '#fff', fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.65 : 1 }}>{saving ? '업로드 중...' : '업로드'}</button>
           </form>
         </div>
 

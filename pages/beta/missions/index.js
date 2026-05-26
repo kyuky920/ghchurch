@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import BetaMissionsShell, { canManageMissions } from '../../../components/beta/BetaMissionsShell'
 import { readBetaSession } from '../../../components/beta/mockAuth'
-import { missionDateKey, missionMonthKey, readMissionsStore } from '../../../components/beta/missionsStore'
+import { fetchMissionsStore, missionDateKey, missionMonthKey } from '../../../components/beta/missionsStore'
 
 function statCard(title, value, tone, desc) {
   return (
@@ -19,6 +19,7 @@ export default function BetaMissionsHomePage() {
   const router = useRouter()
   const [session, setSession] = useState(null)
   const [store, setStore] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const saved = readBetaSession()
@@ -27,10 +28,22 @@ export default function BetaMissionsHomePage() {
       return
     }
     setSession(saved)
-    setStore(readMissionsStore())
+    fetchMissionsStore(saved.id)
+      .then((result) => {
+        setStore(result.store)
+        setError('')
+      })
+      .catch((err) => setError(err.message))
   }, [router])
 
-  if (!session || !store) return null
+  if (!session) return null
+  if (!store) {
+    return (
+      <BetaMissionsShell title="선교회 운영 테스트" subtitle="선교회 데이터를 불러오는 중입니다." session={session} activeKey="home">
+        <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20, color: '#6e5b48' }}>{error || '불러오는 중...'}</div>
+      </BetaMissionsShell>
+    )
+  }
 
   const today = missionDateKey()
   const thisMonth = missionMonthKey()
@@ -94,7 +107,7 @@ export default function BetaMissionsHomePage() {
           <div style={{ background: '#fff', border: '1px solid #e5d5bd', borderRadius: 18, padding: 20 }}>
             <p style={{ margin: '0 0 10px', fontSize: 13, color: '#8b6e4e', fontWeight: 700 }}>테스트 범위 메모</p>
             <p style={{ margin: 0, color: '#6e5b48', lineHeight: 1.8 }}>
-              이 영역은 운영 중인 말씀나눔 서비스와 분리되어 있으며, 브라우저 로컬 저장으로만 동작합니다. 메뉴 배치와 권한 정책을 먼저 검증한 뒤 실제 DB 구조로 옮기는 용도입니다.
+              이 영역은 운영 중인 말씀나눔 서비스와 분리되어 있으며, 이제 선교회 테스트 데이터도 실제 Supabase를 기준으로 읽고 씁니다. 메뉴 배치와 권한 정책을 먼저 검증한 뒤 메인 구조로 옮기는 용도입니다.
             </p>
           </div>
         </div>

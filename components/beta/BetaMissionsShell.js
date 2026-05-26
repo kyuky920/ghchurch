@@ -16,7 +16,12 @@ const NAV_ITEMS = [
 ]
 
 export function canManageMissions(session) {
-  return session?.role === 'leader' || session?.role === 'admin'
+  return (
+    session?.role === 'leader' ||
+    session?.role === 'admin' ||
+    session?.missionRole === 'sub_admin' ||
+    session?.missionRole === 'admin'
+  )
 }
 
 export default function BetaMissionsShell({
@@ -52,7 +57,7 @@ export default function BetaMissionsShell({
                   <p style={{ margin: '0 0 5px', fontSize: 12, color: '#8b6e4e', fontWeight: 700 }}>접속 회원</p>
                   <p style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>{session.name}</p>
                   <p style={{ margin: 0, fontSize: 13, color: '#6e5b48' }}>
-                    {session.phone} · {getRoleLabel(session.role)} / {missionMemberRoleLabel(session.role)}
+                    {session.phone} · {getRoleLabel(session.role)} / {missionMemberRoleLabel(session.missionRole || session.role)}
                   </p>
                 </div>
                 <button
