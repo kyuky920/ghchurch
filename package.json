@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "sermon:agent": "node scripts/sermon-materials-agent.mjs",
+    "sermon:agent:dry": "node scripts/sermon-materials-agent.mjs --dry-run --print-prompt"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.0",
