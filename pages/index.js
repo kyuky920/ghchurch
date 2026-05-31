@@ -195,34 +195,7 @@ export default function Home() {
     if (!captureRef.current || !selected) return
     setSavingImage(true)
     try {
-      const canvas = await html2canvas(captureRef.current, {
-        backgroundColor: '#faf6f0',
-        scale: 2,
-        useCORS: true,
-        scrollX: 0,
-        scrollY: -window.scrollY,
-        onclone: (clonedDoc) => {
-          clonedDoc.querySelectorAll('.capture-root').forEach((el) => {
-            el.style.padding = '20px'
-            el.style.background = '#faf6f0'
-          })
-          clonedDoc.querySelectorAll('.tab-bar').forEach((el) => {
-            el.style.position = 'static'
-            el.style.top = 'auto'
-            el.style.zIndex = 'auto'
-            el.style.backdropFilter = 'none'
-          })
-          clonedDoc.querySelectorAll('.capture-actions').forEach((el) => {
-            el.style.display = 'none'
-          })
-          clonedDoc.querySelectorAll('*').forEach((el) => {
-            el.style.animation = 'none'
-            el.style.transition = 'none'
-            el.style.transform = 'none'
-            el.style.opacity = '1'
-          })
-        },
-      })
+      const canvas = await captureElementAsCanvas(captureRef.current)
       const link = document.createElement('a')
       const safeRef = (selected.reference || 'wordlife').replace(/[^\w\-가-힣]+/g, '_')
       const tabName = tab === 0 ? 'passage' : tab === 1 ? 'summary' : 'questions'
@@ -234,6 +207,373 @@ export default function Home() {
     } finally {
       setSavingImage(false)
     }
+  }
+
+  async function saveCurrentViewAsSplitImages() {
+    if (!captureRef.current || !selected) return
+    setSavingImage(true)
+    const mount = document.createElement('div')
+    mount.style.position = 'fixed'
+    mount.style.left = '-99999px'
+    mount.style.top = '0'
+    mount.style.width = '760px'
+    mount.style.pointerEvents = 'none'
+    document.body.appendChild(mount)
+
+    try {
+      const root = captureRef.current
+      const titleNode = root.querySelector('[data-capture-title]')
+      const blockNodes = Array.from(root.querySelectorAll('[data-capture-block]'))
+      if (!titleNode || !blockNodes.length) {
+        const singleCanvas = await captureElementAsCanvas(root)
+        const singleLink = document.createElement('a')
+        singleLink.download = `${(selected.reference || 'wordlife').replace(/[^\w\-가-힣]+/g, '_')}_${tab === 0 ? 'passage' : tab === 1 ? 'summary' : 'questions'}.png`
+        singleLink.href = singleCanvas.toDataURL('image/png')
+        singleLink.click()
+        return
+      }
+
+      const maxPageHeight = tab === 2 ? 1500 : 1650
+      const pages = []
+      let currentPage = createSplitCapturePage(titleNode, tab)
+      mount.appendChild(currentPage)
+
+      for (const blockNode of blockNodes) {
+        const clone = blockNode.cloneNode(true)
+        clone.style.animation = 'none'
+        clone.style.transition = 'none'
+        clone.style.transform = 'none'
+        clone.style.opacity = '1'
+        currentPage.appendChild(clone)
+        if (currentPage.scrollHeight > maxPageHeight && currentPage.children.length > 3) {
+          currentPage.removeChild(clone)
+          pages.push(currentPage)
+          currentPage = createSplitCapturePage(titleNode, tab)
+          mount.appendChild(currentPage)
+          currentPage.appendChild(clone)
+        }
+      }
+      pages.push(currentPage)
+
+      const safeRef = (selected.reference || 'wordlife').replace(/[^\w\-가-힣]+/g, '_')
+      const tabName = tab === 0 ? 'passage' : tab === 1 ? 'summary' : 'questions'
+      for (let i = 0; i < pages.length; i += 1) {
+        const canvas = await captureElementAsCanvas(pages[i])
+        const link = document.createElement('a')
+        const pageSuffix = pages.length > 1 ? `_${i + 1}` : ''
+        link.download = `${safeRef}_${tabName}${pageSuffix}.png`
+        link.href = canvas.toDataURL('image/png')
+        link.click()
+      }
+    } catch (e) {
+      alert('분할 이미지 저장 중 오류가 발생했어요.')
+    } finally {
+      document.body.removeChild(mount)
+      setSavingImage(false)
+    }
+  }
+
+  function createSplitCapturePage(titleNode, activeTab) {
+    const page = document.createElement('div')
+    page.style.width = '760px'
+    page.style.padding = '24px'
+    page.style.background = '#faf6f0'
+    page.style.display = 'flex'
+    page.style.flexDirection = 'column'
+    page.style.gap = '14px'
+    page.style.marginBottom = '20px'
+
+    const titleClone = titleNode.cloneNode(true)
+    titleClone.style.marginBottom = '0'
+    page.appendChild(titleClone)
+
+    const sectionChip = document.createElement('div')
+    sectionChip.style.display = 'inline-flex'
+    sectionChip.style.alignItems = 'center'
+    sectionChip.style.alignSelf = 'flex-start'
+    sectionChip.style.padding = '7px 12px'
+    sectionChip.style.borderRadius = '999px'
+    sectionChip.style.background = '#fff'
+    sectionChip.style.border = '1px solid #e2d3bf'
+    sectionChip.style.color = '#7a5a33'
+    sectionChip.style.fontSize = '12px'
+    sectionChip.style.fontWeight = '700'
+    sectionChip.textContent = activeTab === 0 ? '성경말씀' : activeTab === 1 ? '말씀요약' : '나눔질문'
+    page.appendChild(sectionChip)
+
+    return page
+  }
+
+  function captureElementAsCanvas(element) {
+    return html2canvas(element, {
+      backgroundColor: '#faf6f0',
+      scale: 2,
+      useCORS: true,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      onclone: (clonedDoc) => {
+        clonedDoc.querySelectorAll('.capture-root').forEach((el) => {
+          el.style.padding = '20px'
+          el.style.background = '#faf6f0'
+        })
+        clonedDoc.querySelectorAll('.tab-bar').forEach((el) => {
+          el.style.position = 'static'
+          el.style.top = 'auto'
+          el.style.zIndex = 'auto'
+          el.style.backdropFilter = 'none'
+        })
+        clonedDoc.querySelectorAll('.capture-actions, .capture-exclude').forEach((el) => {
+          el.style.display = 'none'
+        })
+        clonedDoc.querySelectorAll('*').forEach((el) => {
+          el.style.animation = 'none'
+          el.style.transition = 'none'
+          el.style.transform = 'none'
+          el.style.opacity = '1'
+        })
+      },
+    })
+  }
+
+  async function saveShareCardsAsImages() {
+    if (!selected) return
+    setSavingImage(true)
+    const mount = document.createElement('div')
+    mount.style.position = 'fixed'
+    mount.style.left = '-99999px'
+    mount.style.top = '0'
+    mount.style.width = '760px'
+    mount.style.pointerEvents = 'none'
+    document.body.appendChild(mount)
+
+    try {
+      const cards = buildShareCards()
+      cards.forEach((card) => mount.appendChild(card))
+      const safeRef = (selected.reference || 'wordlife').replace(/[^\w\-가-힣]+/g, '_')
+      for (let i = 0; i < cards.length; i += 1) {
+        const canvas = await captureElementAsCanvas(cards[i])
+        const link = document.createElement('a')
+        link.download = `${safeRef}_share_${i + 1}.png`
+        link.href = canvas.toDataURL('image/png')
+        link.click()
+      }
+    } catch (e) {
+      alert('공유 카드 저장 중 오류가 발생했어요.')
+    } finally {
+      document.body.removeChild(mount)
+      setSavingImage(false)
+    }
+  }
+
+  function buildShareCards() {
+    const cards = []
+    const title = selected.sermon_title || selected.reference || '말씀 나눔'
+    const metaText = [weekLabel(selected.week), selected.service === 'morning' ? '주일 오전' : '주일 오후', selected.reference].filter(Boolean).join(' · ')
+    const sectionList = Array.isArray(summary?.sections) ? summary.sections : []
+
+    const cover = createShareCardShell('#8e6840', '#c89d6e')
+    appendShareHeader(cover, title, metaText)
+    appendShareLabel(cover, '핵심 메시지')
+    appendShareLead(cover, summary?.key_point || '이번 주 말씀의 핵심 내용을 함께 나눠보세요.')
+    if (summary?.overview) {
+      appendShareLabel(cover, '전체 흐름')
+      appendShareParagraph(cover, summary.overview)
+    }
+    cards.push(cover)
+
+    if (summary?.overview || sectionList.length) {
+      const summaryCards = []
+      let current = createShareCardShell('#6f5947', '#b58d6b')
+      appendShareHeader(current, `${title} · 말씀 요약`, metaText)
+      if (summary?.overview) {
+        appendShareLabel(current, '전체 흐름')
+        appendShareParagraph(current, summary.overview)
+      }
+      sectionList.forEach((section, index) => {
+        if ((index > 0 && index % 2 === 0) || current.childElementCount > 8) {
+          summaryCards.push(current)
+          current = createShareCardShell('#6f5947', '#b58d6b')
+          appendShareHeader(current, `${title} · 말씀 요약`, metaText)
+        }
+        appendShareSectionCard(current, `${index + 1}. ${section?.title || `단락 ${index + 1}`}`, section?.content || '')
+      })
+      summaryCards.push(current)
+      cards.push(...summaryCards)
+    }
+
+    if (qs.length) {
+      for (let start = 0; start < qs.length; start += 3) {
+        const pageItems = qs.slice(start, start + 3)
+        const questionCard = createShareCardShell('#5c4b6d', '#8f82b7')
+        appendShareHeader(questionCard, `${title} · 나눔 질문`, metaText)
+        pageItems.forEach((item, offset) => {
+          const number = start + offset + 1
+          appendShareQuestionCard(
+            questionCard,
+            number,
+            item?.section_title || item?.category || `질문 ${number}`,
+            item?.question || '',
+            item?.category === '오프닝' ? '' : item?.explanation || ''
+          )
+        })
+        cards.push(questionCard)
+      }
+    }
+
+    return cards
+  }
+
+  function createShareCardShell(primaryColor, secondaryColor) {
+    const card = document.createElement('div')
+    card.style.width = '760px'
+    card.style.padding = '32px'
+    card.style.background = 'linear-gradient(180deg,#fcf8f2 0%,#f7efe3 100%)'
+    card.style.borderRadius = '28px'
+    card.style.border = '1px solid #eadbc7'
+    card.style.display = 'flex'
+    card.style.flexDirection = 'column'
+    card.style.gap = '14px'
+    card.style.marginBottom = '20px'
+    card.style.boxShadow = '0 18px 50px rgba(78,55,27,0.10)'
+    card.dataset.primaryColor = primaryColor
+    card.dataset.secondaryColor = secondaryColor
+    return card
+  }
+
+  function appendShareHeader(card, title, metaText) {
+    const badge = document.createElement('div')
+    badge.textContent = '광흥교회 말씀 나눔'
+    badge.style.alignSelf = 'flex-start'
+    badge.style.padding = '7px 12px'
+    badge.style.borderRadius = '999px'
+    badge.style.background = card.dataset.secondaryColor
+    badge.style.color = '#fff'
+    badge.style.fontSize = '12px'
+    badge.style.fontWeight = '700'
+    card.appendChild(badge)
+
+    const heading = document.createElement('h2')
+    heading.textContent = title
+    heading.style.margin = '0'
+    heading.style.color = card.dataset.primaryColor
+    heading.style.fontFamily = "'Gowun Batang',serif"
+    heading.style.fontSize = '28px'
+    heading.style.lineHeight = '1.45'
+    card.appendChild(heading)
+
+    const meta = document.createElement('p')
+    meta.textContent = metaText
+    meta.style.margin = '0'
+    meta.style.color = '#7d6750'
+    meta.style.fontSize = '14px'
+    meta.style.fontWeight = '600'
+    card.appendChild(meta)
+  }
+
+  function appendShareLabel(card, text) {
+    const label = document.createElement('p')
+    label.textContent = text
+    label.style.margin = '8px 0 0'
+    label.style.color = '#9a7651'
+    label.style.fontSize = '12px'
+    label.style.fontWeight = '700'
+    label.style.letterSpacing = '0.08em'
+    card.appendChild(label)
+  }
+
+  function appendShareLead(card, text) {
+    const lead = document.createElement('p')
+    lead.textContent = text
+    lead.style.margin = '0'
+    lead.style.color = '#2f261d'
+    lead.style.fontFamily = "'Gowun Batang',serif"
+    lead.style.fontSize = '24px'
+    lead.style.lineHeight = '1.75'
+    lead.style.fontWeight = '700'
+    card.appendChild(lead)
+  }
+
+  function appendShareParagraph(card, text) {
+    const body = document.createElement('p')
+    body.textContent = text
+    body.style.margin = '0'
+    body.style.color = '#4b3a2a'
+    body.style.fontFamily = "'Gowun Batang',serif"
+    body.style.fontSize = '18px'
+    body.style.lineHeight = '1.9'
+    card.appendChild(body)
+  }
+
+  function appendShareSectionCard(card, title, content) {
+    const box = document.createElement('div')
+    box.style.background = '#fff'
+    box.style.border = '1px solid #eadbc7'
+    box.style.borderLeft = '4px solid #c89d6e'
+    box.style.borderRadius = '18px'
+    box.style.padding = '16px 18px'
+    box.style.display = 'flex'
+    box.style.flexDirection = 'column'
+    box.style.gap = '8px'
+
+    const heading = document.createElement('p')
+    heading.textContent = title
+    heading.style.margin = '0'
+    heading.style.color = '#8a6844'
+    heading.style.fontSize = '14px'
+    heading.style.fontWeight = '700'
+    box.appendChild(heading)
+
+    const body = document.createElement('p')
+    body.textContent = content
+    body.style.margin = '0'
+    body.style.color = '#3d2e21'
+    body.style.fontFamily = "'Gowun Batang',serif"
+    body.style.fontSize = '18px'
+    body.style.lineHeight = '1.85'
+    box.appendChild(body)
+
+    card.appendChild(box)
+  }
+
+  function appendShareQuestionCard(card, number, headingText, questionText, descriptionText) {
+    const box = document.createElement('div')
+    box.style.background = '#fff'
+    box.style.border = '1px solid #e4d9ea'
+    box.style.borderRadius = '18px'
+    box.style.padding = '16px 18px'
+    box.style.display = 'flex'
+    box.style.flexDirection = 'column'
+    box.style.gap = '8px'
+
+    const heading = document.createElement('p')
+    heading.textContent = `${number}. ${headingText}`
+    heading.style.margin = '0'
+    heading.style.color = '#6b5a88'
+    heading.style.fontSize = '14px'
+    heading.style.fontWeight = '700'
+    box.appendChild(heading)
+
+    if (descriptionText) {
+      const description = document.createElement('p')
+      description.textContent = descriptionText
+      description.style.margin = '0'
+      description.style.color = '#6a5968'
+      description.style.fontSize = '15px'
+      description.style.lineHeight = '1.75'
+      box.appendChild(description)
+    }
+
+    const body = document.createElement('p')
+    body.textContent = questionText
+    body.style.margin = '0'
+    body.style.color = '#2f261d'
+    body.style.fontFamily = "'Gowun Batang',serif"
+    body.style.fontSize = '20px'
+    body.style.lineHeight = '1.85'
+    body.style.fontWeight = '700'
+    box.appendChild(body)
+
+    card.appendChild(box)
   }
 
   function buildKakaoCopyText() {
@@ -387,7 +727,7 @@ export default function Home() {
               {selected && (
                 <div ref={captureRef} className="capture-root" style={{display:'flex',flexDirection:'column'}}>
                   {/* 말씀 정보 */}
-                  <div style={{...S.card,marginBottom:14}}>
+                  <div data-capture-title style={{...S.card,marginBottom:14}}>
                     <span style={{background:selected.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:11,fontWeight:700,display:'inline-block',marginBottom:8}}>
                       {selected.service==='morning'?'주일 오전':'주일 오후'}
                     </span>
@@ -397,7 +737,7 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <div style={{...S.card,marginBottom:14,padding:'12px 14px'}}>
+                  <div className="capture-exclude" style={{...S.card,marginBottom:14,padding:'12px 14px'}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
                       <p style={{margin:0,fontSize:12,color:'#8b6e4e',fontWeight:700}}>글씨 크기</p>
                       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -440,7 +780,7 @@ export default function Home() {
                   {tab===0 && (
                     <div style={{display:'flex',flexDirection:'column',gap:12}}>
                       {selected.passage ? (
-                        <div style={S.card}>
+                        <div data-capture-block style={S.card}>
                           <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>📖 {selected.reference} · 개역개정</p>
                           <p style={{color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(13, fontScale),lineHeight:1.95,fontWeight:500,margin:0,whiteSpace:'pre-line'}}>{selected.passage}</p>
                         </div>
@@ -462,19 +802,19 @@ export default function Home() {
                       ) : (
                         <>
                           {/* 핵심 메시지 */}
-                          <div style={{background:'linear-gradient(135deg,#a0784e,#c4956a)',borderRadius:16,padding:'20px 22px',position:'relative',overflow:'hidden'}}>
+                          <div data-capture-block style={{background:'linear-gradient(135deg,#a0784e,#c4956a)',borderRadius:16,padding:'20px 22px',position:'relative',overflow:'hidden'}}>
                             <div style={{position:'absolute',top:-20,right:-20,width:100,height:100,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
                             <p style={{color:'rgba(245,230,208,0.85)',fontSize:10,letterSpacing:'0.15em',margin:'0 0 10px',fontWeight:600}}>✦ 핵심 메시지</p>
                             <p style={{color:'#fff',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(16, fontScale),lineHeight:1.8,margin:0,fontWeight:700}}>{summary.key_point}</p>
                           </div>
                           {/* 전체 흐름 */}
-                          <div style={{background:'#fff',borderRadius:14,padding:'18px 20px',border:'1px solid #e8d8c0'}}>
+                          <div data-capture-block style={{background:'#fff',borderRadius:14,padding:'18px 20px',border:'1px solid #e8d8c0'}}>
                             <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 10px'}}>📖 전체 흐름</p>
                             <p style={{color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(14, fontScale),lineHeight:1.9,margin:0}}>{summary.overview}</p>
                           </div>
                           {/* 단락별 요약 */}
                           {summary.sections && summary.sections.map((sec,i) => (
-                            <div key={i} style={{background:'#fdf5ec',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0',borderLeft:'4px solid #c4956a',animation:`fadeUp 0.3s ease ${i*0.1}s both`}}>
+                            <div key={i} data-capture-block style={{background:'#fdf5ec',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0',borderLeft:'4px solid #c4956a',animation:`fadeUp 0.3s ease ${i*0.1}s both`}}>
                               <p style={{fontSize:12,color:'#a0784e',fontWeight:700,margin:'0 0 8px'}}>{sec.title}</p>
                               <p style={{color:'#4a3728',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(14, fontScale),lineHeight:1.9,margin:0}}>{sec.content}</p>
                             </div>
@@ -494,7 +834,7 @@ export default function Home() {
                         const isOpening=item.category==='오프닝'
                         const m=QMETA[i]||QMETA[0]
                         return (
-                          <div key={i} style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)',animation:`fadeUp 0.4s ease ${i*0.1}s both`}}>
+                          <div key={i} data-capture-block style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)',animation:`fadeUp 0.4s ease ${i*0.1}s both`}}>
                             <p style={{fontSize:10,color:'#8b6e4e',fontWeight:700,margin:'0 0 8px',letterSpacing:'0.05em'}}>{item.section_title || item.category || m.type}</p>
                             {!isOpening && ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginBottom:8,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:scalePx(12, fontScale),lineHeight:1.8}}>{ex}</p></div>}
                             <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(16, fontScale),lineHeight:1.9,fontWeight:700}}>{q}</p>
@@ -503,13 +843,27 @@ export default function Home() {
                       })}
                     </div>
                   )}
-                  <div className="capture-actions" style={{display:'flex',gap:8,marginTop:16}}>
+                  <div className="capture-actions" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8,marginTop:16}}>
                     <button
                       onClick={copyForKakao}
                       disabled={copyingKakao}
                       style={{flex:1,background:copyingKakao?'#c8b79e':'linear-gradient(135deg,#f8e5bf,#f0c77a)',color:'#5c4323',border:'1px solid #e0c08a',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:copyingKakao?'not-allowed':'pointer'}}
                     >
                       {copyingKakao ? '복사 중...' : '💬 카톡으로 복사하기'}
+                    </button>
+                    <button
+                      onClick={saveShareCardsAsImages}
+                      disabled={savingImage}
+                      style={{flex:1,background:savingImage?'#cabca9':'linear-gradient(135deg,#eadfef,#cdbce2)',color:'#4d3c66',border:'1px solid #d2c1e4',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                    >
+                      {savingImage ? '카드 저장 중...' : '💠 공유 카드 저장'}
+                    </button>
+                    <button
+                      onClick={saveCurrentViewAsSplitImages}
+                      disabled={savingImage}
+                      style={{flex:1,background:savingImage?'#d7c8b5':'linear-gradient(135deg,#efe4d5,#d9bea2)',color:'#5f4630',border:'1px solid #d7c3ac',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                    >
+                      {savingImage ? '분할 저장 중...' : '🧩 나눠서 저장'}
                     </button>
                     <button
                       onClick={saveCurrentViewAsImage}
