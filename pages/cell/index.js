@@ -332,6 +332,10 @@ export default function CellPage() {
     loadSermonLookup()
   }, [])
 
+  useEffect(() => {
+    loadSermons()
+  }, [week])
+
   // ── 셀 리더: 모임 시작 ──
   async function handleStartSession() {
     if (!selWeek) { alert('말씀을 선택해주세요.'); return }
@@ -618,9 +622,17 @@ export default function CellPage() {
                         <p style={{fontFamily:"'Gowun Batang',serif",fontSize:19,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>
                           {featuredSermon.sermon_title || featuredSermon.reference}
                         </p>
-                        <p style={{fontSize:12,color:'#7d6853',margin:0,fontWeight:600}}>
-                          {[weekLabel(featuredSermon.week), featuredSermon.reference].filter(Boolean).join(' · ')}
-                        </p>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                          <span style={{background:featuredSermon.service === 'morning' ? '#fff1dd' : '#f0ebfb',color:featuredSermon.service === 'morning' ? '#9a6218' : '#5f4b88',border:'1px solid rgba(160,120,78,0.18)',borderRadius:999,padding:'5px 10px',fontSize:11,fontWeight:700}}>
+                            {featuredSermon.service === 'morning' ? '주일 오전' : '주일 오후'}
+                          </span>
+                          <span style={{background:'#f7f1e8',color:'#7b654d',border:'1px solid #eadfce',borderRadius:999,padding:'5px 10px',fontSize:11,fontWeight:700}}>
+                            {weekLabel(featuredSermon.week)}
+                          </span>
+                          <span style={{background:'#f7f1e8',color:'#4a3520',border:'1px solid #eadfce',borderRadius:999,padding:'5px 10px',fontSize:11,fontWeight:700}}>
+                            {featuredSermon.reference}
+                          </span>
+                        </div>
                       </div>
                       {featuredServiceOptions.length > 0 && (
                         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
