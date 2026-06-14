@@ -104,6 +104,7 @@ export default function CellPage() {
   const [sermons, setSermons]               = useState([])
   const [selWeek, setSelWeek]               = useState('')
   const [selService, setSelService]         = useState('morning')
+  const [featuredService, setFeaturedService] = useState('morning')
   const [sessionStarting, setSessionStarting] = useState(false)
 
   // 그룹 종료
@@ -395,8 +396,22 @@ export default function CellPage() {
   const activeNoticeKey = noticeSession?.notice
     ? `${noticeSession.group_no || ''}:${noticeSession.notice}`
     : ''
-  const currentWeekSermons = sermons.filter((s) => s.week === week)
-  const featuredSermon = currentWeekSermons[0] || sermons[0] || sermonLookup[`${week}:morning`] || sermonLookup[`${week}:evening`] || sermonLookup[`${week}:afternoon`] || null
+  const currentWeekSermons = sermons
+    .filter((s) => s.week === week)
+    .sort((a, b) => {
+      if (a.service === b.service) return (b.id || 0) - (a.id || 0)
+      return a.service === 'morning' ? -1 : 1
+    })
+  const featuredSermon = currentWeekSermons.find((s) => s.service === featuredService)
+    || currentWeekSermons[0]
+    || sermons[0]
+    || sermonLookup[`${week}:morning`]
+    || sermonLookup[`${week}:evening`]
+    || sermonLookup[`${week}:afternoon`]
+    || null
+  const featuredServiceOptions = currentWeekSermons.filter((sermon, index, list) =>
+    list.findIndex((item) => item.service === sermon.service) === index
+  )
   const featuredWordHref = featuredSermon
     ? `/cell-word?week=${featuredSermon.week}&service=${featuredSermon.service}&tab=2`
     : '/cell-word'
@@ -440,6 +455,14 @@ export default function CellPage() {
     localStorage.setItem(`wl_notice_ack:${activeNoticeKey}`, 'true')
     setNoticeAcknowledged(true)
   }
+
+  useEffect(() => {
+    if (!currentWeekSermons.length) return
+    const hasSelectedService = currentWeekSermons.some((s) => s.service === featuredService)
+    if (!hasSelectedService) {
+      setFeaturedService(currentWeekSermons[0].service || 'morning')
+    }
+  }, [week, sermons, featuredService])
 
   return (
     <>
@@ -590,6 +613,42 @@ export default function CellPage() {
 
                 {featuredSermon ? (
                   <div style={{background:'#fff',borderRadius:16,padding:'16px 16px 14px',border:'1px solid #e8dcc8'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',marginBottom:12}}>
+                      <div>
+                        <p style={{fontFamily:"'Gowun Batang',serif",fontSize:19,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>
+                          {featuredSermon.sermon_title || featuredSermon.reference}
+                        </p>
+                        <p style={{fontSize:12,color:'#7d6853',margin:0,fontWeight:600}}>
+                          {[weekLabel(featuredSermon.week), featuredSermon.reference].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      {featuredServiceOptions.length > 0 && (
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                          {featuredServiceOptions.map((sermon) => {
+                            const isActive = sermon.service === featuredSermon.service
+                            const isMorning = sermon.service === 'morning'
+                            return (
+                              <button
+                                key={`${sermon.week}:${sermon.service}:${sermon.id || sermon.reference}`}
+                                onClick={() => setFeaturedService(sermon.service)}
+                                style={{
+                                  background:isActive ? (isMorning ? '#f3dfbf' : '#e5def6') : '#fff',
+                                  color:isActive ? (isMorning ? '#8b5a16' : '#5e4b86') : '#8b6e4e',
+                                  border:`1px solid ${isActive ? (isMorning ? '#e1bf86' : '#bfb0ea') : '#e3d6c3'}`,
+                                  borderRadius:999,
+                                  padding:'7px 11px',
+                                  cursor:'pointer',
+                                  fontSize:11,
+                                  fontWeight:700
+                                }}
+                              >
+                                {sermon.service === 'morning' ? '주일 오전' : '주일 오후'}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                     {featuredOverview && (
                       <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
                         <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>전체 흐름</p>
