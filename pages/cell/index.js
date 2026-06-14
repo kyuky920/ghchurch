@@ -73,6 +73,12 @@ function extractSermonOverview(sermon) {
 
 const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
 const GROUP_BGS    = ['#fdf5ec','#f0f7f1','#f5f3fa','#fef8f0','#ffebee','#e3f2fd','#e8f5e9','#efebe9','#e0f7fa','#f1f8e9']
+const S = {
+  wrap:   { minHeight:'100vh', background:'#f6f3ee', fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif", color:'#2f281f' },
+  header: { background:'linear-gradient(160deg,#ede2d2,#d8c8ad)', padding:'20px 20px 16px', borderBottom:'1px solid #ccbda3', position:'relative', overflow:'hidden' },
+  cont:   { maxWidth:700, margin:'0 auto', padding:'18px 16px 88px' },
+  card:   { background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #dfd3c0', boxShadow:'0 4px 16px rgba(55,38,15,0.04)' },
+}
 
 export default function CellPage() {
   const router = useRouter()
@@ -473,44 +479,54 @@ export default function CellPage() {
       <Head>
         <title>광흥교회 청년부 · 시냇가에 심은 나무 WORD &amp; LIFE · 광흥교회 청년시냇가</title>
         <meta name="viewport" content="width=device-width,initial-scale=1"/>
-        <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+        <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet"/>
         <style>{`
           *{box-sizing:border-box;}
-          body{margin:0;font-family:'Noto Sans KR',sans-serif;background:#faf6f0;}
-          input:focus{border-color:#a0784e!important;outline:none;}
+          html,body{margin:0;padding:0;background:#f6f3ee;color:#2f281f}
+          body{font-family:'IBM Plex Sans KR','Noto Sans KR',sans-serif;line-height:1.72;-webkit-font-smoothing:antialiased}
+          input:focus, select:focus{border-color:#a0784e!important;outline:none;}
+          button{font:inherit}
           @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
           @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
           @keyframes glow{0%,100%{box-shadow:0 0 12px rgba(46,125,50,0.4)}50%{box-shadow:0 0 28px rgba(46,125,50,0.8)}}
           @keyframes spin{to{transform:rotate(360deg)}}
         `}</style>
       </Head>
-      <div style={{minHeight:'100vh',background:'#faf6f0'}}>
+      <div style={S.wrap}>
 
         {/* ── 헤더 ── */}
-        <div style={{
-          background: amLeader ? 'linear-gradient(160deg,#1a4a1a,#2a6a2a)' : 'linear-gradient(160deg,#e8dcc8,#d4c4a8)',
-          padding:'24px 20px', borderBottom: amLeader?'1px solid #3a7a3a':'1px solid #c8b898', transition:'all 0.4s'
-        }}>
-          <p style={{fontSize:10,color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
-          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
-          <p style={{fontSize:11,color:amLeader?'rgba(150,230,150,0.78)':'#8b6e4e',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
-          {registered && amLeader ? (
-            <div style={{background:'linear-gradient(135deg,#ffd700,#ffab00)',borderRadius:16,padding:'10px 18px',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(255,180,0,0.5)',animation:'glow 2s ease-in-out infinite',width:'fit-content'}}>
-              <span style={{fontSize:26}}>👑</span>
-              <div>
-                <p style={{fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,color:'#1a1000',margin:'0 0 1px'}}>셀 리더</p>
-                <p style={{fontSize:12,color:'rgba(26,16,0,0.7)',margin:0,fontWeight:600}}>{name} · {formatGroupName(myGroup)}</p>
-              </div>
+        <div style={S.header}>
+          <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+            <div>
+              <p style={{fontSize:10,color:'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 4px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+              <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:'#3a2a19',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
+              <p style={{fontSize:11,color:'#6b5740',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
+              {registered && amLeader ? (
+                <div style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(160,120,78,0.14)',border:'1px solid rgba(160,120,78,0.18)',borderRadius:12,padding:'8px 12px'}}>
+                  <span style={{fontSize:16}}>👑</span>
+                  <div>
+                    <p style={{fontSize:11,color:'#8b6e4e',margin:'0 0 2px',fontWeight:700}}>셀 리더</p>
+                    <p style={{fontSize:12,color:'#4a3520',margin:0,fontWeight:700}}>{name} · {formatGroupName(myGroup)}</p>
+                  </div>
+                </div>
+              ) : registered ? (
+                <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>안녕하세요, <strong>{name}</strong>님! 🙏</p>
+              ) : (
+                <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>이름을 입력하고 조 편성을 확인하세요</p>
+              )}
             </div>
-          ) : registered ? (
-            <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>안녕하세요, <strong>{name}</strong>님! 🙏</p>
-          ) : (
-            <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>이름을 입력하고 조 편성을 확인하세요</p>
-          )}
+            {myGroup && (
+              <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
+                <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 2px', fontWeight:600 }}>내 조</p>
+                <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{formatGroupName(myGroup)}</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div style={{maxWidth:640,margin:'16px auto 0',padding:'0 16px'}}>
-          <div style={{background:'#fff',borderRadius:14,padding:'14px 16px',border:'1px solid #e8d8c0'}}>
+        <div style={{...S.cont,padding:'16px 16px 0'}}>
+          <div style={{...S.card,padding:'14px 16px'}}>
             <label style={{display:'block',fontSize:12,color:'#8b6e4e',fontWeight:700,marginBottom:8}}>대상 주 선택</label>
             <select value={week} onChange={e=>setWeek(e.target.value)} style={{width:'100%',padding:'11px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:14,background:'#faf7f4',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}>
               {weeks.map(w => <option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
@@ -592,11 +608,11 @@ export default function CellPage() {
           </div>
         )}
 
-        <div style={{maxWidth:640,margin:'0 auto',padding:'20px 16px 80px',display:'flex',flexDirection:'column',gap:16}}>
+        <div style={{...S.cont,display:'flex',flexDirection:'column',gap:16}}>
 
           {/* ── 이름 등록 ── */}
           {!registered ? (
-            <div style={{background:'#fff',borderRadius:16,padding:'24px 20px',border:'1px solid #e8d8c0',boxShadow:'0 4px 20px rgba(160,120,78,0.1)'}}>
+            <div style={{...S.card,padding:'24px 20px'}}>
               <p style={{fontFamily:"'Gowun Batang',serif",fontSize:16,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>처음이시군요!</p>
               <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 18px',lineHeight:1.6}}>이름을 한 번만 입력하면 다음부터 자동으로 인식돼요.</p>
               <input value={inputName} onChange={e=>setInputName(e.target.value)}
@@ -612,11 +628,11 @@ export default function CellPage() {
             </div>
           ) : (
             <>
-              <div style={{background:'linear-gradient(155deg,#f7efe4,#ffffff)',borderRadius:18,padding:'20px',border:'1px solid #e5d6c0',boxShadow:'0 10px 28px rgba(89,62,27,0.08)'}}>
+              <div style={S.card}>
                 <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>1. 함께 말씀 나눔</p>
 
                 {featuredSermon ? (
-                  <div style={{background:'#fff',borderRadius:16,padding:'16px 16px 14px',border:'1px solid #e8dcc8'}}>
+                  <div style={{background:'#fff',borderRadius:14,padding:'16px 16px 14px',border:'1px solid #dfd3c0'}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',marginBottom:12}}>
                       <div>
                         <p style={{fontFamily:"'Gowun Batang',serif",fontSize:19,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>
@@ -706,7 +722,7 @@ export default function CellPage() {
                 )}
               </div>
 
-              <div style={{background:'#fff',borderRadius:16,padding:'18px',border:'1px solid #e8d8c0'}}>
+              <div style={S.card}>
                 <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>2. 지금 내 상태</p>
                 {!alreadyInGroup ? (
                   <>
@@ -737,7 +753,7 @@ export default function CellPage() {
               </div>
 
               {/* ── 접속 현황 ── */}
-              <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',border:'1px solid #e8d8c0',display:'flex',alignItems:'center',gap:10}}>
+              <div style={{...S.card,padding:'14px 18px',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite',flexShrink:0}}/>
                 <p style={{fontSize:12,color:'#7a9e7e',margin:0,fontWeight:600}}>접속 중 · {members.length}명 함께 있어요</p>
                 <button
@@ -749,7 +765,7 @@ export default function CellPage() {
                 <button onClick={loadData} style={{background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#8b6e4e',fontWeight:600}}>🔄</button>
               </div>
               {showMemberList && (
-                <div style={{background:'#fff',borderRadius:12,padding:'12px 14px',border:'1px solid #e8d8c0',marginTop:-8}}>
+                <div style={{...S.card,padding:'12px 14px',marginTop:-8}}>
                   {members.length === 0 ? (
                     <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>현재 접속 중인 사람이 없어요.</p>
                   ) : (
@@ -766,7 +782,7 @@ export default function CellPage() {
 
               {/* ── 셀 리더: 모임 시작 버튼 ── */}
               {canStartSession && (
-                <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'20px',border:'1px solid #4a8a4a'}}>
+                <div style={{background:'linear-gradient(135deg,#31593b,#467152)',borderRadius:14,padding:'20px',border:'1px solid #5f8b67',boxShadow:'0 4px 16px rgba(31,69,42,0.12)'}}>
                   <p style={{fontSize:11,color:'rgba(150,220,150,0.72)',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 6px'}}>3. 조별로 이어 나눔</p>
                   <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>리더가 조별 나눔을 시작할 차례예요</p>
                   <p style={{fontSize:11,color:'rgba(150,220,150,0.7)',margin:'0 0 16px'}}>앞서 함께 나눈 말씀을 선택하고 조별 모임을 시작해주세요.</p>
@@ -778,7 +794,7 @@ export default function CellPage() {
               )}
 
               {/* ── 전체 조 편성 ── */}
-              <div style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0'}}>
+              <div style={{...S.card,padding:'16px 18px'}}>
                 <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 14px'}}>
                   2. 조 편성 확인 {groups?.week ? `— ${weekLabel(groups.week)}` : ''}
                 </p>
