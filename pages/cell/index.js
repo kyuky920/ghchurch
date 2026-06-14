@@ -661,24 +661,24 @@ export default function CellPage() {
                         </div>
                       )}
                     </div>
+                    {featuredOverview && (
+                      <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
+                        <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>전체 흐름</p>
+                        <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.7}}>{featuredOverview}</p>
+                      </div>
+                    )}
                     {featuredSermon.passage && (
-                      <div style={{background:'#f6f1e7',borderRadius:12,padding:'12px 13px',border:'1px solid #e4d7bf',marginBottom:10}}>
-                        <p style={{fontSize:11,color:'#8b6a45',fontWeight:700,margin:'0 0 5px'}}>성경 본문</p>
+                      <div style={{background:'#fcfaf6',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
+                        <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>성경 본문</p>
                         <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.85,whiteSpace:'pre-line',fontFamily:"'Gowun Batang',serif"}}>
                           {featuredSermon.passage}
                         </p>
                       </div>
                     )}
-                    {featuredOverview && (
-                      <div style={{background:'#eef6ee',borderRadius:12,padding:'12px 13px',border:'1px solid #cfe1d0',marginBottom:10}}>
-                        <p style={{fontSize:11,color:'#476c4d',fontWeight:700,margin:'0 0 5px'}}>전체 흐름</p>
-                        <p style={{fontSize:13,color:'#2f4733',margin:0,lineHeight:1.7}}>{featuredOverview}</p>
-                      </div>
-                    )}
                     {featuredKeyPoint && (
-                      <div style={{background:'#f3eefb',borderRadius:12,padding:'12px 13px',border:'1px solid #dbd0ee',marginBottom:14}}>
-                        <p style={{fontSize:11,color:'#66508f',fontWeight:700,margin:'0 0 5px'}}>핵심 메시지</p>
-                        <p style={{fontSize:13,color:'#43365f',margin:0,lineHeight:1.7}}>{featuredKeyPoint}</p>
+                      <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:14}}>
+                        <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>핵심 메시지</p>
+                        <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.7}}>{featuredKeyPoint}</p>
                       </div>
                     )}
                     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
