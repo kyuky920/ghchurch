@@ -655,14 +655,6 @@ export default function CellPage() {
                         <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.7}}>{featuredOverview}</p>
                       </div>
                     )}
-                    {featuredSermon.passage && (
-                      <div style={{background:'#fcfaf6',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
-                        <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>성경 본문</p>
-                        <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.85,whiteSpace:'pre-line',fontFamily:"'Gowun Batang',serif"}}>
-                          {featuredSermon.passage}
-                        </p>
-                      </div>
-                    )}
                     {featuredKeyPoint && (
                       <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:14}}>
                         <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>핵심 메시지</p>
