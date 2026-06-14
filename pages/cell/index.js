@@ -53,41 +53,6 @@ function getSessionState(session) {
   return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
 }
 
-function parseJsonField(value, fallback) {
-  if (!value) return fallback
-  if (typeof value === 'object') return value
-  try { return JSON.parse(value) } catch (e) { return fallback }
-}
-
-function extractSermonKeyPoint(sermon) {
-  const summary = parseJsonField(sermon?.sermon_summary, null)
-  if (!summary || typeof summary !== 'object') return ''
-  return summary.key_point || summary.overview || ''
-}
-
-function extractOpeningQuestion(sermon) {
-  const raw = parseJsonField(sermon?.questions, [])
-  const sections = Array.isArray(raw?.sections) ? raw.sections : []
-  for (const section of sections) {
-    const items = Array.isArray(section?.questions) ? section.questions : []
-    for (const item of items) {
-      if (typeof item === 'string' && item) return item
-      if (item?.question) return item.question
-      if (item?.text) return item.text
-      if (item?.content) return item.content
-    }
-  }
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      if (typeof item === 'string' && item) return item
-      if (item?.question) return item.question
-      if (item?.text) return item.text
-      if (item?.content) return item.content
-    }
-  }
-  return ''
-}
-
 const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
 const GROUP_BGS    = ['#fdf5ec','#f0f7f1','#f5f3fa','#fef8f0','#ffebee','#e3f2fd','#e8f5e9','#efebe9','#e0f7fa','#f1f8e9']
 
@@ -412,19 +377,6 @@ export default function CellPage() {
   const activeNoticeKey = noticeSession?.notice
     ? `${noticeSession.group_no || ''}:${noticeSession.notice}`
     : ''
-  const currentWeekSermons = sermons.filter((s) => s.week === week)
-  const featuredSermon = currentWeekSermons[0] || sermons[0] || sermonLookup[`${week}:morning`] || sermonLookup[`${week}:evening`] || sermonLookup[`${week}:afternoon`] || null
-  const featuredWordHref = featuredSermon
-    ? `/cell-word?week=${featuredSermon.week}&service=${featuredSermon.service}&tab=2`
-    : '/cell-word'
-  const featuredKeyPoint = extractSermonKeyPoint(featuredSermon)
-  const featuredOpeningQuestion = extractOpeningQuestion(featuredSermon)
-  const alreadyInGroup = groups?.groups?.some((g) => g.members?.some((m) => m.device_id === deviceId.current))
-  const progressSteps = [
-    { key:'word', title:'함께 말씀 나눔', desc:'예배 말씀을 먼저 함께 묵상하고 질문으로 마음을 엽니다.', active:true },
-    { key:'group', title:'조 편성 확인', desc: alreadyInGroup ? `현재 ${formatGroupName(myGroup)}에 배정되어 있어요.` : '말씀 나눔 후 조 편성을 확인하고 참여합니다.', active:registered },
-    { key:'continue', title:'조별로 이어 나눔', desc: mySessionViewTarget ? `${formatGroupName(myGroup)}에서 이어서 나눌 수 있어요.` : '조가 시작되면 같은 말씀으로 더 깊게 나눕니다.', active:!!mySessionViewTarget },
-  ]
   const isLeaderNoticeVisible = !!(
     amLeader &&
     myGroup &&
@@ -607,109 +559,6 @@ export default function CellPage() {
             </div>
           ) : (
             <>
-              <div style={{background:'linear-gradient(135deg,#fff7eb,#f4eadc)',borderRadius:18,padding:'18px',border:'1px solid #e4d4bd',boxShadow:'0 8px 24px rgba(120,90,50,0.08)'}}>
-                <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 14px'}}>오늘의 진행 순서</p>
-                <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                  {progressSteps.map((step, idx) => (
-                    <div key={step.key} style={{display:'flex',gap:12,alignItems:'flex-start',background:step.active?'rgba(255,255,255,0.82)':'rgba(255,255,255,0.48)',border:'1px solid #eadcc9',borderRadius:14,padding:'12px 13px'}}>
-                      <div style={{width:28,height:28,borderRadius:'50%',background:step.active?'linear-gradient(135deg,#a0784e,#c4956a)':'#dbcdb9',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0}}>
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 3px',fontFamily:"'Gowun Batang',serif"}}>{step.title}</p>
-                        <p style={{fontSize:11,color:'#7b6855',margin:0,lineHeight:1.6}}>{step.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{background:'linear-gradient(155deg,#f7efe4,#ffffff)',borderRadius:18,padding:'20px',border:'1px solid #e5d6c0',boxShadow:'0 10px 28px rgba(89,62,27,0.08)'}}>
-                <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>1. 함께 말씀 나눔</p>
-                <p style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:'#3d2c1e',fontWeight:700,margin:'0 0 6px'}}>셀모임 전에 먼저 말씀을 나눠요</p>
-                <p style={{fontSize:12,color:'#7b6855',margin:'0 0 16px',lineHeight:1.7}}>전체가 같은 말씀으로 먼저 마음을 열고, 이후 조별로 모여 같은 흐름을 이어가도록 구성합니다.</p>
-
-                {featuredSermon ? (
-                  <div style={{background:'#fff',borderRadius:16,padding:'16px 16px 14px',border:'1px solid #e8dcc8'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:10}}>
-                      <span style={{background:featuredSermon.service==='morning'?'#fff2dd':'#f1ecfb',color:featuredSermon.service==='morning'?'#a56412':'#5d4c86',borderRadius:999,padding:'4px 10px',fontSize:11,fontWeight:700}}>
-                        {featuredSermon.service === 'morning' ? '주일 오전' : '주일 오후'}
-                      </span>
-                      <span style={{fontSize:11,color:'#9b856b',fontWeight:700}}>{weekLabel(featuredSermon.week)}</span>
-                    </div>
-                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:20,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>
-                      {featuredSermon.reference}
-                    </p>
-                    {featuredSermon.sermon_title && (
-                      <p style={{fontSize:13,color:'#6b5740',fontWeight:600,margin:'0 0 12px'}}>{featuredSermon.sermon_title}</p>
-                    )}
-                    {featuredKeyPoint && (
-                      <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
-                        <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>핵심 메시지</p>
-                        <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.7}}>{featuredKeyPoint}</p>
-                      </div>
-                    )}
-                    {featuredOpeningQuestion && (
-                      <div style={{background:'#f4fbf6',borderRadius:12,padding:'12px 13px',border:'1px solid #dbeede',marginBottom:14}}>
-                        <p style={{fontSize:11,color:'#467155',fontWeight:700,margin:'0 0 5px'}}>오프닝 질문</p>
-                        <p style={{fontSize:13,color:'#2f4f39',margin:0,lineHeight:1.7}}>{featuredOpeningQuestion}</p>
-                      </div>
-                    )}
-                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                      <button
-                        onClick={()=>router.push(featuredWordHref)}
-                        style={{flex:'1 1 220px',background:'linear-gradient(135deg,#8d6841,#b88857)',color:'#fff',border:'none',borderRadius:12,padding:'13px 16px',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700}}
-                      >
-                        📖 말씀 나눔 시작하기
-                      </button>
-                      {mySessionViewTarget && (
-                        <button
-                          onClick={()=>router.push(`/cell-word?week=${mySessionViewTarget.sermon_week}&service=${mySessionViewTarget.sermon_service}&group_no=${mySessionViewTarget.group_no}&tab=1`)}
-                          style={{flex:'1 1 200px',background:'#fff',color:'#2e7d32',border:'1px solid #aed7b0',borderRadius:12,padding:'13px 16px',cursor:'pointer',fontSize:13,fontWeight:700}}
-                        >
-                          {mySessionViewTarget.is_active ? '내 조 나눔으로 이어가기' : '내 조 말씀 다시 보기'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{background:'#fff',borderRadius:16,padding:'18px 16px',border:'1px solid #e8dcc8'}}>
-                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>이번 주 말씀이 아직 준비되지 않았어요</p>
-                    <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.6}}>말씀 등록 후 이 영역에서 바로 전체 나눔으로 들어갈 수 있게 됩니다.</p>
-                  </div>
-                )}
-              </div>
-
-              <div style={{background:'#fff',borderRadius:16,padding:'18px',border:'1px solid #e8d8c0'}}>
-                <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>2. 지금 내 상태</p>
-                {!alreadyInGroup ? (
-                  <>
-                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>말씀 나눔 후 조 편성을 확인해주세요</p>
-                    <p style={{fontSize:12,color:'#7b6855',margin:0,lineHeight:1.7}}>아래에서 조 편성 현황을 볼 수 있고, 아직 미배정이면 원하는 조에 참여할 수 있습니다.</p>
-                  </>
-                ) : mySessionViewTarget ? (
-                  <>
-                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>{formatGroupName(myGroup)}에서 말씀 나눔을 이어가고 있어요</p>
-                    <p style={{fontSize:12,color:'#7b6855',margin:'0 0 12px',lineHeight:1.7}}>
-                      {mySessionViewTarget.is_active ? '조별 나눔이 진행 중입니다. 같은 말씀을 바탕으로 더 깊게 이어가세요.' : '조별 나눔은 종료되었지만, 함께 나눈 말씀은 계속 볼 수 있어요.'}
-                    </p>
-                    <button
-                      onClick={()=>router.push(`/cell-word?week=${mySessionViewTarget.sermon_week}&service=${mySessionViewTarget.sermon_service}&group_no=${mySessionViewTarget.group_no}&tab=1`)}
-                      style={{background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'12px 16px',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700}}
-                    >
-                      {mySessionViewTarget.is_active ? '조별 나눔 들어가기' : '함께 나눈 말씀 보기'}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>현재 {formatGroupName(myGroup)}에 배정되어 있어요</p>
-                    <p style={{fontSize:12,color:'#7b6855',margin:0,lineHeight:1.7}}>
-                      {amLeader ? '리더가 말씀을 선택해 조별 나눔을 시작하면 바로 입장할 수 있습니다.' : '리더가 조별 나눔을 시작하면 이 화면에서 바로 이어서 참여할 수 있습니다.'}
-                    </p>
-                  </>
-                )}
-              </div>
-
               {/* ── 접속 현황 ── */}
               <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',border:'1px solid #e8d8c0',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite',flexShrink:0}}/>
@@ -741,12 +590,11 @@ export default function CellPage() {
               {/* ── 셀 리더: 모임 시작 버튼 ── */}
               {canStartSession && (
                 <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'20px',border:'1px solid #4a8a4a'}}>
-                  <p style={{fontSize:11,color:'rgba(150,220,150,0.72)',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 6px'}}>3. 조별로 이어 나눔</p>
-                  <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>리더가 조별 나눔을 시작할 차례예요</p>
-                  <p style={{fontSize:11,color:'rgba(150,220,150,0.7)',margin:'0 0 16px'}}>앞서 함께 나눈 말씀을 선택하고 조별 모임을 시작해주세요.</p>
+                  <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>👑 셀 리더로 선정됐어요!</p>
+                  <p style={{fontSize:11,color:'rgba(150,220,150,0.7)',margin:'0 0 16px'}}>말씀을 선택하고 모임을 시작해주세요</p>
                   <button onClick={()=>{ setShowStartModal(true); loadSermons() }}
                     style={{width:'100%',background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'15px',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:'pointer',animation:'glow 2s ease-in-out infinite'}}>
-                    🙏 조별 말씀 나눔 시작하기
+                    🙏 셀 모임 시작하기
                   </button>
                 </div>
               )}
@@ -754,7 +602,7 @@ export default function CellPage() {
               {/* ── 전체 조 편성 ── */}
               <div style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0'}}>
                 <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 14px'}}>
-                  2. 조 편성 확인 {groups?.week ? `— ${weekLabel(groups.week)}` : ''}
+                  전체 조 편성 {groups?.week ? `— ${weekLabel(groups.week)}` : ''}
                 </p>
 
                 {loading ? (
@@ -774,6 +622,7 @@ export default function CellPage() {
                       const session   = groupSessions[String(g.group_no)]
                       const sessionSermon = session ? sermonLookup[`${session.sermon_week}:${session.sermon_service}`] : null
                       const sessionState = getSessionState(session)
+                      const alreadyInGroup = groups.groups.some(gg => gg.members?.some(m => m.device_id === deviceId.current))
 
                       return (
                         <div key={g.group_no} style={{borderRadius:14,padding:'16px 18px',background:isMyGroup?`${color}18`:bg,border:`1.5px solid ${isMyGroup?color:color+'30'}`,animation:`fadeUp 0.3s ease ${gi*0.07}s both`}}>
@@ -801,7 +650,7 @@ export default function CellPage() {
                                 </p>
                                 <p style={{fontSize:11,color:session.is_active?'#2e7d32':'#546e7a',fontWeight:600,margin:0}}>
                                   {sessionSermon?.reference || (session.sermon_week && weekLabel(session.sermon_week))}
-                                  {session.sermon_service === 'morning' ? ' · ☀️ 오전' : session.sermon_service ? ' · 🌙 오후' : ''}
+                                  {session.sermon_service==='morning'?' · ☀️ 오전':session.sermon_service==='afternoon'?' · 🌙 오후':''}
                                 </p>
                                 {sessionSermon?.sermon_title && <p style={{fontSize:10,color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
                                 {session.started_at && (
