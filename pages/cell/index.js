@@ -65,10 +65,27 @@ function extractSermonKeyPoint(sermon) {
   return summary.key_point || summary.overview || ''
 }
 
-function extractSermonOverview(sermon) {
-  const summary = parseJsonField(sermon?.sermon_summary, null)
-  if (!summary || typeof summary !== 'object') return ''
-  return summary.overview || ''
+function extractOpeningQuestion(sermon) {
+  const raw = parseJsonField(sermon?.questions, [])
+  const sections = Array.isArray(raw?.sections) ? raw.sections : []
+  for (const section of sections) {
+    const items = Array.isArray(section?.questions) ? section.questions : []
+    for (const item of items) {
+      if (typeof item === 'string' && item) return item
+      if (item?.question) return item.question
+      if (item?.text) return item.text
+      if (item?.content) return item.content
+    }
+  }
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === 'string' && item) return item
+      if (item?.question) return item.question
+      if (item?.text) return item.text
+      if (item?.content) return item.content
+    }
+  }
+  return ''
 }
 
 const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
@@ -401,8 +418,13 @@ export default function CellPage() {
     ? `/cell-word?week=${featuredSermon.week}&service=${featuredSermon.service}&tab=2`
     : '/cell-word'
   const featuredKeyPoint = extractSermonKeyPoint(featuredSermon)
-  const featuredOverview = extractSermonOverview(featuredSermon)
+  const featuredOpeningQuestion = extractOpeningQuestion(featuredSermon)
   const alreadyInGroup = groups?.groups?.some((g) => g.members?.some((m) => m.device_id === deviceId.current))
+  const progressSteps = [
+    { key:'word', title:'함께 말씀 나눔', desc:'예배 말씀을 먼저 함께 묵상하고 질문으로 마음을 엽니다.', active:true },
+    { key:'group', title:'조 편성 확인', desc: alreadyInGroup ? `현재 ${formatGroupName(myGroup)}에 배정되어 있어요.` : '말씀 나눔 후 조 편성을 확인하고 참여합니다.', active:registered },
+    { key:'continue', title:'조별로 이어 나눔', desc: mySessionViewTarget ? `${formatGroupName(myGroup)}에서 이어서 나눌 수 있어요.` : '조가 시작되면 같은 말씀으로 더 깊게 나눕니다.', active:!!mySessionViewTarget },
+  ]
   const isLeaderNoticeVisible = !!(
     amLeader &&
     myGroup &&
@@ -585,21 +607,52 @@ export default function CellPage() {
             </div>
           ) : (
             <>
+              <div style={{background:'linear-gradient(135deg,#fff7eb,#f4eadc)',borderRadius:18,padding:'18px',border:'1px solid #e4d4bd',boxShadow:'0 8px 24px rgba(120,90,50,0.08)'}}>
+                <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 14px'}}>오늘의 진행 순서</p>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {progressSteps.map((step, idx) => (
+                    <div key={step.key} style={{display:'flex',gap:12,alignItems:'flex-start',background:step.active?'rgba(255,255,255,0.82)':'rgba(255,255,255,0.48)',border:'1px solid #eadcc9',borderRadius:14,padding:'12px 13px'}}>
+                      <div style={{width:28,height:28,borderRadius:'50%',background:step.active?'linear-gradient(135deg,#a0784e,#c4956a)':'#dbcdb9',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0}}>
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 3px',fontFamily:"'Gowun Batang',serif"}}>{step.title}</p>
+                        <p style={{fontSize:11,color:'#7b6855',margin:0,lineHeight:1.6}}>{step.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div style={{background:'linear-gradient(155deg,#f7efe4,#ffffff)',borderRadius:18,padding:'20px',border:'1px solid #e5d6c0',boxShadow:'0 10px 28px rgba(89,62,27,0.08)'}}>
                 <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>1. 함께 말씀 나눔</p>
+                <p style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:'#3d2c1e',fontWeight:700,margin:'0 0 6px'}}>셀모임 전에 먼저 말씀을 나눠요</p>
+                <p style={{fontSize:12,color:'#7b6855',margin:'0 0 16px',lineHeight:1.7}}>전체가 같은 말씀으로 먼저 마음을 열고, 이후 조별로 모여 같은 흐름을 이어가도록 구성합니다.</p>
 
                 {featuredSermon ? (
                   <div style={{background:'#fff',borderRadius:16,padding:'16px 16px 14px',border:'1px solid #e8dcc8'}}>
-                    {featuredOverview && (
-                      <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
-                        <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>전체 흐름</p>
-                        <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.7}}>{featuredOverview}</p>
-                      </div>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:10}}>
+                      <span style={{background:featuredSermon.service==='morning'?'#fff2dd':'#f1ecfb',color:featuredSermon.service==='morning'?'#a56412':'#5d4c86',borderRadius:999,padding:'4px 10px',fontSize:11,fontWeight:700}}>
+                        {featuredSermon.service === 'morning' ? '주일 오전' : '주일 오후'}
+                      </span>
+                      <span style={{fontSize:11,color:'#9b856b',fontWeight:700}}>{weekLabel(featuredSermon.week)}</span>
+                    </div>
+                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:20,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>
+                      {featuredSermon.reference}
+                    </p>
+                    {featuredSermon.sermon_title && (
+                      <p style={{fontSize:13,color:'#6b5740',fontWeight:600,margin:'0 0 12px'}}>{featuredSermon.sermon_title}</p>
                     )}
                     {featuredKeyPoint && (
-                      <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:14}}>
+                      <div style={{background:'#faf6f0',borderRadius:12,padding:'12px 13px',border:'1px solid #efe3d1',marginBottom:10}}>
                         <p style={{fontSize:11,color:'#9b7a55',fontWeight:700,margin:'0 0 5px'}}>핵심 메시지</p>
                         <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.7}}>{featuredKeyPoint}</p>
+                      </div>
+                    )}
+                    {featuredOpeningQuestion && (
+                      <div style={{background:'#f4fbf6',borderRadius:12,padding:'12px 13px',border:'1px solid #dbeede',marginBottom:14}}>
+                        <p style={{fontSize:11,color:'#467155',fontWeight:700,margin:'0 0 5px'}}>오프닝 질문</p>
+                        <p style={{fontSize:13,color:'#2f4f39',margin:0,lineHeight:1.7}}>{featuredOpeningQuestion}</p>
                       </div>
                     )}
                     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
