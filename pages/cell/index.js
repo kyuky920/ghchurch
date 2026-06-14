@@ -53,6 +53,24 @@ function getSessionState(session) {
   return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
 }
 
+function parseJsonField(value, fallback) {
+  if (!value) return fallback
+  if (typeof value === 'object') return value
+  try { return JSON.parse(value) } catch (e) { return fallback }
+}
+
+function extractSermonKeyPoint(sermon) {
+  const summary = parseJsonField(sermon?.sermon_summary, null)
+  if (!summary || typeof summary !== 'object') return ''
+  return summary.key_point || summary.overview || ''
+}
+
+function extractSermonOverview(sermon) {
+  const summary = parseJsonField(sermon?.sermon_summary, null)
+  if (!summary || typeof summary !== 'object') return ''
+  return summary.overview || ''
+}
+
 const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
 const GROUP_BGS    = ['#fdf5ec','#f0f7f1','#f5f3fa','#fef8f0','#ffebee','#e3f2fd','#e8f5e9','#efebe9','#e0f7fa','#f1f8e9']
 const S = {
@@ -92,6 +110,7 @@ export default function CellPage() {
   const [sermons, setSermons]               = useState([])
   const [selWeek, setSelWeek]               = useState('')
   const [selService, setSelService]         = useState('morning')
+  const [featuredService, setFeaturedService] = useState('morning')
   const [sessionStarting, setSessionStarting] = useState(false)
 
   // 그룹 종료
@@ -387,6 +406,28 @@ export default function CellPage() {
   const activeNoticeKey = noticeSession?.notice
     ? `${noticeSession.group_no || ''}:${noticeSession.notice}`
     : ''
+  const currentWeekSermons = sermons
+    .filter((s) => s.week === week)
+    .sort((a, b) => {
+      if (a.service === b.service) return (b.id || 0) - (a.id || 0)
+      return a.service === 'morning' ? -1 : 1
+    })
+  const featuredSermon = currentWeekSermons.find((s) => s.service === featuredService)
+    || currentWeekSermons[0]
+    || sermons[0]
+    || sermonLookup[`${week}:morning`]
+    || sermonLookup[`${week}:evening`]
+    || sermonLookup[`${week}:afternoon`]
+    || null
+  const featuredServiceOptions = currentWeekSermons.filter((sermon, index, list) =>
+    list.findIndex((item) => item.service === sermon.service) === index
+  )
+  const featuredWordHref = featuredSermon
+    ? `/cell-word?week=${featuredSermon.week}&service=${featuredSermon.service}&tab=2`
+    : '/cell-word'
+  const featuredKeyPoint = extractSermonKeyPoint(featuredSermon)
+  const featuredOverview = extractSermonOverview(featuredSermon)
+  const alreadyInGroup = groups?.groups?.some((g) => g.members?.some((m) => m.device_id === deviceId.current))
   const isLeaderNoticeVisible = !!(
     amLeader &&
     myGroup &&
@@ -424,6 +465,14 @@ export default function CellPage() {
     localStorage.setItem(`wl_notice_ack:${activeNoticeKey}`, 'true')
     setNoticeAcknowledged(true)
   }
+
+  useEffect(() => {
+    if (!currentWeekSermons.length) return
+    const hasSelectedService = currentWeekSermons.some((s) => s.service === featuredService)
+    if (!hasSelectedService) {
+      setFeaturedService(currentWeekSermons[0].service || 'morning')
+    }
+  }, [week, sermons, featuredService])
 
   return (
     <>
@@ -579,6 +628,130 @@ export default function CellPage() {
             </div>
           ) : (
             <>
+              <div style={S.card}>
+                <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>1. 함께 말씀 나눔</p>
+
+                {featuredSermon ? (
+                  <div style={{background:'#fff',borderRadius:14,padding:'16px 16px 14px',border:'1px solid #dfd3c0'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',marginBottom:12}}>
+                      <div>
+                        <p style={{fontFamily:"'Gowun Batang',serif",fontSize:19,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>
+                          {featuredSermon.sermon_title || featuredSermon.reference}
+                        </p>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                          <span style={{background:featuredSermon.service === 'morning' ? '#fff1dd' : '#f0ebfb',color:featuredSermon.service === 'morning' ? '#9a6218' : '#5f4b88',border:'1px solid rgba(160,120,78,0.18)',borderRadius:999,padding:'5px 10px',fontSize:11,fontWeight:700}}>
+                            {featuredSermon.service === 'morning' ? '주일 오전' : '주일 오후'}
+                          </span>
+                          <span style={{background:'#f7f1e8',color:'#7b654d',border:'1px solid #eadfce',borderRadius:999,padding:'5px 10px',fontSize:11,fontWeight:700}}>
+                            {weekLabel(featuredSermon.week)}
+                          </span>
+                          <span style={{background:'#f7f1e8',color:'#4a3520',border:'1px solid #eadfce',borderRadius:999,padding:'5px 10px',fontSize:11,fontWeight:700}}>
+                            {featuredSermon.reference}
+                          </span>
+                        </div>
+                      </div>
+                      {featuredServiceOptions.length > 0 && (
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                          {featuredServiceOptions.map((sermon) => {
+                            const isActive = sermon.service === featuredSermon.service
+                            const isMorning = sermon.service === 'morning'
+                            return (
+                              <button
+                                key={`${sermon.week}:${sermon.service}:${sermon.id || sermon.reference}`}
+                                onClick={() => setFeaturedService(sermon.service)}
+                                style={{
+                                  background:isActive ? (isMorning ? '#f3dfbf' : '#e5def6') : '#fff',
+                                  color:isActive ? (isMorning ? '#8b5a16' : '#5e4b86') : '#8b6e4e',
+                                  border:`1px solid ${isActive ? (isMorning ? '#e1bf86' : '#bfb0ea') : '#e3d6c3'}`,
+                                  borderRadius:999,
+                                  padding:'7px 11px',
+                                  cursor:'pointer',
+                                  fontSize:11,
+                                  fontWeight:700
+                                }}
+                              >
+                                {sermon.service === 'morning' ? '주일 오전' : '주일 오후'}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {featuredSermon.passage && (
+                      <div style={{background:'#f6f1e7',borderRadius:12,padding:'12px 13px',border:'1px solid #e4d7bf',marginBottom:10}}>
+                        <p style={{fontSize:11,color:'#8b6a45',fontWeight:700,margin:'0 0 5px'}}>성경 본문</p>
+                        <p style={{fontSize:13,color:'#4a3520',margin:0,lineHeight:1.85,whiteSpace:'pre-line',fontFamily:"'Gowun Batang',serif"}}>
+                          {featuredSermon.passage}
+                        </p>
+                      </div>
+                    )}
+                    {featuredOverview && (
+                      <div style={{background:'#eef6ee',borderRadius:12,padding:'12px 13px',border:'1px solid #cfe1d0',marginBottom:10}}>
+                        <p style={{fontSize:11,color:'#476c4d',fontWeight:700,margin:'0 0 5px'}}>전체 흐름</p>
+                        <p style={{fontSize:13,color:'#2f4733',margin:0,lineHeight:1.7}}>{featuredOverview}</p>
+                      </div>
+                    )}
+                    {featuredKeyPoint && (
+                      <div style={{background:'#f3eefb',borderRadius:12,padding:'12px 13px',border:'1px solid #dbd0ee',marginBottom:14}}>
+                        <p style={{fontSize:11,color:'#66508f',fontWeight:700,margin:'0 0 5px'}}>핵심 메시지</p>
+                        <p style={{fontSize:13,color:'#43365f',margin:0,lineHeight:1.7}}>{featuredKeyPoint}</p>
+                      </div>
+                    )}
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                      <button
+                        onClick={()=>router.push(featuredWordHref)}
+                        style={{flex:'1 1 220px',background:'linear-gradient(135deg,#8d6841,#b88857)',color:'#fff',border:'none',borderRadius:12,padding:'13px 16px',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700}}
+                      >
+                        📖 말씀 나눔 시작하기
+                      </button>
+                      {mySessionViewTarget && (
+                        <button
+                          onClick={()=>router.push(`/cell-word?week=${mySessionViewTarget.sermon_week}&service=${mySessionViewTarget.sermon_service}&group_no=${mySessionViewTarget.group_no}&tab=1`)}
+                          style={{flex:'1 1 200px',background:'#fff',color:'#2e7d32',border:'1px solid #aed7b0',borderRadius:12,padding:'13px 16px',cursor:'pointer',fontSize:13,fontWeight:700}}
+                        >
+                          {mySessionViewTarget.is_active ? '내 조 나눔으로 이어가기' : '내 조 말씀 다시 보기'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{background:'#fff',borderRadius:16,padding:'18px 16px',border:'1px solid #e8dcc8'}}>
+                    <p style={{fontSize:13,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>이번 주 말씀이 아직 준비되지 않았어요</p>
+                    <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.6}}>말씀 등록 후 이 영역에서 바로 전체 나눔으로 들어갈 수 있게 됩니다.</p>
+                  </div>
+                )}
+              </div>
+
+              <div style={S.card}>
+                <p style={{fontSize:11,color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>2. 지금 내 상태</p>
+                {!alreadyInGroup ? (
+                  <>
+                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>말씀 나눔 후 조 편성을 확인해주세요</p>
+                    <p style={{fontSize:12,color:'#7b6855',margin:0,lineHeight:1.7}}>아래에서 조 편성 현황을 볼 수 있고, 아직 미배정이면 원하는 조에 참여할 수 있습니다.</p>
+                  </>
+                ) : mySessionViewTarget ? (
+                  <>
+                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>{formatGroupName(myGroup)}에서 말씀 나눔을 이어가고 있어요</p>
+                    <p style={{fontSize:12,color:'#7b6855',margin:'0 0 12px',lineHeight:1.7}}>
+                      {mySessionViewTarget.is_active ? '조별 나눔이 진행 중입니다. 같은 말씀을 바탕으로 더 깊게 이어가세요.' : '조별 나눔은 종료되었지만, 함께 나눈 말씀은 계속 볼 수 있어요.'}
+                    </p>
+                    <button
+                      onClick={()=>router.push(`/cell-word?week=${mySessionViewTarget.sermon_week}&service=${mySessionViewTarget.sermon_service}&group_no=${mySessionViewTarget.group_no}&tab=1`)}
+                      style={{background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'12px 16px',cursor:'pointer',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700}}
+                    >
+                      {mySessionViewTarget.is_active ? '조별 나눔 들어가기' : '함께 나눈 말씀 보기'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>현재 {formatGroupName(myGroup)}에 배정되어 있어요</p>
+                    <p style={{fontSize:12,color:'#7b6855',margin:0,lineHeight:1.7}}>
+                      {amLeader ? '리더가 말씀을 선택해 조별 나눔을 시작하면 바로 입장할 수 있습니다.' : '리더가 조별 나눔을 시작하면 이 화면에서 바로 이어서 참여할 수 있습니다.'}
+                    </p>
+                  </>
+                )}
+              </div>
+
               {/* ── 접속 현황 ── */}
               <div style={{...S.card,padding:'14px 18px',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite',flexShrink:0}}/>
