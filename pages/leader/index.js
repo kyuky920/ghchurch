@@ -292,13 +292,14 @@ function SermonTab() {
     const toItem = (q, options = {}) => {
       const sectionTitle = options.sectionTitle || ''
       const flowStage = options.flowStage || ''
-      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage }
+      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage, scripture_anchor: '' }
       return {
         section_title: q?.section_title || sectionTitle || '',
         category: q?.category || q?.type || '',
         explanation: q?.explanation || q?.context || '',
         question: q?.question || q?.text || q?.content || '',
         flow_stage: q?.flow_stage || q?.flowStage || q?.group_title || q?.groupTitle || flowStage || '',
+        scripture_anchor: q?.scripture_anchor || q?.anchor || '',
       }
     }
     if (Array.isArray(value)) return value.map((q) => toItem(q)).filter((q) => q.question)

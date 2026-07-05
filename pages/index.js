@@ -32,13 +32,14 @@ function normalizeQuestions(raw) {
   const toItem = (q, options = {}) => {
     const sectionTitle = options.sectionTitle || ''
     const flowStage = options.flowStage || ''
-    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage }
+    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage, scripture_anchor: '' }
     return {
       section_title: q?.section_title || sectionTitle || '',
       category: q?.category || q?.type || '',
       explanation: q?.explanation || q?.context || '',
       question: q?.question || q?.text || q?.content || '',
       flow_stage: q?.flow_stage || q?.flowStage || q?.group_title || q?.groupTitle || flowStage || '',
+      scripture_anchor: q?.scripture_anchor || q?.anchor || '',
     }
   }
 
@@ -125,8 +126,9 @@ function buildOverviewText(text) {
 function getQuestionExplanation(item, groupTitle) {
   if (item?.explanation) return item.explanation
   if (groupTitle === '말씀을 점검합시다.') {
-    if (item?.section_title) return `${item.section_title} 중심으로 본문과 설교의 흐름을 다시 떠올리며 함께 점검해보세요.`
-    return '본문과 설교에서 강조된 장면과 핵심 내용을 다시 떠올리며 함께 점검해보세요.'
+    const anchor = item?.scripture_anchor ? ` ${item.scripture_anchor}을 다시 보며` : ''
+    if (item?.section_title) return `${item.section_title}와 관련된 장면을${anchor} 떠올려 보세요. 질문에 답할 때 본문에서 실제로 무엇이 일어났고, 무엇이 강조되었는지 먼저 정리하면 좋습니다.`
+    return `본문과 설교에서 강조된 장면을${anchor} 다시 확인해 보세요. 질문에 답할 때 핵심 사건과 반복된 강조를 먼저 짚어주면 좋습니다.`
   }
   return ''
 }
@@ -491,7 +493,7 @@ export default function Home() {
               number,
               item?.section_title || item?.category || `질문 ${number}`,
               item?.question || '',
-              item?.category === '오프닝' ? '' : item?.explanation || ''
+              item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title)
             )
           })
           cards.push(questionCard)
@@ -704,7 +706,7 @@ export default function Home() {
           lines.push(`[${group.title}]`)
           group.items.forEach((item) => {
             const q = item?.question || ''
-            const ex = item?.explanation || ''
+            const ex = getQuestionExplanation(item, group.title)
             const section = item?.section_title || item?.category || `질문 ${index}`
             lines.push(`${index}. ${section}`)
             if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
