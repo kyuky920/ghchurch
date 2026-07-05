@@ -287,22 +287,34 @@ function SermonTab() {
   }
 
   function normalizeQuestionsForEdit(value) {
-    const toItem = (q, sectionTitle = '') => {
-      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q }
+    const toItem = (q, options = {}) => {
+      const sectionTitle = options.sectionTitle || ''
+      const flowStage = options.flowStage || ''
+      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage }
       return {
         section_title: q?.section_title || sectionTitle || '',
         category: q?.category || q?.type || '',
         explanation: q?.explanation || q?.context || '',
         question: q?.question || q?.text || q?.content || '',
+        flow_stage: q?.flow_stage || q?.flowStage || q?.group_title || q?.groupTitle || flowStage || '',
       }
     }
     if (Array.isArray(value)) return value.map((q) => toItem(q)).filter((q) => q.question)
     if (value && typeof value === 'object') {
+      const groups = Array.isArray(value.groups) ? value.groups : []
+      const groupedList = groups.flatMap((group) => {
+        const flowStage = group?.flow_stage || group?.flowStage || group?.title || group?.group_title || ''
+        const questions = Array.isArray(group?.questions) ? group.questions : []
+        return questions.map((q) => toItem(q, { flowStage }))
+      })
+      if (groupedList.length) return groupedList.filter((q) => q.question)
+
       const sections = Array.isArray(value.sections) ? value.sections : []
       const list = sections.flatMap((s) => {
         const title = s?.section_title || s?.title || s?.topic || ''
+        const flowStage = s?.flow_stage || s?.flowStage || s?.group_title || s?.groupTitle || ''
         const questions = Array.isArray(s?.questions) ? s.questions : []
-        return questions.map((q) => toItem(q, title))
+        return questions.map((q) => toItem(q, { sectionTitle: title, flowStage }))
       })
       return list.filter((q) => q.question)
     }
@@ -361,7 +373,7 @@ function SermonTab() {
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
-      setSaveMsg('저장 완료! n8n이 곧 나눔 자료를 생성해요.')
+      setSaveMsg('저장 완료! 곧 나눔 자료가 다시 생성될 수 있어요.')
       await loadAll()
       setTimeout(() => { setSaveMsg(''); setScreen('list') }, 2000)
     } catch(e) { setErrMsg('저장 오류: ' + e.message) }
@@ -419,7 +431,7 @@ function SermonTab() {
         <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:17,color:'#4a3520',fontWeight:700,margin:0}}>생성된 나눔자료 수정</h2>
       </div>
       <div style={{background:'#e8f5e9',borderRadius:12,padding:'12px 16px',border:'1px solid #a5d6a7'}}>
-        <p style={{fontSize:12,color:'#2e7d32',margin:0,lineHeight:1.7}}>📌 n8n이 만든 결과만 직접 수정해요. 원문 말씀을 바꾸고 재생성하려면 이전 화면의 말씀 자료 수정으로 돌아가세요.</p>
+        <p style={{fontSize:12,color:'#2e7d32',margin:0,lineHeight:1.7}}>📌 생성된 결과를 직접 수정하는 화면입니다. 원문 말씀을 바꾸고 다시 정리하려면 이전 화면의 말씀 자료 수정으로 돌아가세요.</p>
       </div>
       <div style={S.card}>
         <label style={S.label}>설교 제목</label>
@@ -477,6 +489,7 @@ function SermonTab() {
                 질문 삭제
               </button>
             </div>
+            <input value={item.flow_stage || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, flow_stage: e.target.value } : q)}))} placeholder="흐름 단계 (예: 말씀을 점검합시다.)" style={{...S.input,marginBottom:6}}/>
             <input value={item.section_title || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, section_title: e.target.value } : q)}))} placeholder="대지/주제" style={{...S.input,marginBottom:6}}/>
             <input value={item.category || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, category: e.target.value } : q)}))} placeholder="카테고리(선택)" style={{...S.input,marginBottom:6}}/>
             <textarea value={item.explanation || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, explanation: e.target.value } : q)}))} placeholder="질문 의도/진행 가이드" style={{...S.input,minHeight:62,resize:'vertical',marginBottom:6}}/>
@@ -513,7 +526,7 @@ function SermonTab() {
         <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:17,color:'#4a3520',fontWeight:700,margin:0}}>{editData?'말씀 자료 수정 및 나눔자료 재생성':'새 말씀 자료 등록'}</h2>
       </div>
       <div style={{background:'#fdf5ec',borderRadius:12,padding:'12px 16px',border:'1px solid #e8c9a0'}}>
-        <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.7}}>📌 저장하면 <strong>n8n이 자동으로 나눔 자료를 생성</strong>하고, 기존 생성 결과도 다시 만들어져요.</p>
+        <p style={{fontSize:12,color:'#8b6e4e',margin:0,lineHeight:1.7}}>📌 저장하면 말씀 자료를 기준으로 나눔 자료를 다시 생성하거나, 기존 생성 결과를 새 기준에 맞게 갱신할 수 있어요.</p>
       </div>
       <div style={S.card}>
         <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,marginBottom:14}}>예배 정보</p>

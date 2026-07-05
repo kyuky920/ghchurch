@@ -96,29 +96,112 @@ const QMETA = [
   { type:'이번 주 실천', color:'#3f6f54', bg:'#eff8f1' },
 ]
 
+const QUESTION_FLOW_ORDER = [
+  '말씀을 점검합시다.',
+  '말씀을 통해 은혜를 나눕시다.',
+  '말씀을 따라 결단합시다.',
+]
+
+function inferFlowStage(item = {}) {
+  const explicit = item.flow_stage || item.flowStage || item.group_title || item.groupTitle || ''
+  if (explicit) return explicit
+  const category = item.category || item.type || ''
+  if (category === '오프닝' || category === '말씀 속으로' || category === '관찰') return '말씀을 점검합시다.'
+  if (category === '내 이야기' || category === '함께 나눔' || category === '적용') return '말씀을 통해 은혜를 나눕시다.'
+  if (category === '이번 주 실천' || category === '결단') return '말씀을 따라 결단합시다.'
+  return ''
+}
+
 function normalizeQuestions(raw) {
-  const toItem = (q, sectionTitle = '') => {
-    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q }
+  const toItem = (q, options = {}) => {
+    const sectionTitle = options.sectionTitle || ''
+    const flowStage = options.flowStage || ''
+    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage }
     return {
       section_title: q?.section_title || sectionTitle || '',
       category: q?.category || q?.type || '',
       explanation: q?.explanation || q?.context || '',
       question: q?.question || q?.text || q?.content || '',
+      flow_stage: q?.flow_stage || q?.flowStage || q?.group_title || q?.groupTitle || flowStage || '',
     }
   }
 
   if (Array.isArray(raw)) return raw.map((q) => toItem(q)).filter((q) => q.question)
 
   if (raw && typeof raw === 'object') {
+    const groups = Array.isArray(raw.groups) ? raw.groups : []
+    const groupedList = groups.flatMap((group) => {
+      const flowStage = group?.flow_stage || group?.flowStage || group?.title || group?.group_title || ''
+      const questions = Array.isArray(group?.questions) ? group.questions : []
+      return questions.map((q) => toItem(q, { flowStage }))
+    })
+    if (groupedList.length) return groupedList.filter((q) => q.question)
+
     const sections = Array.isArray(raw.sections) ? raw.sections : []
     const list = sections.flatMap((s) => {
       const title = s?.section_title || s?.title || s?.topic || ''
+      const flowStage = s?.flow_stage || s?.flowStage || s?.group_title || s?.groupTitle || ''
       const questions = Array.isArray(s?.questions) ? s.questions : []
-      return questions.map((q) => toItem(q, title))
+      return questions.map((q) => toItem(q, { sectionTitle: title, flowStage }))
     })
     if (list.length) return list.filter((q) => q.question)
   }
   return []
+}
+
+function buildQuestionFlowGroups(items) {
+  const normalized = (items || []).map((item) => ({
+    ...item,
+    flow_stage: inferFlowStage(item),
+  }))
+  const buckets = new Map()
+  normalized.forEach((item) => {
+    const key = item.flow_stage || '나눔 질문'
+    if (!buckets.has(key)) buckets.set(key, [])
+    buckets.get(key).push(item)
+  })
+  const ordered = QUESTION_FLOW_ORDER
+    .filter((title) => buckets.has(title))
+    .map((title) => ({ title, items: buckets.get(title) }))
+  const rest = [...buckets.entries()]
+    .filter(([title]) => !QUESTION_FLOW_ORDER.includes(title))
+    .map(([title, groupedItems]) => ({ title, items: groupedItems }))
+  return [...ordered, ...rest].filter((group) => group.items.length)
+}
+
+function formatReadingParagraphs(text, sentencesPerParagraph = 2) {
+  const raw = String(text || '').trim()
+  if (!raw) return []
+
+  const explicitParagraphs = raw
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  const baseParagraphs = explicitParagraphs.length ? explicitParagraphs : [raw]
+
+  return baseParagraphs.flatMap((paragraph) => {
+    const normalized = paragraph.replace(/\s+/g, ' ').trim()
+    if (!normalized) return []
+    const sentences = normalized.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [normalized]
+    const cleaned = sentences.map((sentence) => sentence.trim()).filter(Boolean)
+    if (cleaned.length <= sentencesPerParagraph) return [cleaned.join(' ')]
+
+    const grouped = []
+    for (let index = 0; index < cleaned.length; index += sentencesPerParagraph) {
+      grouped.push(cleaned.slice(index, index + sentencesPerParagraph).join(' '))
+    }
+    return grouped
+  })
+}
+
+const OVERVIEW_STEP_LABELS = ['위기', '기도', '말씀', '순종', '승리', '열매']
+
+function buildOverviewBlocks(text) {
+  return formatReadingParagraphs(text).map((paragraph, index) => ({
+    label: OVERVIEW_STEP_LABELS[index] || `흐름 ${index + 1}`,
+    text: paragraph,
+  }))
 }
 
 const OPENING_QUESTION = {
@@ -428,12 +511,14 @@ export default function CellWord() {
     try { return JSON.parse(val) } catch(e) { return [] }
   }
   const qs   = [OPENING_QUESTION, ...normalizeQuestions(parseField(selected?.questions))]
+  const questionFlowGroups = buildQuestionFlowGroups(qs)
   const summary = (() => {
     const s = selected?.sermon_summary
     if (!s) return null
     if (typeof s === 'object') return s
     try { return JSON.parse(s) } catch(e) { return null }
   })()
+  const overviewBlocks = buildOverviewBlocks(summary?.overview || '')
 
   async function saveCurrentViewAsImage() {
     if (!captureRef.current || !selected) return
@@ -645,23 +730,28 @@ export default function CellWord() {
       cards.push(...summaryCards)
     }
 
-    if (qs.length) {
-      for (let start = 0; start < qs.length; start += 3) {
-        const pageItems = qs.slice(start, start + 3)
-        const questionCard = createShareCardShell('#5c4b6d', '#8f82b7')
-        appendShareHeader(questionCard, `${title} · 나눔 질문`, metaText)
-        pageItems.forEach((item, offset) => {
-          const number = start + offset + 1
-          appendShareQuestionCard(
-            questionCard,
-            number,
-            item?.section_title || item?.category || `질문 ${number}`,
-            item?.question || '',
-            item?.category === '오프닝' ? '' : item?.explanation || ''
-          )
-        })
-        cards.push(questionCard)
-      }
+    if (questionFlowGroups.length) {
+      let questionIndex = 0
+      questionFlowGroups.forEach((group) => {
+        for (let start = 0; start < group.items.length; start += 3) {
+          const pageItems = group.items.slice(start, start + 3)
+          const questionCard = createShareCardShell('#5c4b6d', '#8f82b7')
+          appendShareHeader(questionCard, `${title} · 나눔 질문`, metaText)
+          appendShareLabel(questionCard, group.title)
+          pageItems.forEach((item) => {
+            const number = questionIndex + 1
+            questionIndex += 1
+            appendShareQuestionCard(
+              questionCard,
+              number,
+              item?.section_title || item?.category || `질문 ${number}`,
+              item?.question || '',
+              item?.category === '오프닝' ? '' : item?.explanation || ''
+            )
+          })
+          cards.push(questionCard)
+        }
+      })
     }
 
     return cards
@@ -738,14 +828,16 @@ export default function CellWord() {
   }
 
   function appendShareParagraph(card, text) {
-    const body = document.createElement('p')
-    body.textContent = text
-    body.style.margin = '0'
-    body.style.color = '#4b3a2a'
-    body.style.fontFamily = "'Gowun Batang',serif"
-    body.style.fontSize = '18px'
-    body.style.lineHeight = '1.9'
-    card.appendChild(body)
+    formatReadingParagraphs(text).forEach((paragraph, index) => {
+      const body = document.createElement('p')
+      body.textContent = paragraph
+      body.style.margin = index === 0 ? '0' : '2px 0 0'
+      body.style.color = '#4b3a2a'
+      body.style.fontFamily = "'Gowun Batang',serif"
+      body.style.fontSize = '18px'
+      body.style.lineHeight = '1.9'
+      card.appendChild(body)
+    })
   }
 
   function appendShareSectionCard(card, title, content) {
@@ -767,14 +859,16 @@ export default function CellWord() {
     heading.style.fontWeight = '700'
     box.appendChild(heading)
 
-    const body = document.createElement('p')
-    body.textContent = content
-    body.style.margin = '0'
-    body.style.color = '#3d2e21'
-    body.style.fontFamily = "'Gowun Batang',serif"
-    body.style.fontSize = '18px'
-    body.style.lineHeight = '1.85'
-    box.appendChild(body)
+    formatReadingParagraphs(content).forEach((paragraph, index) => {
+      const body = document.createElement('p')
+      body.textContent = paragraph
+      body.style.margin = index === 0 ? '0' : '2px 0 0'
+      body.style.color = '#3d2e21'
+      body.style.fontFamily = "'Gowun Batang',serif"
+      body.style.fontSize = '18px'
+      body.style.lineHeight = '1.85'
+      box.appendChild(body)
+    })
 
     card.appendChild(box)
   }
@@ -860,14 +954,19 @@ export default function CellWord() {
       if (!qs.length) {
         lines.push('질문을 준비 중입니다.')
       } else {
-        qs.forEach((item, idx) => {
-          const q = item?.question || ''
-          const ex = item?.explanation || ''
-          const section = item?.section_title || item?.category || `질문 ${idx + 1}`
-          lines.push(`${idx + 1}. ${section}`)
-          if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
-          if (q) lines.push(`- ${q}`)
-          lines.push('')
+        let index = 1
+        questionFlowGroups.forEach((group) => {
+          lines.push(`[${group.title}]`)
+          group.items.forEach((item) => {
+            const q = item?.question || ''
+            const ex = item?.explanation || ''
+            const section = item?.section_title || item?.category || `질문 ${index}`
+            lines.push(`${index}. ${section}`)
+            if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
+            if (q) lines.push(`- ${q}`)
+            lines.push('')
+            index += 1
+          })
         })
       }
     }
@@ -1115,12 +1214,23 @@ export default function CellWord() {
                       </div>
                       <div data-capture-block style={{ background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #e8d8c0' }}>
                         <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 10px' }}>📖 전체 흐름</p>
-                        <p style={{ color:'#382819', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.9, margin:0 }}>{summary.overview}</p>
+                        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                          {overviewBlocks.map((block, index) => (
+                            <div key={index} style={{background:index % 2 === 0 ? '#fcf8f2' : '#f8f1e6',border:'1px solid #efe1cd',borderRadius:12,padding:'12px 14px'}}>
+                              <p style={{margin:'0 0 6px',color:'#9a7651',fontSize:11,fontWeight:700,letterSpacing:'0.08em'}}>{block.label}</p>
+                              <p style={{ color:'#382819', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.9, margin:0 }}>{block.text}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                       {summary.sections?.map((sec, i) => (
                         <div key={i} data-capture-block style={{ background:'#fdf5ec', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0', borderLeft:'4px solid #c4956a', animation:`fadeUp 0.3s ease ${i*0.1}s both` }}>
                           <p style={{ fontSize:12, color:'#a0784e', fontWeight:700, margin:'0 0 8px' }}>{sec.title}</p>
-                          <p style={{ color:'#3a2a1b', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.9, margin:0 }}>{sec.content}</p>
+                          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                            {formatReadingParagraphs(sec.content).map((paragraph, index) => (
+                              <p key={index} style={{ color:'#3a2a1b', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.9, margin:0 }}>{paragraph}</p>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </>
@@ -1131,27 +1241,45 @@ export default function CellWord() {
               {/* 탭 2: 나눔 질문 */}
               {tab===2 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                  {qs.map((item, i) => {
-                    const q  = item.question
-                    const ex = item.explanation
-                    const isOpening = item.category === '오프닝'
-                    const m  = QMETA[i] || QMETA[0]
+                  {questionFlowGroups.map((group, groupIndex) => {
+                    const firstIndex = questionFlowGroups
+                      .slice(0, groupIndex)
+                      .reduce((sum, current) => sum + current.items.length, 0)
                     return (
-                      <div key={i} data-capture-block style={{ background:'#fff', borderRadius:14, padding:'16px 18px', border:'1px solid #e8dcc8', boxShadow:'0 2px 8px rgba(55,38,15,0.03)', animation:`fadeUp 0.4s ease ${i*0.1}s both` }}>
-                        <p style={{ fontSize:10, color:'#8b6e4e', fontWeight:700, margin:'0 0 8px', letterSpacing:'0.05em' }}>{item.section_title || item.category || m.type}</p>
-                        {!isOpening && ex && <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginBottom:9, border:'1px solid #efe4d3' }}><p style={{ margin:0, color:'#5a4737', fontSize:scalePx(13, fontScale), lineHeight:1.8 }}>{ex}</p></div>}
-                        <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(16, fontScale), lineHeight:1.9, fontWeight:700 }}>{q}</p>
-                        <div className="capture-exclude" style={{marginTop:10}}>
-                          <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
-                          <textarea
-                            value={personalNotes.questionNotes?.[i] || ''}
-                            onChange={e => setPersonalNotes(prev => ({
-                              ...prev,
-                              questionNotes: { ...(prev.questionNotes || {}), [i]: e.target.value }
-                            }))}
-                            placeholder="이 질문에 대한 내 생각과 나눔 포인트를 적어보세요."
-                            style={{width:'100%',minHeight:96,padding:'11px 12px',border:'1px solid #d6cbb9',borderRadius:10,background:'rgba(255,255,255,0.92)',resize:'vertical',fontSize:scalePx(14, fontScale),color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.75}}
-                          />
+                      <div key={group.title} data-capture-block style={{ background:'#fff', borderRadius:18, padding:'18px 18px 16px', border:'1px solid #e8dcc8', boxShadow:'0 2px 8px rgba(55,38,15,0.03)' }}>
+                        <div style={{background:'#f7f0e5',borderRadius:12,padding:'12px 14px',border:'1px solid #eadcc8',marginBottom:12}}>
+                          <p style={{margin:0,color:'#6b5040',fontSize:scalePx(14, fontScale),fontWeight:700,fontFamily:"'Gowun Batang',serif"}}>{group.title}</p>
+                        </div>
+                        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                          {group.items.map((item, itemIndex) => {
+                            const q  = item.question
+                            const ex = item.explanation
+                            const isOpening = item.category === '오프닝'
+                            const visualIndex = firstIndex + itemIndex
+                            const m  = QMETA[visualIndex] || QMETA[0]
+                            return (
+                              <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '14px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
+                                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8}}>
+                                  <p style={{ fontSize:10, color:'#8b6e4e', fontWeight:700, margin:0, letterSpacing:'0.05em' }}>{item.section_title || item.category || m.type}</p>
+                                  <span style={{fontSize:10,color:'#b49474',fontWeight:700}}>{itemIndex + 1}</span>
+                                </div>
+                                {!isOpening && ex && <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginBottom:9, border:'1px solid #efe4d3' }}><p style={{ margin:0, color:'#5a4737', fontSize:scalePx(13, fontScale), lineHeight:1.8 }}>{ex}</p></div>}
+                                <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(16, fontScale), lineHeight:1.9, fontWeight:700 }}>{q}</p>
+                                <div className="capture-exclude" style={{marginTop:10}}>
+                                  <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
+                                  <textarea
+                                    value={personalNotes.questionNotes?.[visualIndex] || ''}
+                                    onChange={e => setPersonalNotes(prev => ({
+                                      ...prev,
+                                      questionNotes: { ...(prev.questionNotes || {}), [visualIndex]: e.target.value }
+                                    }))}
+                                    placeholder="이 질문에 대한 내 생각과 나눔 포인트를 적어보세요."
+                                    style={{width:'100%',minHeight:96,padding:'11px 12px',border:'1px solid #d6cbb9',borderRadius:10,background:'rgba(255,255,255,0.92)',resize:'vertical',fontSize:scalePx(14, fontScale),color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.75}}
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )
