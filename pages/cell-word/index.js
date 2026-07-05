@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import html2canvas from 'html2canvas'
+import FontScaleControl from '../../components/FontScaleControl'
+import { fontSizePx, useFontScale } from '../../hooks/useFontScale'
 
 // 구형식(YYYY-Www) → YYYY-MM-DD 변환
 function normalizeWeek(week) {
@@ -226,17 +228,6 @@ const S = {
   card:   { background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #dfd3c0', boxShadow:'0 4px 16px rgba(55,38,15,0.04)' },
 }
 
-const FONT_SCALE_OPTIONS = [
-  { key: 'sm', label: '작게', value: 1 },
-  { key: 'md', label: '보통', value: 1.12 },
-  { key: 'lg', label: '크게', value: 1.24 },
-  { key: 'xl', label: '아주 크게', value: 1.42 },
-]
-
-function scalePx(size, factor) {
-  return `${Math.round(size * factor * 10) / 10}px`
-}
-
 export default function CellWord() {
   const router = useRouter()
 
@@ -246,7 +237,6 @@ export default function CellWord() {
   const [tab, setTab]                   = useState(2)
   const [savingImage, setSavingImage]   = useState(false)
   const [copyingKakao, setCopyingKakao] = useState(false)
-  const [fontScaleKey, setFontScaleKey] = useState('md')
 
   const [activeSession, setActiveSession] = useState(null)
   const [myGroup, setMyGroup]             = useState(null)
@@ -259,23 +249,11 @@ export default function CellWord() {
   const pollRef      = useRef(null)
   const heartbeatRef = useRef(null)
   const captureRef   = useRef(null)
+  const { fontScaleStyle, fontScaleKey, setFontScaleKey } = useFontScale()
 
   const activeNoticeKey = activeSession?.notice
     ? `${activeSession.group_no || ''}:${activeSession.notice}`
     : ''
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const saved = localStorage.getItem('wl_font_scale')
-    if (saved && FONT_SCALE_OPTIONS.some((option) => option.key === saved)) {
-      setFontScaleKey(saved)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem('wl_font_scale', fontScaleKey)
-  }, [fontScaleKey])
 
   // ── 폴링 함수 (ref로 감싸서 stale closure 방지) ──
   const pollFn = useRef(null)
@@ -510,7 +488,6 @@ export default function CellWord() {
   const serviceOptions = sermonList
     .filter((s) => sameWeek(s.week, currentWeek))
     .sort((a, b) => (a.service === 'morning' ? -1 : 1))
-  const fontScale = FONT_SCALE_OPTIONS.find((option) => option.key === fontScaleKey)?.value || 1
 
   const parseField = (val) => {
     if (!val) return []
@@ -1016,7 +993,7 @@ export default function CellWord() {
           .tab-bar{-ms-overflow-style:none;scrollbar-width:none}
         `}</style>
       </Head>
-      <div style={S.wrap}>
+      <div style={{...S.wrap, ...fontScaleStyle}}>
 
         {/* ── 셀 리더 종료 바 ── */}
         {amLeader && myGroup && (
@@ -1027,21 +1004,21 @@ export default function CellWord() {
             borderBottom:`1px solid ${groupEnded ? '#a5d6a7' : '#ffcc80'}`,
           }}>
             <div>
-              <p style={{ fontSize:12, color: groupEnded ? '#2e7d32' : '#e65100', fontWeight:700, margin:'0 0 1px' }}>
+              <p style={{ fontSize:fontSizePx(12), color: groupEnded ? '#2e7d32' : '#e65100', fontWeight:700, margin:'0 0 1px' }}>
                 {groupEnded ? `✅ ${formatGroupName(myGroup)} 모임 종료됨` : `👑 ${formatGroupName(myGroup)} 셀 리더`}
               </p>
-              <p style={{ fontSize:11, color: groupEnded ? '#447a31' : '#9f3c1a', margin:0 }}>
+              <p style={{ fontSize:fontSizePx(11), color: groupEnded ? '#447a31' : '#9f3c1a', margin:0 }}>
                 {groupEnded ? '함께 나눈 말씀은 계속 볼 수 있어요' : '나눔이 끝나면 종료 버튼을 눌러주세요'}
               </p>
               {activeSession?.started_at && (
-                <p style={{ fontSize:11, color: groupEnded ? '#447a31' : '#9f3c1a', margin:'3px 0 0' }}>
+                <p style={{ fontSize:fontSizePx(11), color: groupEnded ? '#447a31' : '#9f3c1a', margin:'3px 0 0' }}>
                   ⏰ {formatSessionPeriod(activeSession)}
                 </p>
               )}
             </div>
             {!groupEnded && activeSession && (
               <button onClick={handleGroupEnd} disabled={groupEnding}
-                style={{ background: groupEnding ? '#c4a882' : 'linear-gradient(135deg,#c0392b,#e74c3c)', color:'#fff', border:'none', borderRadius:10, padding:'8px 14px', cursor: groupEnding ? 'not-allowed' : 'pointer', fontSize:12, fontFamily:"'Gowun Batang',serif", fontWeight:700, flexShrink:0 }}>
+                style={{ background: groupEnding ? '#7a5f3a' : 'linear-gradient(135deg,#c0392b,#e74c3c)', color:'#fff', border:'none', borderRadius:10, padding:'8px 14px', cursor: groupEnding ? 'not-allowed' : 'pointer', fontSize:fontSizePx(12), fontFamily:"'Gowun Batang',serif", fontWeight:700, flexShrink:0 }}>
                 {groupEnding ? '전송 중...' : '🙏 모임 종료'}
               </button>
             )}
@@ -1053,28 +1030,28 @@ export default function CellWord() {
           <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <div>
-            <p style={{ fontSize:10, color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+            <p style={{ fontSize:fontSizePx(10), color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
             {selected
-              ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.sermon_title || selected.reference}</h1>
-              : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:21, color:'#3a2a19', fontWeight:700, margin:0 }}>말씀 나눔</h1>
+              ? <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(21), color:'#3a2a19', fontWeight:700, margin:'0 0 3px' }}>{selected.sermon_title || selected.reference}</h1>
+              : <h1 style={{ fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(21), color:'#3a2a19', fontWeight:700, margin:0 }}>말씀 나눔</h1>
             }
             {selected && (
-              <p style={{ fontSize:12, color:'#6b5740', margin:0, fontWeight:500 }}>
+              <p style={{ fontSize:fontSizePx(12), color:'#6b5740', margin:0, fontWeight:500 }}>
                 {[weekLabel(selected.week || currentWeek), selected.reference].filter(Boolean).join(' · ')}
               </p>
             )}
             {activeSession?.started_at && (
-              <p style={{ fontSize:11, color:'#6b5740', margin:'4px 0 0' }}>
+              <p style={{ fontSize:fontSizePx(11), color:'#6b5740', margin:'4px 0 0' }}>
                 ⏰ {formatSessionPeriod(activeSession)}
               </p>
             )}
             </div>
             {myGroup && (
               <div style={{ background:'rgba(160,120,78,0.15)', borderRadius:10, padding:'6px 12px', textAlign:'center', flexShrink:0 }}>
-                <p style={{ fontSize:10, color:'#8b6e4e', margin:'0 0 2px', fontWeight:600 }}>내 조</p>
-                <p style={{ fontSize:13, color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{formatGroupName(myGroup)}</p>
+                <p style={{ fontSize:fontSizePx(10), color:'#8b6e4e', margin:'0 0 2px', fontWeight:600 }}>내 조</p>
+                <p style={{ fontSize:fontSizePx(13), color:'#4a3520', fontWeight:700, margin:0, fontFamily:"'Gowun Batang',serif" }}>{formatGroupName(myGroup)}</p>
                 {myGroup?.leader?.name && (
-                  <p style={{ fontSize:10, color:'#6b5740', margin:'2px 0 0' }}>리더: {myGroup.leader.name}</p>
+                  <p style={{ fontSize:fontSizePx(10), color:'#6b5740', margin:'2px 0 0' }}>리더: {myGroup.leader.name}</p>
                 )}
               </div>
             )}
@@ -1086,12 +1063,12 @@ export default function CellWord() {
           {loading ? (
             <div style={{ textAlign:'center', padding:48, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
               <div style={{ width:32, height:32, borderRadius:'50%', border:'3px solid #e8dcc8', borderTop:'3px solid #a0784e', animation:'spin 0.9s linear infinite' }}/>
-              <p style={{ color:'#7a5a33', fontSize:14, fontWeight:500 }}>불러오는 중...</p>
+              <p style={{ color:'#7a5a33', fontSize:fontSizePx(14), fontWeight:500 }}>불러오는 중...</p>
             </div>
           ) : !selected ? (
-            <div style={{ textAlign:'center', padding:'60px 20px', color:'#b8a090' }}>
-              <p style={{ fontSize:48, marginBottom:12 }}>📖</p>
-              <p style={{ fontFamily:"'Gowun Batang',serif", fontSize:15 }}>말씀을 찾을 수 없어요</p>
+            <div style={{ textAlign:'center', padding:'60px 20px', color:'#886c4f' }}>
+              <p style={{ fontSize:fontSizePx(48), marginBottom:12 }}>📖</p>
+              <p style={{ fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(15) }}>말씀을 찾을 수 없어요</p>
             </div>
           ) : (
             <div ref={captureRef} className="capture-root" style={{display:'flex',flexDirection:'column'}}>
@@ -1104,11 +1081,11 @@ export default function CellWord() {
                   boxShadow:'0 8px 24px rgba(27,94,32,0.22)',
                   animation:'slideDown 0.4s ease',
                 }}>
-                  <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
-                  <p style={{ fontSize:16, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.72 }}>{activeSession.notice}</p>
+                  <p style={{ fontSize:fontSizePx(10), color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
+                  <p style={{ fontSize:fontSizePx(16), color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.72 }}>{activeSession.notice}</p>
                   <button
                     onClick={handleNoticeConfirm}
-                    style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                    style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:fontSizePx(12),fontWeight:700,cursor:'pointer'}}
                   >
                     확인
                   </button>
@@ -1116,11 +1093,11 @@ export default function CellWord() {
               )}
 
               <div data-capture-title style={{...S.card,marginBottom:14}}>
-                <span style={{background:selected.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:11,fontWeight:700,display:'inline-block',marginBottom:8}}>
+                <span style={{background:selected.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:fontSizePx(11),fontWeight:700,display:'inline-block',marginBottom:8}}>
                   {selected.service==='morning'?'주일 오전':'주일 오후'}
                 </span>
-                <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{selected.sermon_title || selected.reference}</h2>
-                <p style={{fontSize:13,color:'#8b6e4e',margin:0}}>
+                <h2 style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(18),color:'#4a3520',fontWeight:700,margin:'0 0 2px'}}>{selected.sermon_title || selected.reference}</h2>
+                <p style={{fontSize:fontSizePx(13),color:'#8b6e4e',margin:0}}>
                   {[weekLabel(selected.week || currentWeek), selected.reference].filter(Boolean).join(' · ')}
                 </p>
               </div>
@@ -1128,39 +1105,14 @@ export default function CellWord() {
               <div className="tab-bar" style={{ background:'rgba(255,255,255,0.92)', display:'flex', borderBottom:'1px solid #ddd0bc', marginBottom:16, position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)', borderTopLeftRadius:12, borderTopRightRadius:12 }}>
                 {TABS.map((t, i) => (
                   <button key={i} onClick={() => setTab(i)}
-                    style={{ flex:1, padding:'14px 8px', border:'none', background:'none', fontSize:14, fontFamily:"'Gowun Batang',serif", color: tab===i ? '#6a4d2d' : '#998465', fontWeight: tab===i ? 700 : 500, borderBottom: tab===i ? '2.5px solid #8b6a45' : '2.5px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
+                    style={{ flex:1, padding:'14px 8px', border:'none', background:'none', fontSize:fontSizePx(14), fontFamily:"'Gowun Batang',serif", color: tab===i ? '#6a4d2d' : '#998465', fontWeight: tab===i ? 700 : 500, borderBottom: tab===i ? '2.5px solid #8b6a45' : '2.5px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
                     {t}
                   </button>
                 ))}
               </div>
 
               <div className="capture-exclude" style={{...S.card,marginBottom:14,padding:'12px 14px'}}>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-                  <p style={{margin:0,fontSize:12,color:'#8b6e4e',fontWeight:700}}>글씨 크기</p>
-                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    {FONT_SCALE_OPTIONS.map((option) => {
-                      const active = option.key === fontScaleKey
-                      return (
-                        <button
-                          key={option.key}
-                          onClick={() => setFontScaleKey(option.key)}
-                          style={{
-                            border: active ? '1px solid #a0784e' : '1px solid #ddd0ba',
-                            background: active ? '#fdf5ec' : '#fff',
-                            color: active ? '#7a5a33' : '#8b6e4e',
-                            borderRadius: 999,
-                            padding: '6px 10px',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                <FontScaleControl fontScaleKey={fontScaleKey} setFontScaleKey={setFontScaleKey} />
               </div>
 
               {serviceOptions.length > 1 && (
@@ -1179,7 +1131,7 @@ export default function CellWord() {
                           border:`1.5px solid ${isSelected ? (isMorning ? '#f6a623' : '#7a6e9e') : '#ddcfba'}`,
                           background:isSelected ? (isMorning ? '#fff6e9' : '#f5f2fb') : '#fff',
                           color:isSelected ? (isMorning ? '#9f6510' : '#5e4f86') : '#7f6a53',
-                          fontSize:13,
+                          fontSize:fontSizePx(13),
                           fontWeight:700,
                           cursor:'pointer',
                         }}
@@ -1196,12 +1148,12 @@ export default function CellWord() {
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                   {selected.passage ? (
                     <div data-capture-block style={S.card}>
-                      <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 8px' }}>📖 {selected.reference} · 개역개정</p>
-                      <p style={{ color:'#30261d', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.95, margin:0, whiteSpace:'pre-line' }}>{selected.passage}</p>
+                      <p style={{ fontSize:fontSizePx(11), color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 8px' }}>📖 {selected.reference} · 개역개정</p>
+                      <p style={{ color:'#30261d', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(15), lineHeight:1.95, margin:0, whiteSpace:'pre-line' }}>{selected.passage}</p>
                     </div>
                   ) : (
-                    <div style={{ textAlign:'center', padding:'40px 20px', color:'#b8a090' }}>
-                      <p style={{ fontSize:13 }}>본문 말씀을 준비 중이에요</p>
+                    <div style={{ textAlign:'center', padding:'40px 20px', color:'#886c4f' }}>
+                      <p style={{ fontSize:fontSizePx(13) }}>본문 말씀을 준비 중이에요</p>
                     </div>
                   )}
                 </div>
@@ -1211,33 +1163,33 @@ export default function CellWord() {
               {tab===1 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                   {!summary ? (
-                    <div style={{ textAlign:'center', padding:'40px 20px', color:'#b8a090' }}>
-                      <p style={{ fontSize:13 }}>말씀 요약을 준비 중이에요</p>
+                    <div style={{ textAlign:'center', padding:'40px 20px', color:'#886c4f' }}>
+                      <p style={{ fontSize:fontSizePx(13) }}>말씀 요약을 준비 중이에요</p>
                     </div>
                   ) : (
                     <>
                       <div data-capture-block style={{ background:'linear-gradient(135deg,#8f693f,#b98657)', borderRadius:16, padding:'20px 22px', position:'relative', overflow:'hidden' }}>
                         <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
-                        <p style={{ color:'rgba(245,230,208,0.85)', fontSize:10, letterSpacing:'0.15em', margin:'0 0 10px', fontWeight:600 }}>✦ 핵심 메시지</p>
-                        <p style={{ color:'#fff', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(17, fontScale), lineHeight:1.8, margin:0, fontWeight:700 }}>{summary.key_point}</p>
+                        <p style={{ color:'rgba(245,230,208,0.85)', fontSize:fontSizePx(10), letterSpacing:'0.15em', margin:'0 0 10px', fontWeight:600 }}>✦ 핵심 메시지</p>
+                        <p style={{ color:'#fff', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(17), lineHeight:1.8, margin:0, fontWeight:700 }}>{summary.key_point}</p>
                       </div>
                       <div data-capture-block style={{ background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #e8d8c0' }}>
-                        <p style={{ fontSize:11, color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 10px' }}>📖 전체 흐름</p>
+                        <p style={{ fontSize:fontSizePx(11), color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 10px' }}>📖 전체 흐름</p>
                         <div style={{display:'flex',flexDirection:'column',gap:10}}>
                           {overviewBlocks.map((block, index) => (
                             <div key={index} style={{background:index % 2 === 0 ? '#fcf8f2' : '#f8f1e6',border:'1px solid #efe1cd',borderRadius:12,padding:'12px 14px'}}>
-                              <p style={{margin:'0 0 6px',color:'#9a7651',fontSize:11,fontWeight:700,letterSpacing:'0.08em'}}>{block.label}</p>
-                              <p style={{ color:'#382819', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.9, margin:0 }}>{block.text}</p>
+                              <p style={{margin:'0 0 6px',color:'#9a7651',fontSize:fontSizePx(11),fontWeight:700,letterSpacing:'0.08em'}}>{block.label}</p>
+                              <p style={{ color:'#382819', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(15), lineHeight:1.9, margin:0 }}>{block.text}</p>
                             </div>
                           ))}
                         </div>
                       </div>
                       {summary.sections?.map((sec, i) => (
                         <div key={i} data-capture-block style={{ background:'#fdf5ec', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0', borderLeft:'4px solid #c4956a', animation:`fadeUp 0.3s ease ${i*0.1}s both` }}>
-                          <p style={{ fontSize:12, color:'#a0784e', fontWeight:700, margin:'0 0 8px' }}>{sec.title}</p>
+                          <p style={{ fontSize:fontSizePx(12), color:'#a0784e', fontWeight:700, margin:'0 0 8px' }}>{sec.title}</p>
                           <div style={{display:'flex',flexDirection:'column',gap:10}}>
                             {formatReadingParagraphs(sec.content).map((paragraph, index) => (
-                              <p key={index} style={{ color:'#3a2a1b', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(15, fontScale), lineHeight:1.9, margin:0 }}>{paragraph}</p>
+                              <p key={index} style={{ color:'#3a2a1b', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(15), lineHeight:1.9, margin:0 }}>{paragraph}</p>
                             ))}
                           </div>
                         </div>
@@ -1251,11 +1203,11 @@ export default function CellWord() {
               {tab===2 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   <div data-capture-block style={{ background:'#fff', borderRadius:18, padding:'16px 18px 15px', border:'1px solid #e8dcc8', boxShadow:'0 2px 8px rgba(55,38,15,0.03)' }}>
-                    <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:scalePx(12, fontScale),fontWeight:700,letterSpacing:'0.01em'}}>오늘 예배를 함께 돌아봅시다.</p>
-                    <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(16, fontScale), lineHeight:1.9, fontWeight:700 }}>{openingQuestion.question}</p>
+                    <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:fontSizePx(12),fontWeight:700,letterSpacing:'0.01em'}}>오늘 예배를 함께 돌아봅시다.</p>
+                    <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(16), lineHeight:1.9, fontWeight:700 }}>{openingQuestion.question}</p>
                     {openingQuestion.explanation ? (
                       <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginTop:10, border:'1px solid #efe4d3' }}>
-                        <p style={{ margin:0, color:'#5a4737', fontSize:scalePx(13, fontScale), lineHeight:1.8 }}>{openingQuestion.explanation}</p>
+                        <p style={{ margin:0, color:'#5a4737', fontSize:fontSizePx(13), lineHeight:1.8 }}>{openingQuestion.explanation}</p>
                       </div>
                     ) : null}
                   </div>
@@ -1265,7 +1217,7 @@ export default function CellWord() {
                       .reduce((sum, current) => sum + current.items.length, 0)
                     return (
                       <div key={group.title} data-capture-block style={{ background:'#fff', borderRadius:18, padding:'16px 18px 15px', border:'1px solid #e8dcc8', boxShadow:'0 2px 8px rgba(55,38,15,0.03)' }}>
-                        <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:scalePx(12, fontScale),fontWeight:700,letterSpacing:'0.01em'}}>{getQuestionGroupDisplayTitle(group.title)}</p>
+                        <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:fontSizePx(12),fontWeight:700,letterSpacing:'0.01em'}}>{getQuestionGroupDisplayTitle(group.title)}</p>
                         <div style={{display:'flex',flexDirection:'column',gap:12}}>
                           {group.items.map((item, itemIndex) => {
                             const q  = item.question
@@ -1274,10 +1226,10 @@ export default function CellWord() {
                             const m  = QMETA[visualIndex] || QMETA[0]
                             return (
                               <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '12px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
-                                <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:scalePx(16, fontScale), lineHeight:1.9, fontWeight:700 }}>{q}</p>
-                                {ex && <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginTop:10, border:'1px solid #efe4d3' }}><p style={{ margin:0, color:'#5a4737', fontSize:scalePx(13, fontScale), lineHeight:1.8 }}>{ex}</p></div>}
+                                <p style={{ margin:0, color:'#2f261d', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(16), lineHeight:1.9, fontWeight:700 }}>{q}</p>
+                                {ex && <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginTop:10, border:'1px solid #efe4d3' }}><p style={{ margin:0, color:'#5a4737', fontSize:fontSizePx(13), lineHeight:1.8 }}>{ex}</p></div>}
                                 <div className="capture-exclude" style={{marginTop:10}}>
-                                  <p style={{fontSize:11,color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
+                                  <p style={{fontSize:fontSizePx(11),color:m.color,fontWeight:700,margin:'0 0 6px'}}>개인 메모</p>
                                   <textarea
                                     value={personalNotes.questionNotes?.[visualIndex] || ''}
                                     onChange={e => setPersonalNotes(prev => ({
@@ -1285,7 +1237,7 @@ export default function CellWord() {
                                       questionNotes: { ...(prev.questionNotes || {}), [visualIndex]: e.target.value }
                                     }))}
                                     placeholder="이 질문에 대한 내 생각과 나눔 포인트를 적어보세요."
-                                    style={{width:'100%',minHeight:96,padding:'11px 12px',border:'1px solid #d6cbb9',borderRadius:10,background:'rgba(255,255,255,0.92)',resize:'vertical',fontSize:scalePx(14, fontScale),color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.75}}
+                                    style={{width:'100%',minHeight:96,padding:'11px 12px',border:'1px solid #d6cbb9',borderRadius:10,background:'rgba(255,255,255,0.92)',resize:'vertical',fontSize:fontSizePx(14),color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.75}}
                                   />
                                 </div>
                               </div>
@@ -1296,14 +1248,14 @@ export default function CellWord() {
                     )
                   })}
                   <div className="capture-exclude" style={{...S.card, marginTop:4}}>
-                    <p style={{fontSize:11,color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>🙏 오늘의 기도제목</p>
+                    <p style={{fontSize:fontSizePx(11),color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>🙏 오늘의 기도제목</p>
                     <textarea
                       value={personalNotes.prayer || ''}
                       onChange={e => setPersonalNotes(prev => ({ ...prev, prayer: e.target.value }))}
                       placeholder="오늘 셀모임을 통해 붙잡은 기도제목을 기록해 보세요. 이 내용은 내 기기에서만 저장됩니다."
-                      style={{width:'100%',minHeight:120,padding:'12px 14px',border:'1px solid #d9ccba',borderRadius:10,background:'#fdfbf8',resize:'vertical',fontSize:scalePx(14, fontScale),color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.8}}
+                      style={{width:'100%',minHeight:120,padding:'12px 14px',border:'1px solid #d9ccba',borderRadius:10,background:'#fdfbf8',resize:'vertical',fontSize:fontSizePx(14),color:'#2f281f',fontFamily:"'IBM Plex Sans KR','Noto Sans KR',sans-serif",lineHeight:1.8}}
                     />
-                    <p style={{fontSize:11,color:'#a08060',margin:'8px 0 0'}}>이 메모와 기도제목은 서버로 전송되지 않고, 이 기기 브라우저에만 저장됩니다.</p>
+                    <p style={{fontSize:fontSizePx(11),color:'#a08060',margin:'8px 0 0'}}>이 메모와 기도제목은 서버로 전송되지 않고, 이 기기 브라우저에만 저장됩니다.</p>
                   </div>
                 </div>
               )}
@@ -1311,28 +1263,28 @@ export default function CellWord() {
                 <button
                   onClick={copyForKakao}
                   disabled={copyingKakao}
-                  style={{flex:1,background:copyingKakao?'#c8b79e':'linear-gradient(135deg,#f8e5bf,#f0c77a)',color:'#5c4323',border:'1px solid #e0c08a',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:copyingKakao?'not-allowed':'pointer'}}
+                  style={{flex:1,background:copyingKakao?'#c8b79e':'linear-gradient(135deg,#f8e5bf,#f0c77a)',color:'#5c4323',border:'1px solid #e0c08a',borderRadius:12,padding:'14px',fontSize:fontSizePx(14),fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:copyingKakao?'not-allowed':'pointer'}}
                 >
                   {copyingKakao ? '복사 중...' : '💬 카톡으로 복사하기'}
                 </button>
                 <button
                   onClick={saveShareCardsAsImages}
                   disabled={savingImage}
-                  style={{flex:1,background:savingImage?'#cabca9':'linear-gradient(135deg,#eadfef,#cdbce2)',color:'#4d3c66',border:'1px solid #d2c1e4',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                  style={{flex:1,background:savingImage?'#cabca9':'linear-gradient(135deg,#eadfef,#cdbce2)',color:'#4d3c66',border:'1px solid #d2c1e4',borderRadius:12,padding:'14px',fontSize:fontSizePx(14),fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
                 >
                   {savingImage ? '카드 저장 중...' : '💠 공유 카드 저장'}
                 </button>
                 <button
                   onClick={saveCurrentViewAsSplitImages}
                   disabled={savingImage}
-                  style={{flex:1,background:savingImage?'#d7c8b5':'linear-gradient(135deg,#efe4d5,#d9bea2)',color:'#5f4630',border:'1px solid #d7c3ac',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                  style={{flex:1,background:savingImage?'#d7c8b5':'linear-gradient(135deg,#efe4d5,#d9bea2)',color:'#5f4630',border:'1px solid #d7c3ac',borderRadius:12,padding:'14px',fontSize:fontSizePx(14),fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
                 >
                   {savingImage ? '분할 저장 중...' : '🧩 나눠서 저장'}
                 </button>
                 <button
                   onClick={saveCurrentViewAsImage}
                   disabled={savingImage}
-                  style={{flex:1,background:savingImage?'#c4a882':'linear-gradient(135deg,#4a3520,#7a5c38)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
+                  style={{flex:1,background:savingImage?'#7a5f3a':'linear-gradient(135deg,#4a3520,#7a5c38)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:fontSizePx(14),fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:savingImage?'not-allowed':'pointer'}}
                 >
                   {savingImage ? '이미지 저장 중...' : '🖼 이미지로 저장'}
                 </button>

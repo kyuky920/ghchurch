@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import FontScaleControl from '../../components/FontScaleControl'
+import { fontSizePx, useFontScale } from '../../hooks/useFontScale'
 
 function getWeekStr(date) {
   const d = new Date(date || new Date())
@@ -47,10 +49,10 @@ function getSavedName() {
 }
 
 function getSessionState(session) {
-  if (!session) return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
+  if (!session) return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#6e6e6e' }
   if (session.is_active) return { key:'active', label:'⏳ 진행 중', bg:'#fff8e1', color:'#f57f17' }
   if (session.ended_at) return { key:'ended', label:'✅ 종료됨', bg:'#e8f5e9', color:'#2e7d32' }
-  return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#9e9e9e' }
+  return { key:'waiting', label:'— 대기', bg:'#f5f5f5', color:'#6e6e6e' }
 }
 
 const GROUP_COLORS = ['#a0784e','#7a9e7e','#7a6e9e','#c4956a','#c0392b','#1565c0','#2e7d32','#6d4c41','#00838f','#558b2f']
@@ -58,6 +60,7 @@ const GROUP_BGS    = ['#fdf5ec','#f0f7f1','#f5f3fa','#fef8f0','#ffebee','#e3f2fd
 
 export default function CellPage() {
   const router = useRouter()
+  const { fontScaleStyle, fontScaleKey, setFontScaleKey } = useFontScale()
   const [week, setWeek] = useState(getWeekStr())
 
   // 기본 상태
@@ -431,37 +434,40 @@ export default function CellPage() {
           @keyframes spin{to{transform:rotate(360deg)}}
         `}</style>
       </Head>
-      <div style={{minHeight:'100vh',background:'#faf6f0'}}>
+      <div style={{minHeight:'100vh',background:'#faf6f0', ...fontScaleStyle}}>
 
         {/* ── 헤더 ── */}
         <div style={{
           background: amLeader ? 'linear-gradient(160deg,#1a4a1a,#2a6a2a)' : 'linear-gradient(160deg,#e8dcc8,#d4c4a8)',
           padding:'24px 20px', borderBottom: amLeader?'1px solid #3a7a3a':'1px solid #c8b898', transition:'all 0.4s'
         }}>
-          <p style={{fontSize:10,color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
-          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:22,color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
-          <p style={{fontSize:11,color:amLeader?'rgba(150,230,150,0.78)':'#8b6e4e',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
+          <p style={{fontSize:fontSizePx(10),color:amLeader?'rgba(150,230,150,0.7)':'#8b6e4e',letterSpacing:'0.2em',fontWeight:600,margin:'0 0 6px'}}>시냇가에 심은 나무 WORD &amp; LIFE</p>
+          <h1 style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(22),color:amLeader?'#7adf7a':'#4a3520',fontWeight:700,margin:'0 0 4px'}}>광흥교회 청년시냇가</h1>
+          <p style={{fontSize:fontSizePx(11),color:amLeader?'rgba(150,230,150,0.78)':'#8b6e4e',margin:'0 0 10px'}}>말씀 나눔을 위한 셀모임</p>
           {registered && amLeader ? (
             <div style={{background:'linear-gradient(135deg,#ffd700,#ffab00)',borderRadius:16,padding:'10px 18px',display:'flex',alignItems:'center',gap:10,boxShadow:'0 4px 20px rgba(255,180,0,0.5)',animation:'glow 2s ease-in-out infinite',width:'fit-content'}}>
-              <span style={{fontSize:26}}>👑</span>
+              <span style={{fontSize:fontSizePx(26)}}>👑</span>
               <div>
-                <p style={{fontSize:14,fontFamily:"'Gowun Batang',serif",fontWeight:700,color:'#1a1000',margin:'0 0 1px'}}>셀 리더</p>
-                <p style={{fontSize:12,color:'rgba(26,16,0,0.7)',margin:0,fontWeight:600}}>{name} · {formatGroupName(myGroup)}</p>
+                <p style={{fontSize:fontSizePx(14),fontFamily:"'Gowun Batang',serif",fontWeight:700,color:'#1a1000',margin:'0 0 1px'}}>셀 리더</p>
+                <p style={{fontSize:fontSizePx(12),color:'rgba(26,16,0,0.7)',margin:0,fontWeight:600}}>{name} · {formatGroupName(myGroup)}</p>
               </div>
             </div>
           ) : registered ? (
-            <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>안녕하세요, <strong>{name}</strong>님! 🙏</p>
+            <p style={{fontSize:fontSizePx(12),color:'#8b6e4e',margin:0}}>안녕하세요, <strong>{name}</strong>님! 🙏</p>
           ) : (
-            <p style={{fontSize:12,color:'#8b6e4e',margin:0}}>이름을 입력하고 조 편성을 확인하세요</p>
+            <p style={{fontSize:fontSizePx(12),color:'#8b6e4e',margin:0}}>이름을 입력하고 조 편성을 확인하세요</p>
           )}
         </div>
 
         <div style={{maxWidth:640,margin:'16px auto 0',padding:'0 16px'}}>
           <div style={{background:'#fff',borderRadius:14,padding:'14px 16px',border:'1px solid #e8d8c0'}}>
-            <label style={{display:'block',fontSize:12,color:'#8b6e4e',fontWeight:700,marginBottom:8}}>대상 주 선택</label>
-            <select value={week} onChange={e=>setWeek(e.target.value)} style={{width:'100%',padding:'11px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:14,background:'#faf7f4',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}>
+            <label style={{display:'block',fontSize:fontSizePx(12),color:'#8b6e4e',fontWeight:700,marginBottom:8}}>대상 주 선택</label>
+            <select value={week} onChange={e=>setWeek(e.target.value)} style={{width:'100%',padding:'11px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:fontSizePx(14),background:'#faf7f4',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}>
               {weeks.map(w => <option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
             </select>
+          </div>
+          <div style={{background:'#fff',borderRadius:14,padding:'12px 14px',border:'1px solid #e8d8c0',marginTop:12}}>
+            <FontScaleControl fontScaleKey={fontScaleKey} setFontScaleKey={setFontScaleKey} />
           </div>
         </div>
 
@@ -469,15 +475,15 @@ export default function CellPage() {
         {mySessionViewTarget && !amLeader && (
           <div style={{background:mySessionViewTarget.is_active?'linear-gradient(135deg,#2e7d32,#43a047)':'linear-gradient(135deg,#546e7a,#78909c)',padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
             <div>
-              <p style={{fontSize:13,color:'#fff',fontWeight:700,margin:'0 0 2px'}}>
+              <p style={{fontSize:fontSizePx(13),color:'#fff',fontWeight:700,margin:'0 0 2px'}}>
                 {mySessionViewTarget.is_active ? `🟢 ${formatGroupName(myGroup)} 셀 모임이 시작됐어요!` : `✅ ${formatGroupName(myGroup)} 셀 모임이 종료됐어요`}
               </p>
-              <p style={{fontSize:11,color:'rgba(255,255,255,0.8)',margin:0}}>
+              <p style={{fontSize:fontSizePx(11),color:'rgba(255,255,255,0.8)',margin:0}}>
                 {mySessionViewTarget.is_active ? '버튼을 눌러 말씀 나눔에 참여하세요' : '함께 나눈 말씀은 계속 확인할 수 있어요'}
               </p>
             </div>
             <button onClick={()=>router.push(`/cell-word?week=${mySessionViewTarget.sermon_week}&service=${mySessionViewTarget.sermon_service}&group_no=${mySessionViewTarget.group_no}&tab=1`)}
-              style={{background:'#fff',color:mySessionViewTarget.is_active?'#2e7d32':'#455a64',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:13,fontWeight:700,flexShrink:0}}>
+              style={{background:'#fff',color:mySessionViewTarget.is_active?'#2e7d32':'#455a64',border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',fontSize:fontSizePx(13),fontWeight:700,flexShrink:0}}>
               {mySessionViewTarget.is_active ? '참여하기 →' : '말씀 보기 →'}
             </button>
           </div>
@@ -487,14 +493,14 @@ export default function CellPage() {
         {amLeader && latestMySessionState.key !== 'waiting' && latestMySession && (
           <div style={{background:groupEnded?'#e8f5e9':'#fff3e0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${groupEnded?'#a5d6a7':'#ffcc80'}`}}>
             <div>
-              <p style={{fontSize:12,color:groupEnded?'#2e7d32':'#e65100',fontWeight:700,margin:'0 0 1px'}}>
+              <p style={{fontSize:fontSizePx(12),color:groupEnded?'#2e7d32':'#e65100',fontWeight:700,margin:'0 0 1px'}}>
                 {groupEnded?`✅ ${formatGroupName(myGroup)} 모임 종료됨`:`👑 ${formatGroupName(myGroup)} 모임 진행 중`}
               </p>
-              <p style={{fontSize:10,color:groupEnded?'#558b2f':'#bf360c',margin:0}}>
+              <p style={{fontSize:fontSizePx(10),color:groupEnded?'#558b2f':'#bf360c',margin:0}}>
                 {groupEnded?'함께 나눈 말씀은 계속 볼 수 있어요':'말씀 나눔 중이에요'}
               </p>
               {latestMySession?.started_at && (
-                <p style={{fontSize:10,color:groupEnded?'#558b2f':'#bf360c',margin:'3px 0 0'}}>
+                <p style={{fontSize:fontSizePx(10),color:groupEnded?'#558b2f':'#bf360c',margin:'3px 0 0'}}>
                   {formatSessionPeriod(latestMySession)}
                 </p>
               )}
@@ -502,13 +508,13 @@ export default function CellPage() {
             <div style={{display:'flex',gap:8}}>
               {latestMySession && (
                 <button onClick={()=>router.push(`/cell-word?week=${latestMySession.sermon_week}&service=${latestMySession.sermon_service}&group_no=${latestMySession.group_no}&tab=1`)}
-                  style={{background:'rgba(255,200,0,0.2)',border:'1px solid rgba(255,200,0,0.5)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#e65100',fontWeight:600}}>
+                  style={{background:'rgba(255,200,0,0.2)',border:'1px solid rgba(255,200,0,0.5)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:fontSizePx(12),color:'#e65100',fontWeight:600}}>
                   {groupEnded ? '말씀 보기' : '나눔 보기'}
                 </button>
               )}
               {!groupEnded && mySession && (
                 <button onClick={handleGroupEnd} disabled={groupEnding}
-                  style={{background:'rgba(200,60,60,0.15)',border:'1px solid rgba(200,80,80,0.4)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:12,color:'#c62828',fontWeight:700}}>
+                  style={{background:'rgba(200,60,60,0.15)',border:'1px solid rgba(200,80,80,0.4)',borderRadius:8,padding:'7px 12px',cursor:'pointer',fontSize:fontSizePx(12),color:'#c62828',fontWeight:700}}>
                   {groupEnding?'전송중...':'🙏 종료'}
                 </button>
               )}
@@ -527,11 +533,11 @@ export default function CellPage() {
               boxShadow:'0 8px 24px rgba(27,94,32,0.22)',
               animation:'fadeUp 0.25s ease'
             }}>
-              <p style={{ fontSize:10, color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
-              <p style={{ fontSize:15, color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{noticeSession.notice}</p>
+              <p style={{ fontSize:fontSizePx(10), color:'rgba(255,255,255,0.72)', margin:'0 0 6px', fontWeight:700, letterSpacing:'0.12em' }}>📢 리더 공지</p>
+              <p style={{ fontSize:fontSizePx(15), color:'#fff', fontFamily:"'Gowun Batang',serif", fontWeight:700, margin:'0 0 12px', lineHeight:1.65 }}>{noticeSession.notice}</p>
               <button
                 onClick={handleNoticeConfirm}
-                style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}
+                style={{background:'rgba(255,255,255,0.16)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:10,color:'#fff',padding:'8px 14px',fontSize:fontSizePx(12),fontWeight:700,cursor:'pointer'}}
               >
                 확인
               </button>
@@ -544,16 +550,16 @@ export default function CellPage() {
           {/* ── 이름 등록 ── */}
           {!registered ? (
             <div style={{background:'#fff',borderRadius:16,padding:'24px 20px',border:'1px solid #e8d8c0',boxShadow:'0 4px 20px rgba(160,120,78,0.1)'}}>
-              <p style={{fontFamily:"'Gowun Batang',serif",fontSize:16,color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>처음이시군요!</p>
-              <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 18px',lineHeight:1.6}}>이름을 한 번만 입력하면 다음부터 자동으로 인식돼요.</p>
+              <p style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>처음이시군요!</p>
+              <p style={{fontSize:fontSizePx(12),color:'#8b6e4e',margin:'0 0 18px',lineHeight:1.6}}>이름을 한 번만 입력하면 다음부터 자동으로 인식돼요.</p>
               <input value={inputName} onChange={e=>setInputName(e.target.value)}
                 onKeyDown={e=>{ if(e.key==='Enter') handleRegister() }}
                 placeholder="이름을 입력하세요" maxLength={10}
-                style={{width:'100%',padding:'13px 16px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:16,background:'#faf7f4',color:'#4a3520',outline:'none',marginBottom:12}}
+                style={{width:'100%',padding:'13px 16px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:fontSizePx(16),background:'#faf7f4',color:'#4a3520',outline:'none',marginBottom:12}}
                 autoFocus/>
-              {errMsg&&<p style={{color:'#c0392b',fontSize:12,margin:'0 0 10px'}}>⚠ {errMsg}</p>}
+              {errMsg&&<p style={{color:'#c0392b',fontSize:fontSizePx(12),margin:'0 0 10px'}}>⚠ {errMsg}</p>}
               <button onClick={handleRegister} disabled={saving}
-                style={{width:'100%',background:'linear-gradient(135deg,#a0784e,#c4956a)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:saving?'not-allowed':'pointer'}}>
+                style={{width:'100%',background:'linear-gradient(135deg,#a0784e,#c4956a)',color:'#fff',border:'none',borderRadius:12,padding:'14px',fontSize:fontSizePx(15),fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:saving?'not-allowed':'pointer'}}>
                 {saving?'등록 중...':'✦ 참석하기'}
               </button>
             </div>
@@ -562,23 +568,23 @@ export default function CellPage() {
               {/* ── 접속 현황 ── */}
               <div style={{background:'#fff',borderRadius:14,padding:'14px 18px',border:'1px solid #e8d8c0',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#7a9e7e',animation:'pulse 2s infinite',flexShrink:0}}/>
-                <p style={{fontSize:12,color:'#7a9e7e',margin:0,fontWeight:600}}>접속 중 · {members.length}명 함께 있어요</p>
+                <p style={{fontSize:fontSizePx(12),color:'#7a9e7e',margin:0,fontWeight:600}}>접속 중 · {members.length}명 함께 있어요</p>
                 <button
                   onClick={() => setShowMemberList(prev => !prev)}
-                  style={{marginLeft:'auto',background:'#eef5ef',border:'1px solid #cfe3d2',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#4f7f59',fontWeight:700}}
+                  style={{marginLeft:'auto',background:'#eef5ef',border:'1px solid #cfe3d2',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:fontSizePx(11),color:'#4f7f59',fontWeight:700}}
                 >
                   {showMemberList ? '접기 ▲' : '명단 보기 ▼'}
                 </button>
-                <button onClick={loadData} style={{background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:11,color:'#8b6e4e',fontWeight:600}}>🔄</button>
+                <button onClick={loadData} style={{background:'#f5f0ea',border:'1px solid #ddd0ba',borderRadius:8,padding:'4px 10px',cursor:'pointer',fontSize:fontSizePx(11),color:'#8b6e4e',fontWeight:600}}>🔄</button>
               </div>
               {showMemberList && (
                 <div style={{background:'#fff',borderRadius:12,padding:'12px 14px',border:'1px solid #e8d8c0',marginTop:-8}}>
                   {members.length === 0 ? (
-                    <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>현재 접속 중인 사람이 없어요.</p>
+                    <p style={{fontSize:fontSizePx(12),color:'#886c4f',margin:0,fontStyle:'italic'}}>현재 접속 중인 사람이 없어요.</p>
                   ) : (
                     <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                       {members.map(m => (
-                        <span key={m.device_id} style={{background:'#e8f5e9',border:'1px solid #a5d6a7',borderRadius:20,padding:'4px 11px',fontSize:12,color:'#2e7d32',fontWeight:600}}>
+                        <span key={m.device_id} style={{background:'#e8f5e9',border:'1px solid #a5d6a7',borderRadius:20,padding:'4px 11px',fontSize:fontSizePx(12),color:'#2e7d32',fontWeight:600}}>
                           {m.name}{m.device_id===deviceId.current ? ' (나)' : ''}
                         </span>
                       ))}
@@ -590,10 +596,10 @@ export default function CellPage() {
               {/* ── 셀 리더: 모임 시작 버튼 ── */}
               {canStartSession && (
                 <div style={{background:'linear-gradient(135deg,#1a3a1a,#2a5a2a)',borderRadius:16,padding:'20px',border:'1px solid #4a8a4a'}}>
-                  <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>👑 셀 리더로 선정됐어요!</p>
-                  <p style={{fontSize:11,color:'rgba(150,220,150,0.7)',margin:'0 0 16px'}}>말씀을 선택하고 모임을 시작해주세요</p>
+                  <p style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(15),color:'#7adf7a',fontWeight:700,margin:'0 0 6px'}}>👑 셀 리더로 선정됐어요!</p>
+                  <p style={{fontSize:fontSizePx(11),color:'rgba(150,220,150,0.7)',margin:'0 0 16px'}}>말씀을 선택하고 모임을 시작해주세요</p>
                   <button onClick={()=>{ setShowStartModal(true); loadSermons() }}
-                    style={{width:'100%',background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'15px',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:'pointer',animation:'glow 2s ease-in-out infinite'}}>
+                    style={{width:'100%',background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:12,padding:'15px',fontSize:fontSizePx(15),fontFamily:"'Gowun Batang',serif",fontWeight:700,cursor:'pointer',animation:'glow 2s ease-in-out infinite'}}>
                     🙏 셀 모임 시작하기
                   </button>
                 </div>
@@ -601,17 +607,17 @@ export default function CellPage() {
 
               {/* ── 전체 조 편성 ── */}
               <div style={{background:'#fff',borderRadius:14,padding:'16px 18px',border:'1px solid #e8d8c0'}}>
-                <p style={{fontSize:13,color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 14px'}}>
+                <p style={{fontSize:fontSizePx(13),color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontWeight:700,margin:'0 0 14px'}}>
                   전체 조 편성 {groups?.week ? `— ${weekLabel(groups.week)}` : ''}
                 </p>
 
                 {loading ? (
-                  <p style={{color:'#a0784e',fontSize:13,textAlign:'center',padding:'20px 0'}}>불러오는 중...</p>
+                  <p style={{color:'#a0784e',fontSize:fontSizePx(13),textAlign:'center',padding:'20px 0'}}>불러오는 중...</p>
                 ) : !groups?.groups?.length ? (
-                  <div style={{textAlign:'center',padding:'24px 0',color:'#b8a090'}}>
-                    <p style={{fontSize:32,marginBottom:8}}>⏳</p>
-                    <p style={{fontSize:13,fontFamily:"'Gowun Batang',serif"}}>아직 조 편성이 없어요</p>
-                    <p style={{fontSize:11,margin:'4px 0 0'}}>리더 도구에서 조 편성을 완료하면 표시돼요</p>
+                  <div style={{textAlign:'center',padding:'24px 0',color:'#886c4f'}}>
+                    <p style={{fontSize:fontSizePx(32),marginBottom:8}}>⏳</p>
+                    <p style={{fontSize:fontSizePx(13),fontFamily:"'Gowun Batang',serif"}}>아직 조 편성이 없어요</p>
+                    <p style={{fontSize:fontSizePx(11),margin:'4px 0 0'}}>리더 도구에서 조 편성을 완료하면 표시돼요</p>
                   </div>
                 ) : (
                   <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -629,15 +635,15 @@ export default function CellPage() {
                           {/* 조 헤더 */}
                           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap',rowGap:6}}>
                             <div style={{width:10,height:10,borderRadius:'50%',background:color,flexShrink:0}}/>
-                            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:15,color,fontWeight:700,margin:0,flex:'1 1 180px',minWidth:0,lineHeight:1.42,paddingBottom:2,wordBreak:'keep-all'}}>
+                            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(15),color,fontWeight:700,margin:0,flex:'1 1 180px',minWidth:0,lineHeight:1.42,paddingBottom:2,wordBreak:'keep-all'}}>
                               {formatGroupName(g)}
                             </p>
-                            {isMyGroup && <span style={{background:color,color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>내 조</span>}
-                            {g.leader && <span style={{fontSize:11,color,fontWeight:600,flexShrink:0}}>👑 {g.leader.name}</span>}
-                            <span style={{background:sessionState.bg,color:sessionState.color,borderRadius:20,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>
+                            {isMyGroup && <span style={{background:color,color:'#fff',borderRadius:10,padding:'1px 8px',fontSize:fontSizePx(10),fontWeight:700,flexShrink:0}}>내 조</span>}
+                            {g.leader && <span style={{fontSize:fontSizePx(11),color,fontWeight:600,flexShrink:0}}>👑 {g.leader.name}</span>}
+                            <span style={{background:sessionState.bg,color:sessionState.color,borderRadius:20,padding:'2px 8px',fontSize:fontSizePx(10),fontWeight:700,flexShrink:0}}>
                               {sessionState.label}
                             </span>
-                            <span style={{fontSize:11,color:'#a08060',flexShrink:0}}>({g.members?.length||0}명)</span>
+                            <span style={{fontSize:fontSizePx(11),color:'#a08060',flexShrink:0}}>({g.members?.length||0}명)</span>
                           </div>
 
                           {/* 세션 상태 */}
@@ -645,16 +651,16 @@ export default function CellPage() {
                             <div style={{background:session.is_active?'rgba(46,125,50,0.08)':'rgba(84,110,122,0.08)',borderRadius:8,padding:'8px 10px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:6}}>
                               <div style={{width:6,height:6,borderRadius:'50%',background:session.is_active?'#4caf50':'#78909c',flexShrink:0,marginTop:5}}/>
                               <div>
-                                <p style={{fontSize:11,color:session.is_active?'#2e7d32':'#546e7a',fontWeight:700,margin:'0 0 2px'}}>
+                                <p style={{fontSize:fontSizePx(11),color:session.is_active?'#2e7d32':'#546e7a',fontWeight:700,margin:'0 0 2px'}}>
                                   {session.is_active ? '모임 진행 중' : '모임 종료됨'}
                                 </p>
-                                <p style={{fontSize:11,color:session.is_active?'#2e7d32':'#546e7a',fontWeight:600,margin:0}}>
+                                <p style={{fontSize:fontSizePx(11),color:session.is_active?'#2e7d32':'#546e7a',fontWeight:600,margin:0}}>
                                   {sessionSermon?.reference || (session.sermon_week && weekLabel(session.sermon_week))}
                                   {session.sermon_service==='morning'?' · ☀️ 오전':session.sermon_service==='afternoon'?' · 🌙 오후':''}
                                 </p>
-                                {sessionSermon?.sermon_title && <p style={{fontSize:10,color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
+                                {sessionSermon?.sermon_title && <p style={{fontSize:fontSizePx(10),color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>{sessionSermon.sermon_title}</p>}
                                 {session.started_at && (
-                                  <p style={{fontSize:10,color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>
+                                  <p style={{fontSize:fontSizePx(10),color:session.is_active?'#5d8a60':'#607d8b',margin:'2px 0 0'}}>
                                     ⏰ {formatSessionPeriod(session)}
                                   </p>
                                 )}
@@ -665,12 +671,12 @@ export default function CellPage() {
                           {/* 멤버 */}
                           <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:10}}>
                             {(g.members||[]).map(m => (
-                              <span key={m.device_id} style={{background:m.device_id===deviceId.current?color:'rgba(255,255,255,0.7)',color:m.device_id===deviceId.current?'#fff':'#4a3520',borderRadius:20,padding:'4px 12px',fontSize:12,fontWeight:m.device_id===deviceId.current?700:500,border:`1px solid ${color}40`,display:'flex',alignItems:'center',gap:4}}>
+                              <span key={m.device_id} style={{background:m.device_id===deviceId.current?color:'rgba(255,255,255,0.7)',color:m.device_id===deviceId.current?'#fff':'#4a3520',borderRadius:20,padding:'4px 12px',fontSize:fontSizePx(12),fontWeight:m.device_id===deviceId.current?700:500,border:`1px solid ${color}40`,display:'flex',alignItems:'center',gap:4}}>
                                 {g.leader?.device_id===m.device_id && '👑'}
                                 {m.name}{m.device_id===deviceId.current?' (나)':''}
                               </span>
                             ))}
-                            {(!g.members||g.members.length===0) && <p style={{fontSize:12,color:'#b8a090',margin:0,fontStyle:'italic'}}>아직 아무도 없어요</p>}
+                            {(!g.members||g.members.length===0) && <p style={{fontSize:fontSizePx(12),color:'#886c4f',margin:0,fontStyle:'italic'}}>아직 아무도 없어요</p>}
                           </div>
 
                           {/* 하단 버튼 */}
@@ -678,14 +684,14 @@ export default function CellPage() {
                             {/* 이 조에 미배정인 경우: 참여하기 버튼 */}
                             {!alreadyInGroup && registered && (
                               <button onClick={()=>joinGroup(g)}
-                                style={{flex:1,background:color,color:'#fff',border:'none',borderRadius:10,padding:'10px',cursor:'pointer',fontSize:13,fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
+                                style={{flex:1,background:color,color:'#fff',border:'none',borderRadius:10,padding:'10px',cursor:'pointer',fontSize:fontSizePx(13),fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
                                 이 조에 참여하기
                               </button>
                             )}
                             {/* 이 조 세션이 있고 내 조인 경우: 나눔 참여 버튼 */}
                             {isMyGroup && session && (
                               <button onClick={()=>router.push(`/cell-word?week=${session.sermon_week}&service=${session.sermon_service}&group_no=${session.group_no}&tab=1`)}
-                                style={{flex:1,background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:10,padding:'10px',cursor:'pointer',fontSize:13,fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
+                                style={{flex:1,background:'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',borderRadius:10,padding:'10px',cursor:'pointer',fontSize:fontSizePx(13),fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
                                 {session.is_active ? '📖 말씀 나눔 참여하기 →' : '📖 함께 나눈 말씀 보기 →'}
                               </button>
                             )}
@@ -700,7 +706,7 @@ export default function CellPage() {
               {/* 이름 변경 */}
               <div style={{textAlign:'center'}}>
                 <button onClick={()=>{ localStorage.removeItem('wl_member_name'); setRegistered(false); setName(''); setInputName(''); if(heartbeatRef.current) clearInterval(heartbeatRef.current) }}
-                  style={{background:'none',border:'none',fontSize:11,color:'#c4a882',cursor:'pointer',textDecoration:'underline'}}>
+                  style={{background:'none',border:'none',fontSize:fontSizePx(11),color:'#7a5f3a',cursor:'pointer',textDecoration:'underline'}}>
                   이름 변경하기
                 </button>
               </div>
@@ -715,12 +721,12 @@ export default function CellPage() {
             <div style={{background:'#fff',borderRadius:'24px 24px 0 0',padding:'28px 24px 40px',width:'100%',maxWidth:640,boxShadow:'0 -10px 60px rgba(0,0,0,0.3)'}}
               onClick={e=>e.stopPropagation()}>
               <div style={{width:40,height:4,background:'#e8dcc8',borderRadius:2,margin:'0 auto 24px'}}/>
-              <p style={{fontFamily:"'Gowun Batang',serif",fontSize:18,color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>🙏 셀 모임 시작</p>
-              <p style={{fontSize:12,color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>함께 나눌 말씀을 선택해주세요.</p>
+              <p style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(18),color:'#4a3520',fontWeight:700,margin:'0 0 4px'}}>🙏 셀 모임 시작</p>
+              <p style={{fontSize:fontSizePx(12),color:'#8b6e4e',margin:'0 0 20px',lineHeight:1.7}}>함께 나눌 말씀을 선택해주세요.</p>
 
               {sermons.length === 0 ? (
-                <div style={{textAlign:'center',padding:'32px 0',color:'#b8a090'}}>
-                  <p style={{fontSize:13}}>등록된 말씀이 없어요</p>
+                <div style={{textAlign:'center',padding:'32px 0',color:'#886c4f'}}>
+                  <p style={{fontSize:fontSizePx(13)}}>등록된 말씀이 없어요</p>
                 </div>
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
@@ -728,21 +734,21 @@ export default function CellPage() {
                     .sort(([a],[b]) => b.localeCompare(a))
                     .map(([wk, items]) => (
                     <div key={wk} style={{marginBottom:8}}>
-                      <p style={{fontSize:11,color:'#a08060',fontWeight:700,margin:'0 0 8px'}}>{weekLabel(wk)}</p>
+                      <p style={{fontSize:fontSizePx(11),color:'#a08060',fontWeight:700,margin:'0 0 8px'}}>{weekLabel(wk)}</p>
                       {[...items].sort((a,b) => a.service === b.service ? (b.id || 0) - (a.id || 0) : (a.service === 'morning' ? -1 : 1)).map(s => {
                         const isSel = selWeek===s.week && selService===s.service
                         const isMorn = s.service==='morning'
                         return (
                           <button key={s.id} onClick={()=>{ setSelWeek(s.week); setSelService(s.service) }}
                             style={{width:'100%',padding:'14px 18px',borderRadius:14,border:`2px solid ${isSel?'#2e7d32':'#e8dcc8'}`,background:isSel?'#e8f5e9':'#fff',cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:14,marginBottom:8}}>
-                            <span style={{width:36,height:36,borderRadius:10,background:isMorn?'#fff8ec':'#f5f3fa',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>
+                            <span style={{width:36,height:36,borderRadius:10,background:isMorn?'#fff8ec':'#f5f3fa',display:'flex',alignItems:'center',justifyContent:'center',fontSize:fontSizePx(18),flexShrink:0}}>
                               {isMorn?'☀️':'🌙'}
                             </span>
                             <div>
-                              <p style={{margin:'0 0 2px',fontSize:13,fontFamily:"'Gowun Batang',serif",fontWeight:700,color:isSel?'#2e7d32':'#4a3520'}}>{s.reference}</p>
-                              <p style={{margin:0,fontSize:11,color:isSel?'#43a047':'#8b6e4e'}}>{isMorn?'주일 오전':'주일 오후'}{s.sermon_title?` · ${s.sermon_title}`:''}</p>
+                              <p style={{margin:'0 0 2px',fontSize:fontSizePx(13),fontFamily:"'Gowun Batang',serif",fontWeight:700,color:isSel?'#2e7d32':'#4a3520'}}>{s.reference}</p>
+                              <p style={{margin:0,fontSize:fontSizePx(11),color:isSel?'#43a047':'#8b6e4e'}}>{isMorn?'주일 오전':'주일 오후'}{s.sermon_title?` · ${s.sermon_title}`:''}</p>
                             </div>
-                            {isSel && <span style={{marginLeft:'auto',fontSize:20,color:'#2e7d32'}}>✓</span>}
+                            {isSel && <span style={{marginLeft:'auto',fontSize:fontSizePx(20),color:'#2e7d32'}}>✓</span>}
                           </button>
                         )
                       })}
@@ -753,11 +759,11 @@ export default function CellPage() {
 
               <div style={{display:'flex',gap:8}}>
                 <button onClick={()=>setShowStartModal(false)}
-                  style={{flex:1,padding:'14px',borderRadius:14,border:'1px solid #e8dcc8',background:'#fff',cursor:'pointer',fontSize:13,color:'#8b6e4e',fontWeight:600}}>
+                  style={{flex:1,padding:'14px',borderRadius:14,border:'1px solid #e8dcc8',background:'#fff',cursor:'pointer',fontSize:fontSizePx(13),color:'#8b6e4e',fontWeight:600}}>
                   취소
                 </button>
                 <button onClick={handleStartSession} disabled={sessionStarting||!selWeek}
-                  style={{flex:2,padding:'14px',borderRadius:14,background:(!selWeek||sessionStarting)?'#c4a882':'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',cursor:(!selWeek||sessionStarting)?'not-allowed':'pointer',fontSize:15,fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
+                  style={{flex:2,padding:'14px',borderRadius:14,background:(!selWeek||sessionStarting)?'#7a5f3a':'linear-gradient(135deg,#2e7d32,#43a047)',color:'#fff',border:'none',cursor:(!selWeek||sessionStarting)?'not-allowed':'pointer',fontSize:fontSizePx(15),fontFamily:"'Gowun Batang',serif",fontWeight:700}}>
                   {sessionStarting?'시작 중...':'🙏 모임 시작하기'}
                 </button>
               </div>
