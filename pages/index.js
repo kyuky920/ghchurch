@@ -944,9 +944,6 @@ export default function Home() {
                           .reduce((sum, current) => sum + current.items.length, 0)
                         return (
                           <div key={group.title} data-capture-block style={{background:'#fff',borderRadius:18,padding:'18px 18px 16px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)'}}>
-                            <div style={{background:'#f7f0e5',borderRadius:12,padding:'12px 14px',border:'1px solid #eadcc8',marginBottom:12}}>
-                              <p style={{margin:0,color:'#6b5040',fontSize:scalePx(14, fontScale),fontWeight:700,fontFamily:"'Gowun Batang',serif"}}>{group.title}</p>
-                            </div>
                             <div style={{display:'flex',flexDirection:'column',gap:14}}>
                               {group.items.map((item, itemIndex)=>{
                                 const q=item.question
@@ -956,10 +953,6 @@ export default function Home() {
                                 const m=QMETA[visualIndex]||QMETA[0]
                                 return (
                                   <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '14px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
-                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:8}}>
-                                      <p style={{fontSize:10,color:'#8b6e4e',fontWeight:700,margin:0,letterSpacing:'0.05em'}}>{item.section_title || item.category || m.type}</p>
-                                      <span style={{fontSize:10,color:'#b49474',fontWeight:700}}>{itemIndex + 1}</span>
-                                    </div>
                                     {!isOpening && ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginBottom:8,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:scalePx(12, fontScale),lineHeight:1.8}}>{ex}</p></div>}
                                     <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(16, fontScale),lineHeight:1.9,fontWeight:700}}>{q}</p>
                                   </div>
