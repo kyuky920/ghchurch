@@ -432,7 +432,9 @@ function buildPrompt(item) {
     '- "말씀을 통해 은혜를 나눕시다."에서는 앞서 확인한 핵심이 내 삶, 마음, 관계, 현재 형편과 어떻게 연결되는지 나누게 해 주세요.',
     '- "말씀을 따라 결단합시다."에서는 같은 핵심 메시지가 이번 주의 순종, 기도, 태도 변화, 실천으로 이어지게 해 주세요.',
     '- 즉 뒤 단계 질문은 앞 단계 질문과 무관하게 새 주제를 꺼내지 말고, 앞에서 확인한 핵심을 더 깊게 가져가 주세요.',
-    '- 각 섹션당 2~3문항을 작성하되, 가능하면 점검 2문항, 은혜 나눔 2문항, 결단 1~2문항 정도의 균형을 가져가 주세요.',
+    '- 각 섹션의 질문 수는 반드시 2~3문항으로만 작성해 주세요. 4문항 이상은 금지합니다.',
+    '- 가능하면 각 섹션 안에서 "말씀 점검 1문항 + 은혜 나눔 1문항 + 결단 1문항"의 3문항 구조를 우선으로 해 주세요.',
+    '- 꼭 2문항만 작성해야 한다면, 핵심을 점검하는 질문 1문항과 삶으로 연결되는 질문 1문항이 남도록 구성해 주세요.',
     '- category는 흐름에 맞게 관찰/성찰/적용/공동체/복음 등으로 사용할 수 있습니다.',
     '- 단, "말씀을 점검합시다." 단계의 explanation은 반드시 비우지 말고, 질문에 답하기 위해 바로 참고할 수 있는 보조자료처럼 작성해 주세요.',
     '- 즉 explanation에는 "이 질문이 어떤 장면/구절/핵심을 묻는지"뿐 아니라, 답할 때 다시 떠올려야 할 사건, 인물의 반응, 반복된 표현, 설교의 강조점이 실제로 들어가야 합니다.',
@@ -771,6 +773,13 @@ function validateGeneratedPayload(parsed) {
   }
   if (!Array.isArray(sections) || sections.length === 0) {
     throw new Error('questions.sections가 비어 있습니다.');
+  }
+
+  for (const section of sections) {
+    const count = Array.isArray(section?.questions) ? section.questions.length : 0;
+    if (count < 2 || count > 3) {
+      throw new Error(`각 섹션의 질문 수는 2~3개여야 합니다. section="${section?.section_title || section?.title || ''}" count=${count}`);
+    }
   }
 
   const flatQuestions = sections.flatMap((section) => Array.isArray(section?.questions) ? section.questions : []);
