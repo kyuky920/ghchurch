@@ -83,6 +83,13 @@ function buildQuestionFlowGroups(items) {
   return [...ordered, ...rest].filter((group) => group.items.length)
 }
 
+function getQuestionGroupDisplayTitle(title) {
+  if (title === '말씀을 점검합시다.') return '오늘의 말씀을 점검해봅시다.'
+  if (title === '말씀을 통해 은혜를 나눕시다.') return '오늘 받은 은혜를 함께 나눠봅시다.'
+  if (title === '말씀을 따라 결단합시다.') return '이번 주 말씀 따라 함께 결단해봅시다.'
+  return title
+}
+
 function formatReadingParagraphs(text, sentencesPerParagraph = 2) {
   const raw = String(text || '').trim()
   if (!raw) return []
@@ -123,6 +130,7 @@ const OPENING_QUESTION = {
   category: '오프닝',
   explanation: '오늘 말씀을 먼저 자유롭게 돌아보며 마음을 여는 질문입니다.',
   question: '오늘 예배와 말씀은 어땠나요? 특별히 마음에 남았던 부분이나 느끼신 점이 있으셨다면 함께 나눠주세요.',
+  flow_stage: '오프닝',
 }
 
 function weekLabel(week) {
@@ -251,7 +259,8 @@ export default function Home() {
     }
     return []
   }
-  const qs      = [OPENING_QUESTION, ...normalizeQuestions(parseField(selected?.questions))]
+  const openingQuestion = OPENING_QUESTION
+  const qs      = normalizeQuestions(parseField(selected?.questions))
   const questionFlowGroups = buildQuestionFlowGroups(qs)
   const summary = (() => {
     const s = selected?.sermon_summary
@@ -936,25 +945,33 @@ export default function Home() {
 
                   {/* 탭 2: 나눔 질문 */}
                   {tab===2 && (
-                    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:13,color:'#8b6e4e',margin:'4px 0'}}>✦ {selected.reference} 나눔 질문</p>
+                      <div data-capture-block style={{background:'#fff',borderRadius:18,padding:'16px 18px 15px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)'}}>
+                        <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:scalePx(12, fontScale),fontWeight:700,letterSpacing:'0.01em'}}>오늘 예배를 함께 돌아봅시다.</p>
+                        <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(16, fontScale),lineHeight:1.9,fontWeight:700}}>{openingQuestion.question}</p>
+                        {openingQuestion.explanation ? (
+                          <div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginTop:10,border:'1px solid #efe4d3'}}>
+                            <p style={{margin:0,color:'#6b5040',fontSize:scalePx(12, fontScale),lineHeight:1.8}}>{openingQuestion.explanation}</p>
+                          </div>
+                        ) : null}
+                      </div>
                       {questionFlowGroups.map((group, groupIndex) => {
                         const firstIndex = questionFlowGroups
                           .slice(0, groupIndex)
                           .reduce((sum, current) => sum + current.items.length, 0)
                         return (
-                          <div key={group.title} data-capture-block style={{background:'#fff',borderRadius:18,padding:'18px 18px 16px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)'}}>
-                            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                          <div key={group.title} data-capture-block style={{background:'#fff',borderRadius:18,padding:'16px 18px 15px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)'}}>
+                            <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:scalePx(12, fontScale),fontWeight:700,letterSpacing:'0.01em'}}>{getQuestionGroupDisplayTitle(group.title)}</p>
+                            <div style={{display:'flex',flexDirection:'column',gap:12}}>
                               {group.items.map((item, itemIndex)=>{
                                 const q=item.question
                                 const ex=item.explanation
-                                const isOpening=item.category==='오프닝'
                                 const visualIndex = firstIndex + itemIndex
-                                const m=QMETA[visualIndex]||QMETA[0]
                                 return (
-                                  <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '14px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
-                                    {!isOpening && ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginBottom:8,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:scalePx(12, fontScale),lineHeight:1.8}}>{ex}</p></div>}
+                                  <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '12px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
                                     <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:scalePx(16, fontScale),lineHeight:1.9,fontWeight:700}}>{q}</p>
+                                    {ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginTop:10,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:scalePx(12, fontScale),lineHeight:1.8}}>{ex}</p></div>}
                                   </div>
                                 )
                               })}
