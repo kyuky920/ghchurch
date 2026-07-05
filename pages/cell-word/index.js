@@ -204,8 +204,8 @@ function formatReadingParagraphs(text, sentencesPerParagraph = 2) {
   })
 }
 
-function buildOverviewParagraphs(text) {
-  return formatReadingParagraphs(text, 1)
+function buildOverviewText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim()
 }
 
 function getQuestionExplanation(item, groupTitle) {
@@ -508,7 +508,7 @@ export default function CellWord() {
     if (typeof s === 'object') return s
     try { return JSON.parse(s) } catch(e) { return null }
   })()
-  const overviewParagraphs = buildOverviewParagraphs(summary?.overview || '')
+  const overviewText = buildOverviewText(summary?.overview || '')
 
   async function saveCurrentViewAsImage() {
     if (!captureRef.current || !selected) return
@@ -1179,24 +1179,9 @@ export default function CellWord() {
                       </div>
                       <div data-capture-block style={{ background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #e8d8c0' }}>
                         <p style={{ fontSize:fontSizePx(11), color:'#a0784e', fontWeight:700, letterSpacing:'0.08em', margin:'0 0 10px' }}>📖 전체 흐름</p>
-                        <div style={{display:'flex',flexDirection:'column',gap:12}}>
-                          {overviewParagraphs.map((paragraph, index) => (
-                            <p
-                              key={index}
-                              style={{
-                                color:'#382819',
-                                fontFamily:"'Gowun Batang',serif",
-                                fontSize:fontSizePx(index === 0 ? 16 : 15),
-                                lineHeight:1.95,
-                                margin:0,
-                                paddingTop:index === 0 ? 0 : 12,
-                                borderTop:index === 0 ? 'none' : '1px solid #efe4d3',
-                              }}
-                            >
-                              {paragraph}
-                            </p>
-                          ))}
-                        </div>
+                        <p style={{ color:'#382819', fontFamily:"'Gowun Batang',serif", fontSize:fontSizePx(15), lineHeight:1.95, margin:0 }}>
+                          {overviewText}
+                        </p>
                       </div>
                       {summary.sections?.map((sec, i) => (
                         <div key={i} data-capture-block style={{ background:'#fdf5ec', borderRadius:14, padding:'16px 18px', border:'1px solid #e8d8c0', borderLeft:'4px solid #c4956a', animation:`fadeUp 0.3s ease ${i*0.1}s both` }}>
