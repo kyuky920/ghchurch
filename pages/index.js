@@ -118,13 +118,17 @@ function formatReadingParagraphs(text, sentencesPerParagraph = 2) {
   })
 }
 
-const OVERVIEW_STEP_LABELS = ['위기', '기도', '말씀', '순종', '승리', '열매']
+function buildOverviewParagraphs(text) {
+  return formatReadingParagraphs(text, 1)
+}
 
-function buildOverviewBlocks(text) {
-  return formatReadingParagraphs(text).map((paragraph, index) => ({
-    label: OVERVIEW_STEP_LABELS[index] || `흐름 ${index + 1}`,
-    text: paragraph,
-  }))
+function getQuestionExplanation(item, groupTitle) {
+  if (item?.explanation) return item.explanation
+  if (groupTitle === '말씀을 점검합시다.') {
+    if (item?.section_title) return `${item.section_title} 중심으로 본문과 설교의 흐름을 다시 떠올리며 함께 점검해보세요.`
+    return '본문과 설교에서 강조된 장면과 핵심 내용을 다시 떠올리며 함께 점검해보세요.'
+  }
+  return ''
 }
 
 const OPENING_QUESTION = {
@@ -246,7 +250,7 @@ export default function Home() {
     if (typeof s === 'object') return s
     try { return JSON.parse(s) } catch(e) { return null }
   })()
-  const overviewBlocks = buildOverviewBlocks(summary?.overview || '')
+  const overviewParagraphs = buildOverviewParagraphs(summary?.overview || '')
 
   const grouped = sermons.reduce((acc,s)=>{
     if(!acc[s.week]) acc[s.week]=[]
@@ -869,12 +873,22 @@ export default function Home() {
                           {/* 전체 흐름 */}
                           <div data-capture-block style={{background:'#fff',borderRadius:14,padding:'18px 20px',border:'1px solid #e8d8c0'}}>
                             <p style={{fontSize:fontSizePx(11),color:'#a0784e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 10px'}}>📖 전체 흐름</p>
-                            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                              {overviewBlocks.map((block, index) => (
-                                <div key={index} style={{background:index % 2 === 0 ? '#fcf8f2' : '#f8f1e6',border:'1px solid #efe1cd',borderRadius:12,padding:'12px 14px'}}>
-                                  <p style={{margin:'0 0 6px',color:'#9a7651',fontSize:fontSizePx(11),fontWeight:700,letterSpacing:'0.08em'}}>{block.label}</p>
-                                  <p style={{color:'#4a3520',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(14),lineHeight:1.9,margin:0}}>{block.text}</p>
-                                </div>
+                            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                              {overviewParagraphs.map((paragraph, index) => (
+                                <p
+                                  key={index}
+                                  style={{
+                                    color:'#4a3520',
+                                    fontFamily:"'Gowun Batang',serif",
+                                    fontSize:fontSizePx(index === 0 ? 15 : 14),
+                                    lineHeight:1.95,
+                                    margin:0,
+                                    paddingTop:index === 0 ? 0 : 12,
+                                    borderTop:index === 0 ? 'none' : '1px solid #efe4d3',
+                                  }}
+                                >
+                                  {paragraph}
+                                </p>
                               ))}
                             </div>
                           </div>
@@ -917,11 +931,16 @@ export default function Home() {
                             <div style={{display:'flex',flexDirection:'column',gap:12}}>
                               {group.items.map((item, itemIndex)=>{
                                 const q=item.question
-                                const ex=item.explanation
+                                const ex=getQuestionExplanation(item, group.title)
                                 const visualIndex = firstIndex + itemIndex
                                 return (
                                   <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '12px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
-                                    <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),lineHeight:1.9,fontWeight:700}}>{q}</p>
+                                    <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                                      <span style={{minWidth:28,height:28,borderRadius:999,background:'#f3e5d2',border:'1px solid #e2cfb3',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#8b6e4e',fontSize:fontSizePx(12),fontWeight:700,flexShrink:0,marginTop:2}}>
+                                        {visualIndex + 1}
+                                      </span>
+                                      <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),lineHeight:1.9,fontWeight:700,flex:1}}>{q}</p>
+                                    </div>
                                     {ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginTop:10,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:fontSizePx(12),lineHeight:1.8}}>{ex}</p></div>}
                                   </div>
                                 )
