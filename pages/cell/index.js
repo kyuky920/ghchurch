@@ -113,6 +113,12 @@ export default function CellPage() {
   }, [])
 
   useEffect(() => {
+    if (!router.isReady) return
+    const queryWeek = Array.isArray(router.query.week) ? router.query.week[0] : router.query.week
+    if (queryWeek && queryWeek !== week) setWeek(queryWeek)
+  }, [router.isReady, router.query.week])
+
+  useEffect(() => {
     if (registered) {
       loadData()
       if (heartbeatRef.current) clearInterval(heartbeatRef.current)
@@ -465,6 +471,19 @@ export default function CellPage() {
             <select value={week} onChange={e=>setWeek(e.target.value)} style={{width:'100%',padding:'11px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:fontSizePx(14),background:'#faf7f4',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}>
               {weeks.map(w => <option key={w} value={w}>{weekLabel(w)} ({w})</option>)}
             </select>
+          </div>
+          <div style={{background:'linear-gradient(135deg,#f7eddc,#ead9bd)',borderRadius:18,padding:'18px 16px',border:'1px solid #dcc5a3',marginTop:12,boxShadow:'0 8px 20px rgba(122,95,58,0.08)'}}>
+            <p style={{fontSize:fontSizePx(11),color:'#8b6e4e',fontWeight:700,letterSpacing:'0.08em',margin:'0 0 8px'}}>함께 먼저 모이는 시간</p>
+            <p style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(17),color:'#4a3520',fontWeight:700,margin:'0 0 6px'}}>조 편성 전에 전체 말씀 나눔으로 먼저 시작하세요.</p>
+            <p style={{fontSize:fontSizePx(12),color:'#7a5f3a',margin:'0 0 14px',lineHeight:1.7}}>
+              {weekLabel(week)} 말씀을 먼저 보고 함께 나눈 뒤, 이후 조별 모임으로 이어갈 수 있어요.
+            </p>
+            <button
+              onClick={() => router.push(`/cell-word?week=${week}&tab=1&from=cell`)}
+              style={{width:'100%',background:'linear-gradient(135deg,#7a5f3a,#a0784e)',color:'#fff',border:'none',borderRadius:14,padding:'14px 16px',cursor:'pointer',fontSize:fontSizePx(15),fontFamily:"'Gowun Batang',serif",fontWeight:700,boxShadow:'0 8px 18px rgba(122,95,58,0.2)'}}
+            >
+              📖 말씀 나눔 보러 가기
+            </button>
           </div>
           <div style={{background:'#fff',borderRadius:14,padding:'12px 14px',border:'1px solid #e8d8c0',marginTop:12}}>
             <FontScaleControl fontScaleKey={fontScaleKey} setFontScaleKey={setFontScaleKey} />

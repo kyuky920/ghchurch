@@ -257,6 +257,12 @@ export default function CellWord() {
   const captureRef   = useRef(null)
   const { fontScaleStyle, fontScaleKey, setFontScaleKey } = useFontScale()
 
+  function goBackToCell() {
+    const week = pickQueryValue(router.query.week)
+    const target = week ? `/cell?week=${week}` : '/cell'
+    router.push(target)
+  }
+
   const activeNoticeKey = activeSession?.notice
     ? `${activeSession.group_no || ''}:${activeSession.notice}`
     : ''
@@ -1034,6 +1040,12 @@ export default function CellWord() {
         {/* ── 헤더 ── */}
         <div style={S.header}>
           <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
+          <button
+            onClick={goBackToCell}
+            style={{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(255,255,255,0.78)',border:'1px solid rgba(122,95,58,0.18)',borderRadius:999,padding:'8px 12px',color:'#6b5740',fontSize:fontSizePx(12),fontWeight:700,cursor:'pointer',marginBottom:14}}
+          >
+            ← cell로 돌아가기
+          </button>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <div>
             <p style={{ fontSize:fontSizePx(10), color:'#8b6e4e', letterSpacing:'0.2em', fontWeight:600, margin:'0 0 4px' }}>시냇가에 심은 나무 WORD &amp; LIFE</p>
