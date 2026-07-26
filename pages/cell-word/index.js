@@ -934,14 +934,6 @@ export default function CellWord() {
       answer.style.borderRadius = '12px'
       answer.style.padding = '12px 14px'
 
-      const answerLabel = document.createElement('p')
-      answerLabel.textContent = '정답'
-      answerLabel.style.margin = '0 0 6px'
-      answerLabel.style.color = '#58734f'
-      answerLabel.style.fontSize = '13px'
-      answerLabel.style.fontWeight = '700'
-      answer.appendChild(answerLabel)
-
       const answerBody = document.createElement('p')
       answerBody.textContent = answerText
       answerBody.style.margin = '0'
@@ -1007,7 +999,7 @@ export default function CellWord() {
             lines.push(`${index}. ${section}`)
             if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
             if (q) lines.push(`- ${q}`)
-            if (answer) lines.push(`- 정답: ${answer}`)
+            if (answer) lines.push(answer)
             lines.push('')
             index += 1
           })
@@ -1295,7 +1287,6 @@ export default function CellWord() {
                                 {ex && <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginTop:10, border:'1px solid #efe4d3' }}><p style={{ margin:0, color:'#5a4737', fontSize:fontSizePx(13), lineHeight:1.8 }}>{ex}</p></div>}
                                 {answer && (
                                   <div style={{background:'#f3f8f1',borderRadius:10,padding:'12px 14px',marginTop:10,border:'1px solid #d7e6d1',borderLeft:'4px solid #739167'}}>
-                                    <p style={{fontSize:fontSizePx(11),color:'#58734f',fontWeight:700,letterSpacing:'0.04em',margin:'0 0 6px'}}>정답</p>
                                     <p style={{margin:0,color:'#30452c',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(14),lineHeight:1.85}}>{answer}</p>
                                   </div>
                                 )}
