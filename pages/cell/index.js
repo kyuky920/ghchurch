@@ -479,7 +479,7 @@ export default function CellPage() {
               {weekLabel(week)} 말씀을 먼저 보고 함께 나눈 뒤, 이후 조별 모임으로 이어갈 수 있어요.
             </p>
             <button
-              onClick={() => router.push(`/cell-word?week=${week}&tab=1&from=cell`)}
+              onClick={() => router.push(`/cell-word?week=${week}&tab=passage&from=cell`)}
               style={{width:'100%',background:'linear-gradient(135deg,#7a5f3a,#a0784e)',color:'#fff',border:'none',borderRadius:14,padding:'14px 16px',cursor:'pointer',fontSize:fontSizePx(15),fontFamily:"'Gowun Batang',serif",fontWeight:700,boxShadow:'0 8px 18px rgba(122,95,58,0.2)'}}
             >
               📖 말씀 나눔 보러 가기

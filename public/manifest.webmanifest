@@ -1,7 +1,7 @@
 {
-  "name": "광흥교회 청년부 WORD & LIFE",
-  "short_name": "WORD & LIFE",
-  "description": "청년부 말씀 나눔, 셀모임, 리더도구를 앱처럼 바로 이용할 수 있습니다.",
+  "name": "KYESIN",
+  "short_name": "KYESIN",
+  "description": "KYESIN web application powered by Next.js, Vercel, and Supabase.",
   "start_url": "/cell",
   "scope": "/",
   "display": "standalone",

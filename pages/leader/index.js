@@ -292,12 +292,13 @@ function SermonTab() {
     const toItem = (q, options = {}) => {
       const sectionTitle = options.sectionTitle || ''
       const flowStage = options.flowStage || ''
-      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage, scripture_anchor: '' }
+      if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, answer: '', flow_stage: flowStage, scripture_anchor: '' }
       return {
         section_title: q?.section_title || sectionTitle || '',
         category: q?.category || q?.type || '',
         explanation: q?.explanation || q?.context || '',
         question: q?.question || q?.text || q?.content || '',
+        answer: q?.answer || q?.model_answer || q?.suggested_answer || '',
         flow_stage: q?.flow_stage || q?.flowStage || q?.group_title || q?.groupTitle || flowStage || '',
         scripture_anchor: q?.scripture_anchor || q?.anchor || '',
       }
@@ -496,7 +497,8 @@ function SermonTab() {
             <input value={item.section_title || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, section_title: e.target.value } : q)}))} placeholder="대지/주제" style={{...S.input,marginBottom:6}}/>
             <input value={item.category || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, category: e.target.value } : q)}))} placeholder="카테고리(선택)" style={{...S.input,marginBottom:6}}/>
             <textarea value={item.explanation || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, explanation: e.target.value } : q)}))} placeholder="필요한 경우에만 질문 의도/진행 가이드" style={{...S.input,minHeight:62,resize:'vertical',marginBottom:6}}/>
-            <textarea value={item.question || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, question: e.target.value } : q)}))} style={{...S.input,minHeight:70,resize:'vertical'}}/>
+            <textarea value={item.question || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, question: e.target.value } : q)}))} placeholder="질문" style={{...S.input,minHeight:70,resize:'vertical',marginBottom:6}}/>
+            <textarea value={item.answer || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, answer: e.target.value } : q)}))} placeholder="말씀 점검 질문의 실제 답 (목사님 말씀에 근거)" style={{...S.input,minHeight:78,resize:'vertical'}}/>
           </div>
         ))}
       </div>

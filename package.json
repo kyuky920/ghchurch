@@ -1,7 +1,8 @@
 {
-  "name": "wordlife",
+  "name": "kyesin",
   "version": "0.1.0",
   "private": true,
+  "description": "Kyesin web application powered by Next.js, Vercel, and Supabase.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

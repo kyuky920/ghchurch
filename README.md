@@ -1,112 +1,83 @@
-# WORD & LIFE — 청년부 말씀 나눔 서비스
+# KYESIN
 
-## 구조
+`Next.js + Vercel + Supabase` 기반으로 시작하는 프로젝트 기본 환경 문서입니다.
 
-```
-[리더 - Claude Artifact]
-  말씀 입력 → AI 생성 → POST /api/sermons
-                              ↓
-              [Vercel Next.js API + Supabase DB]
-                              ↓
-              [청년 웹서비스 - vercel URL]
-```
+## 연결 대상
 
-## 배포 순서
+- GitHub: [kyuky920/kyesin](https://github.com/kyuky920/kyesin)
+- Vercel: [kyesin project](https://vercel.com/kyuky920s-projects/kyesin)
+- Supabase: [khzweuawuyrqohgjdzsn](https://supabase.com/dashboard/project/khzweuawuyrqohgjdzsn)
 
-### 1. GitHub 업로드
+## 현재 스택
+
+- Next.js 14
+- React 18
+- `@supabase/supabase-js`
+- Vercel 배포 기준 설정
+
+## 로컬 시작
+
 ```bash
-git init
-git add .
-git commit -m "init"
-git remote add origin https://github.com/YOUR_ID/wordlife.git
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+앱은 기본적으로 `http://localhost:3000` 에서 실행됩니다.
+
+## 환경변수
+
+`.env.local` 에 아래 값을 채워서 사용합니다.
+
+| 변수명 | 설명 |
+|--------|------|
+| `NEXT_PUBLIC_APP_NAME` | 앱 표시 이름 |
+| `NEXT_PUBLIC_APP_URL` | 로컬/배포 앱 URL |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_URL` | 서버용 Supabase URL |
+| `SUPABASE_SERVICE_KEY` | 서버용 service role key |
+| `LEADER_API_SECRET` | 관리자/내부 API 보호용 시크릿 |
+
+`SUPABASE_URL` 과 `NEXT_PUBLIC_SUPABASE_URL` 은 현재 `https://khzweuawuyrqohgjdzsn.supabase.co` 를 사용하도록 템플릿이 맞춰져 있습니다.
+
+## GitHub 연결
+
+현재 워크스페이스의 `origin` 은 다른 저장소를 가리키고 있을 수 있으니, 새 프로젝트 기준으로 맞출 때는 아래처럼 정리하면 됩니다.
+
+```bash
+git remote set-url origin git@github.com:kyuky920/kyesin.git
 git push -u origin main
 ```
 
-### 2. Vercel 배포
-1. vercel.com → Import Project → GitHub 연결
-2. 환경변수 설정 (Settings → Environment Variables):
+HTTPS를 선호하면 아래 주소를 사용해도 됩니다.
 
-| 변수명 | 값 |
-|--------|-----|
-| `SUPABASE_URL` | https://nanylleoxdtynibznfft.supabase.co |
-| `SUPABASE_SERVICE_KEY` | (Supabase Legacy service_role key) |
-| `LEADER_API_SECRET` | wordlife-leader-2025 (자유롭게 변경) |
-| `NEXT_PUBLIC_API_URL` | https://your-project.vercel.app |
-
-3. Deploy 클릭
-
-### 3. Claude Artifact 리더 도구 설정
-Artifact 상단의 `API_URL`과 `API_SECRET`을 Vercel URL로 업데이트
-
-## API
-
-| Method | Path | 인증 | 설명 |
-|--------|------|------|------|
-| GET | /api/sermons | 없음 | 전체 목록 |
-| POST | /api/sermons | Bearer secret | 저장/수정 |
-| PATCH | /api/sermons/:id | Bearer secret | 수정 |
-| DELETE | /api/sermons/:id | Bearer secret | 삭제 |
-
-## Supabase 테이블 (SQL Editor에서 실행)
-```sql
-drop table if exists sermons cascade;
-
-create table sermons (
-  id uuid default gen_random_uuid() primary key,
-  week text not null,
-  service text not null,
-  reference text not null,
-  sermon_title text,
-  passage text,
-  questions jsonb,
-  meditations jsonb,
-  card_verse text,
-  created_at timestamptz default now(),
-  unique(week, service)
-);
-
-alter table sermons enable row level security;
-create policy "r" on sermons for select using (true);
-create policy "i" on sermons for insert with check (true);
-create policy "u" on sermons for update using (true);
-create policy "d" on sermons for delete using (true);
-```
-
-## 로컬 말씀 생성 에이전트
-
-현재 n8n에서 하던 `sermons` 기반 질문/요약 생성 작업은 로컬에서도 실행할 수 있습니다.
-
-전제:
-- `claude` CLI 설치 및 로그인 완료
-- `.env.local` 또는 쉘 환경에 아래 값 설정
-  - `SUPABASE_URL`
-  - `SUPABASE_SERVICE_KEY`
-- 기본 모델은 `sonnet`, 필요하면 `CLAUDE_MODEL` 또는 `--model`로 변경
-
-### 1회 실행
 ```bash
-npm run sermon:agent
+https://github.com/kyuky920/kyesin.git
 ```
 
-동작:
-- `status = pending` 중 가장 오래된 1건 우선 처리
-- 없으면 `status = processing` 이면서 `updated_at` 기준 10분 이상 지난 건 재시도
-- Claude CLI로 JSON 생성
-- `sermons.questions`, `sermons.sermon_summary`, `status=done` 저장
+## Vercel 설정
 
-### 특정 설교 1건 실행
-```bash
-npm run sermon:agent -- --id 64203fb8-2f3a-4981-90e1-42494e768445
-```
+1. Vercel에서 GitHub 저장소 `kyuky920/kyesin` 을 Import 합니다.
+2. Framework Preset 은 `Next.js` 를 사용합니다.
+3. Environment Variables 에 `.env.example` 의 값을 동일하게 등록합니다.
+4. Production Domain 이 연결되면 `NEXT_PUBLIC_APP_URL` 을 실제 배포 URL로 갱신합니다.
 
-### 프롬프트만 확인
-```bash
-npm run sermon:agent:dry -- --id 64203fb8-2f3a-4981-90e1-42494e768445
-```
+이 저장소에는 기본 `vercel.json` 이 포함되어 있어 `install`, `build`, `dev` 명령이 명시적으로 맞춰져 있습니다.
 
-### 로컬 폴링 실행
-```bash
-npm run sermon:agent -- --watch --poll-seconds 60
-```
+## Supabase 설정
 
-이 방식이면 n8n 없이도 로컬에서 같은 생성 로직을 돌릴 수 있고, 이후 `launchd`나 `cron`으로 상시 실행하는 것도 가능합니다.
+1. Supabase Dashboard 에서 `Project Settings > API` 로 이동합니다.
+2. 아래 값을 복사해 `.env.local` 과 Vercel 환경변수에 넣습니다.
+   - Project URL
+   - anon public key
+   - service role key
+3. 앞으로 스키마 작업을 시작하면 `supabase/` 디렉터리 아래에 migration 을 추가하는 방식으로 관리하는 것을 권장합니다.
+
+## 다음 추천 순서
+
+1. GitHub 원격 저장소를 `kyesin` 으로 연결
+2. `.env.local` 을 새 Supabase 프로젝트 기준으로 교체
+3. Vercel 환경변수 등록 후 첫 배포
+4. Supabase 스키마와 인증 정책 설계
+5. 실제 화면/기능 개발 시작
