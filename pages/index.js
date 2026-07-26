@@ -32,12 +32,13 @@ function normalizeQuestions(raw) {
   const toItem = (q, options = {}) => {
     const sectionTitle = options.sectionTitle || ''
     const flowStage = options.flowStage || ''
-    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, flow_stage: flowStage, scripture_anchor: '' }
+    if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, answer: '', flow_stage: flowStage, scripture_anchor: '' }
     return {
       section_title: q?.section_title || sectionTitle || '',
       category: q?.category || q?.type || '',
       explanation: q?.explanation || q?.context || '',
       question: q?.question || q?.text || q?.content || '',
+      answer: q?.answer || q?.model_answer || q?.suggested_answer || '',
       flow_stage: q?.flow_stage || q?.flowStage || q?.group_title || q?.groupTitle || flowStage || '',
       scripture_anchor: q?.scripture_anchor || q?.anchor || '',
     }
@@ -131,6 +132,14 @@ function getQuestionExplanation(item, groupTitle) {
     return `본문과 설교에서 강조된 장면을${anchor} 다시 확인해 보세요. 질문에 답할 때 핵심 사건과 반복된 강조를 먼저 짚어주면 좋습니다.`
   }
   return ''
+}
+
+function isWordCheckGroup(groupTitle) {
+  return groupTitle === '말씀을 점검합시다.'
+}
+
+function getWordCheckAnswer(item = {}) {
+  return String(item?.answer || '').replace(/\s+/g, ' ').trim()
 }
 
 const OPENING_QUESTION = {
@@ -493,7 +502,8 @@ export default function Home() {
               number,
               item?.section_title || item?.category || `질문 ${number}`,
               item?.question || '',
-              item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title)
+              item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title),
+              isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             )
           })
           cards.push(questionCard)
@@ -620,7 +630,7 @@ export default function Home() {
     card.appendChild(box)
   }
 
-  function appendShareQuestionCard(card, number, headingText, questionText, descriptionText) {
+  function appendShareQuestionCard(card, number, headingText, questionText, descriptionText, answerText) {
     const box = document.createElement('div')
     box.style.background = '#fff'
     box.style.border = '1px solid #e4d9ea'
@@ -657,6 +667,33 @@ export default function Home() {
     body.style.lineHeight = '1.85'
     body.style.fontWeight = '700'
     box.appendChild(body)
+
+    if (answerText) {
+      const answer = document.createElement('div')
+      answer.style.background = '#f3f8f1'
+      answer.style.border = '1px solid #d7e6d1'
+      answer.style.borderLeft = '4px solid #739167'
+      answer.style.borderRadius = '12px'
+      answer.style.padding = '12px 14px'
+
+      const answerLabel = document.createElement('p')
+      answerLabel.textContent = '정답'
+      answerLabel.style.margin = '0 0 6px'
+      answerLabel.style.color = '#58734f'
+      answerLabel.style.fontSize = '13px'
+      answerLabel.style.fontWeight = '700'
+      answer.appendChild(answerLabel)
+
+      const answerBody = document.createElement('p')
+      answerBody.textContent = answerText
+      answerBody.style.margin = '0'
+      answerBody.style.color = '#30452c'
+      answerBody.style.fontFamily = "'Gowun Batang',serif"
+      answerBody.style.fontSize = '17px'
+      answerBody.style.lineHeight = '1.8'
+      answer.appendChild(answerBody)
+      box.appendChild(answer)
+    }
 
     card.appendChild(box)
   }
@@ -707,10 +744,12 @@ export default function Home() {
           group.items.forEach((item) => {
             const q = item?.question || ''
             const ex = getQuestionExplanation(item, group.title)
+            const answer = isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             const section = item?.section_title || item?.category || `질문 ${index}`
             lines.push(`${index}. ${section}`)
             if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
             if (q) lines.push(`- ${q}`)
+            if (answer) lines.push(`- 정답: ${answer}`)
             lines.push('')
             index += 1
           })
@@ -919,6 +958,7 @@ export default function Home() {
                               {group.items.map((item, itemIndex)=>{
                                 const q=item.question
                                 const ex=getQuestionExplanation(item, group.title)
+                                const answer=isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
                                 const visualIndex = firstIndex + itemIndex
                                 return (
                                   <div key={`${group.title}-${itemIndex}`} style={{padding:itemIndex === 0 ? '0' : '12px 0 0',borderTop:itemIndex === 0 ? 'none' : '1px solid #efe4d3'}}>
@@ -929,6 +969,12 @@ export default function Home() {
                                       <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),lineHeight:1.9,fontWeight:700,flex:1}}>{q}</p>
                                     </div>
                                     {ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginTop:10,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:fontSizePx(12),lineHeight:1.8}}>{ex}</p></div>}
+                                    {answer&&(
+                                      <div style={{background:'#f3f8f1',borderRadius:10,padding:'12px 14px',marginTop:10,border:'1px solid #d7e6d1',borderLeft:'4px solid #739167'}}>
+                                        <p style={{fontSize:fontSizePx(11),color:'#58734f',fontWeight:700,letterSpacing:'0.04em',margin:'0 0 6px'}}>정답</p>
+                                        <p style={{margin:0,color:'#30452c',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(14),lineHeight:1.85}}>{answer}</p>
+                                      </div>
+                                    )}
                                   </div>
                                 )
                               })}

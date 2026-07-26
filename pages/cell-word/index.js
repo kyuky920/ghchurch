@@ -226,19 +226,8 @@ function isWordCheckGroup(groupTitle) {
   return groupTitle === '말씀을 점검합시다.'
 }
 
-function buildDetailedWordCheckAnswer(item = {}) {
-  const raw = String(item?.answer || '').replace(/\s+/g, ' ').trim()
-  if (!raw) return ''
-
-  const introParts = []
-  if (item?.section_title) introParts.push(`${item.section_title} 장면에서`)
-  if (item?.scripture_anchor) introParts.push(item.scripture_anchor)
-  const intro = introParts.length ? `${introParts.join(' ')}을 보면, ` : ''
-
-  const normalized = /[.!?…다요]$/.test(raw) ? raw : `${raw}.`
-  const closing = ' 이 부분을 나눌 때는 본문에서 확인되는 사건과 의미, 그리고 오늘 우리에게 주는 메시지까지 함께 연결해서 설명해 주면 좋습니다.'
-
-  return `${intro}${normalized}${closing}`.trim()
+function getWordCheckAnswer(item = {}) {
+  return String(item?.answer || '').replace(/\s+/g, ' ').trim()
 }
 
 const OPENING_QUESTION = {
@@ -772,7 +761,7 @@ export default function CellWord() {
               item?.section_title || item?.category || `질문 ${number}`,
               item?.question || '',
               item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title),
-              isWordCheckGroup(group.title) ? buildDetailedWordCheckAnswer(item) : ''
+              isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             )
           })
           cards.push(questionCard)
@@ -946,7 +935,7 @@ export default function CellWord() {
       answer.style.padding = '12px 14px'
 
       const answerLabel = document.createElement('p')
-      answerLabel.textContent = '말씀을 바탕으로 한 답'
+      answerLabel.textContent = '정답'
       answerLabel.style.margin = '0 0 6px'
       answerLabel.style.color = '#58734f'
       answerLabel.style.fontSize = '13px'
@@ -1013,12 +1002,12 @@ export default function CellWord() {
           group.items.forEach((item) => {
             const q = item?.question || ''
             const ex = getQuestionExplanation(item, group.title)
-            const answer = isWordCheckGroup(group.title) ? buildDetailedWordCheckAnswer(item) : ''
+            const answer = isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             const section = item?.section_title || item?.category || `질문 ${index}`
             lines.push(`${index}. ${section}`)
             if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
             if (q) lines.push(`- ${q}`)
-            if (answer) lines.push(`- 말씀을 바탕으로 한 답: ${answer}`)
+            if (answer) lines.push(`- 정답: ${answer}`)
             lines.push('')
             index += 1
           })
@@ -1292,7 +1281,7 @@ export default function CellWord() {
                           {group.items.map((item, itemIndex) => {
                             const q  = item.question
                             const ex = getQuestionExplanation(item, group.title)
-                            const answer = isWordCheckGroup(group.title) ? buildDetailedWordCheckAnswer(item) : ''
+                            const answer = isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
                             const visualIndex = firstIndex + itemIndex
                             const m  = QMETA[visualIndex] || QMETA[0]
                             return (
@@ -1306,7 +1295,7 @@ export default function CellWord() {
                                 {ex && <div style={{ background:'#faf7f2', borderRadius:8, padding:'10px 12px', marginTop:10, border:'1px solid #efe4d3' }}><p style={{ margin:0, color:'#5a4737', fontSize:fontSizePx(13), lineHeight:1.8 }}>{ex}</p></div>}
                                 {answer && (
                                   <div style={{background:'#f3f8f1',borderRadius:10,padding:'12px 14px',marginTop:10,border:'1px solid #d7e6d1',borderLeft:'4px solid #739167'}}>
-                                    <p style={{fontSize:fontSizePx(11),color:'#58734f',fontWeight:700,letterSpacing:'0.04em',margin:'0 0 6px'}}>말씀을 바탕으로 한 답</p>
+                                    <p style={{fontSize:fontSizePx(11),color:'#58734f',fontWeight:700,letterSpacing:'0.04em',margin:'0 0 6px'}}>정답</p>
                                     <p style={{margin:0,color:'#30452c',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(14),lineHeight:1.85}}>{answer}</p>
                                   </div>
                                 )}
