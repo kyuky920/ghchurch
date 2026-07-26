@@ -214,14 +214,31 @@ function getQuestionExplanation(item, groupTitle) {
   if (item?.explanation) return item.explanation
   if (groupTitle === '말씀을 점검합시다.') {
     const anchor = item?.scripture_anchor ? ` ${item.scripture_anchor}을 다시 보며` : ''
-    if (item?.section_title) return `${item.section_title}와 관련된 장면을${anchor} 떠올려 보세요. 질문에 답할 때 본문에서 실제로 무엇이 일어났고, 무엇이 강조되었는지 먼저 정리하면 좋습니다.`
-    return `본문과 설교에서 강조된 장면을${anchor} 다시 확인해 보세요. 질문에 답할 때 핵심 사건과 반복된 강조를 먼저 짚어주면 좋습니다.`
+    if (item?.section_title) {
+      return `${item.section_title}와 관련된 장면을${anchor} 떠올려 보세요. 질문에 답할 때는 먼저 본문에서 실제로 어떤 사건이 일어났는지, 등장인물의 반응은 무엇이었는지, 그리고 설교에서 특별히 반복해서 강조한 메시지가 무엇인지 순서대로 정리해 주면 더 풍성하게 나눌 수 있습니다.`
+    }
+    return `본문과 설교에서 강조된 장면을${anchor} 다시 확인해 보세요. 질문에 답할 때는 핵심 사건, 인물의 반응, 그리고 오늘 우리에게 주시는 적용 포인트까지 함께 짚어 주면 답변이 더 분명하고 풍성해집니다.`
   }
   return ''
 }
 
 function isWordCheckGroup(groupTitle) {
   return groupTitle === '말씀을 점검합시다.'
+}
+
+function buildDetailedWordCheckAnswer(item = {}) {
+  const raw = String(item?.answer || '').replace(/\s+/g, ' ').trim()
+  if (!raw) return ''
+
+  const introParts = []
+  if (item?.section_title) introParts.push(`${item.section_title} 장면에서`)
+  if (item?.scripture_anchor) introParts.push(item.scripture_anchor)
+  const intro = introParts.length ? `${introParts.join(' ')}을 보면, ` : ''
+
+  const normalized = /[.!?…다요]$/.test(raw) ? raw : `${raw}.`
+  const closing = ' 이 부분을 나눌 때는 본문에서 확인되는 사건과 의미, 그리고 오늘 우리에게 주는 메시지까지 함께 연결해서 설명해 주면 좋습니다.'
+
+  return `${intro}${normalized}${closing}`.trim()
 }
 
 const OPENING_QUESTION = {
@@ -755,7 +772,7 @@ export default function CellWord() {
               item?.section_title || item?.category || `질문 ${number}`,
               item?.question || '',
               item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title),
-              isWordCheckGroup(group.title) ? item?.answer || '' : ''
+              isWordCheckGroup(group.title) ? buildDetailedWordCheckAnswer(item) : ''
             )
           })
           cards.push(questionCard)
@@ -996,7 +1013,7 @@ export default function CellWord() {
           group.items.forEach((item) => {
             const q = item?.question || ''
             const ex = getQuestionExplanation(item, group.title)
-            const answer = isWordCheckGroup(group.title) ? item?.answer || '' : ''
+            const answer = isWordCheckGroup(group.title) ? buildDetailedWordCheckAnswer(item) : ''
             const section = item?.section_title || item?.category || `질문 ${index}`
             lines.push(`${index}. ${section}`)
             if (ex && item?.category !== '오프닝') lines.push(`- ${ex}`)
@@ -1275,7 +1292,7 @@ export default function CellWord() {
                           {group.items.map((item, itemIndex) => {
                             const q  = item.question
                             const ex = getQuestionExplanation(item, group.title)
-                            const answer = isWordCheckGroup(group.title) ? item.answer : ''
+                            const answer = isWordCheckGroup(group.title) ? buildDetailedWordCheckAnswer(item) : ''
                             const visualIndex = firstIndex + itemIndex
                             const m  = QMETA[visualIndex] || QMETA[0]
                             return (
