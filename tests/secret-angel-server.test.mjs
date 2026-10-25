@@ -107,7 +107,7 @@ test('모임 삭제는 관리자·코드 확인 필요, 관련 세션 삭제', a
 
 test('참가자 페이지 API에서 모든 관리자 기능과 과거 관리자 쿠키 차단', async () => {
   const { handler, adminCookie, userCookie } = await fixture()
-  for (const action of ['admin_login', 'create', 'start', 'reset_pin', 'reveal', 'delete']) {
+  for (const action of ['admin_login', 'create', 'start', 'reset_pin', 'reveal', 'delete', 'test_advance', 'test_reset']) {
     const res = await request(handler, { action, password, slug: spec.slug }, { cookie: userCookie })
     assert.equal(res.statusCode, 403)
   }

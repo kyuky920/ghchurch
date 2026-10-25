@@ -79,6 +79,18 @@ export default function SecretAngelAdmin() {
       {data && <>
         <section className={styles.summary}><div><span className={styles.eyebrow}>{data.status === 'draft' ? '참가자 등록 중' : data.status === 'revealed' ? '정체 공개' : data.week === 0 ? '시작 대기' : `8주 중 ${data.week}주차`}</span><h2>{data.title}</h2><p>{data.startsAt ? `시작 ${date(data.startsAt)} · 공개 가능 ${date(data.endsAt)}` : '모두 등록하면 관리자가 비밀 배정을 시작합니다.'}</p></div><button disabled={busy} onClick={() => refresh().then(() => setNotice('최신 소식을 불러왔습니다.')).catch(e => setError(e.message))}>새로고침</button></section>
 
+          {data.isTest && <section className={styles.card}>
+            <h3>🧪 테스트 진행 도구</h3><p>이 가상 참가자 모임에서만 사용할 수 있습니다. 주차를 이동해 기능 잠금과 마지막 공개를 확인해 보세요.</p>
+            <div className={styles.row}>
+              {data.status === 'active' && Date.now() < data.endsAt && <>
+                {data.week < 3 && <button disabled={busy} onClick={() => perform({ action: 'test_advance', week: 3 }, '3주차로 이동했습니다. 편지와 의심하기를 테스트할 수 있습니다.')}>3주차 기능 열기</button>}
+                <button disabled={busy} onClick={() => perform({ action: 'test_advance', week: data.week + 1 }, '테스트 주차를 이동했습니다.')}>{data.week < 8 ? `${data.week + 1}주차로 이동` : '8주 종료로 이동'}</button>
+                {data.week < 8 && <button disabled={busy} onClick={() => perform({ action: 'test_advance', week: 9 }, '8주가 종료되었습니다. 아래에서 마지막 정체 공개를 확인해 주세요.')}>8주 종료로 이동</button>}
+              </>}
+              <button disabled={busy} onClick={() => setConfirmAction('test_reset')}>활동 초기화 · 1주차로</button>
+            </div>
+            {confirmAction === 'test_reset' && <div className={styles.confirm}><p>이 테스트 모임의 미션·기도·하트·편지·의심 기록을 지우고 1주차로 되돌립니다. 참가자 PIN과 배정은 유지합니다.</p><button disabled={busy} onClick={async () => { await perform({ action: 'test_reset' }, '테스트 기록을 초기화하고 1주차로 돌아왔습니다.'); setConfirmAction('') }}>테스트 초기화 확정</button><button onClick={() => setConfirmAction('')}>취소</button></div>}
+          </section>}
           <section className={styles.card}><div className={styles.row}><h2>운영 현황</h2><button disabled={busy} onClick={() => { setInvites([]); refresh('').catch(e => setError(e.message)) }}>모임 목록</button></div><p>등록 {data.participants.filter(p => p.registered).length}/{data.participants.length}명 · 완료 미션 {data.counts.missions}개</p>
             <ul className={styles.list}>{data.participants.map(p => <li key={p.id}><span>{p.name} · {p.registered ? '등록 완료' : '등록 대기'}</span><button disabled={busy || data.status === 'revealed'} onClick={() => setConfirmAction(`reset:${p.id}`)}>PIN / 코드 재발급</button>{confirmAction === `reset:${p.id}` && <div className={styles.confirm}><p>{p.name}님의 기존 PIN과 로그인 세션을 무효화하고 새 코드를 발급합니다.</p><button disabled={busy} onClick={async () => { await perform({ action: 'reset_pin', participantId: p.id }, '새 코드를 개별 전달해 주세요.'); setConfirmAction('') }}>재발급 확정</button><button onClick={() => setConfirmAction('')}>취소</button></div>}</li>)}</ul>
             {data.status === 'draft' && <form onSubmit={e => formAction(e, 'start')}><h3>비밀 배정과 시작</h3><p>10~20명 전원이 등록해야 합니다. 중복·자기 배정·서로 맞교환 없이 무작위 배정하며 다시 뽑을 수 없습니다.</p><label>시작 시각 (기기 현지 시각)<input required type="datetime-local" name="startsAt" /></label><button disabled={busy || data.participants.some(p => !p.registered)} className={styles.primary}>배정 확정 · 8주 시작</button></form>}
