@@ -4,6 +4,8 @@
 
 ## 현재 구현
 
+관리자 기능은 `/leader?tab=secret-angel`의 **마니또 관리** 탭에서만 제공합니다. `/leader` 상단 바로가기로 접근할 수 있습니다. `/secret_angel`은 참가자 전용이며 관리자 로그인·운영 기능이 없습니다. 기존 마니또 관리자 비밀번호는 그대로 사용합니다.
+
 - 기존 Next.js 14 Pages Router, React 18, Supabase service role API 구조를 유지했습니다. `/cell`에 `/secret_angel` 진입 링크를 추가했습니다.
 - 기존 셀의 이름·기기 ID 로그인은 마니또 인증으로 사용하지 않습니다. 기존 `members`, `app_members`, 셀모임 테이블은 수정하지 않습니다.
 - 관리자: 서버 전용 별도 비밀번호 → 12시간 HttpOnly 세션. 모임을 여러 개 만들 수 있습니다.
@@ -33,7 +35,7 @@
 - 세 테이블 모두 RLS 활성화, `PUBLIC`/`anon`/`authenticated` 권한 회수, service role만 접근.
 - rate limit RPC도 일반 사용자 실행 권한 회수. DB 기반 원자적 제한이므로 여러 Vercel 인스턴스에서 공유됩니다. 로그인 계정당 15분 8회, 전체 인증 15분 300회, 인증 세션당 분당 120회입니다. 성공한 로그인도 횟수에 포함되며 429일 때 제한 창 이후 재시도합니다.
 - 브라우저는 service key를 받지 않습니다. API가 세션의 모임·참가자·PIN 변경 버전을 확인하고 필요한 데이터만 반환합니다. 클라이언트가 보낸 관리자 플래그/발신자/수신자를 권한으로 사용하지 않습니다.
-- 쿠키: HttpOnly, SameSite=Strict, 프로덕션 Secure, `/api/secret-angel` 경로, 12시간 만료, 로그아웃 시 서버 토큰 삭제.
+- 쿠키: HttpOnly, SameSite=Strict, 프로덕션 Secure, `/api/secret-angel`(참가자) / `/api/leader/secret-angel`(관리자) 전용 경로와 별도 쿠키, 12시간 만료, 로그아웃 시 서버 토큰 삭제.
 - 변경 API는 JSON과 동일 출처를 확인하고, 모든 응답에 `private, no-store`를 지정합니다. 기도·편지·PIN·참여코드를 브라우저 저장소에 저장하지 않습니다. 탭 복원을 위해 모임 코드만 sessionStorage에 보관합니다.
 - 공개 시점까지 천사 이름, 전체 배정표, 다른 사람의 콘텐츠와 PIN 해시는 참가자 응답에 포함하지 않습니다. 인증된 같은 모임 참가자는 의심할 대상을 고르기 위해 참가자 이름 명단을 봅니다.
 - 기본 API 본문 한도는 16KB. 기도·편지·응답은 500자, 이름 30자, 모임명 60자 제한입니다.
@@ -44,7 +46,9 @@ Supabase 권한 설계 참고: [Row Level Security](https://supabase.com/docs/gu
 
 | 파일 | 역할 |
 | --- | --- |
-| `pages/secret_angel/index.js` | 참가자/관리자 화면 |
+| `pages/secret_angel/index.js` | 참가자 전용 화면 |
+| `components/SecretAngelAdmin.js`, `pages/leader/index.js` | 리더 도구의 마니또 관리 탭·바로가기 |
+| `pages/api/leader/secret-angel.js` | 관리자 전용 API |
 | `styles/SecretAngel.module.css` | 기존 베이지·브라운·그린 계열 반응형 디자인 |
 | `pages/api/secret-angel/index.js` | API 진입점과 본문 제한 |
 | `lib/secret-angel/game.mjs` | 배정·8주 활동·공개 범위·PIN 규칙 |
@@ -81,7 +85,7 @@ Supabase 권한 설계 참고: [Row Level Security](https://supabase.com/docs/gu
    - `NEXT_PUBLIC_APP_URL`: 실제 접속할 URL의 origin과 일치해야 합니다. 로컬은 `http://localhost:3000`, preview는 해당 preview origin, 운영은 `https://ghchurch.vercel.app`. 경로는 제외합니다. 이 값이 다른 origin이면 변경 요청이 거절됩니다.
 6. `npm run build` 후 preview에 반영합니다. `/cell` 링크, 10명 테스트 모임 생성·개별 등록·로그인·PIN 복구·시작을 확인합니다. 두 명 이상의 세션으로 배정된 친구와 천사 간 편지/기도를 확인하고, 제3자 접근이 차단되는지 점검합니다. 주차를 빠르게 확인하려면 격리된 테스트 DB의 테스트 모임 시작 시각만 조정합니다.
 7. 사용자가 프로덕션 반영을 요청한 뒤에만 운영 DB에 migration 적용 → 운영 환경변수 설정 → 앱 배포 순서로 진행합니다. 현재 작업에는 이 단계 실행이 포함되지 않았습니다.
-8. 담당 리더가 `/secret_angel`의 관리자 탭에 로그인해 모임 생성 → 개인 코드 개별 전달 → 전원 등록 확인 → 시작 확정을 합니다. 계정이 아닌 환경변수 관리자 비밀번호 방식이므로 공유 범위를 담당 운영자로 제한합니다.
+8. 담당 리더가 `/leader?tab=secret-angel`의 마니또 관리 탭에 로그인해 모임 생성 → 개인 코드 개별 전달 → 전원 등록 확인 → 시작 확정을 합니다. 계정이 아닌 환경변수 관리자 비밀번호 방식이므로 공유 범위를 담당 운영자로 제한합니다.
 
 운영에는 별도 cron 없이 조회 시 서버 시각으로 주차가 자동 계산됩니다. 시작 시각 이후에는 재추첨·시간 변경을 제공하지 않습니다. 56일이 지나면 관리자가 최종 공개를 확정합니다. 코드 재발급과 공개 버튼은 추가 확인을 거치고, 영구 삭제는 정확한 모임 코드를 입력해야 합니다.
 
@@ -99,3 +103,7 @@ delete from public.secret_angel_limits where resets_at < now();
 ## 롤백
 
 우선 기존 앱 버전으로 되돌려 새 경로와 API를 내립니다. 기존 셀 테이블은 수정하지 않았으므로 기존 `/cell`은 유지됩니다. 모임 데이터 보존이 필요하면 새 테이블을 그대로 둡니다. 완전 제거가 승인된 경우에만 백업 후 RPC와 새 테이블 세 개를 삭제합니다. 운영 데이터가 들어간 테이블을 배포 롤백과 동시에 자동 삭제하지 마세요.
+
+## 리더 도구 통합 검증
+
+관리자 API와 참가자 API의 교차 접근 차단, 과거 관리자 쿠키 차단, 같은 브라우저의 독립 세션, 관리자 Secure 쿠키 검사를 추가했습니다. 전체 테스트 25개 통과. 기존 세션에서 관리자 기능을 썼다면 리더 도구에서 한 번 다시 로그인해야 합니다. DB와 관리자 비밀번호의 변경은 필요 없습니다.
