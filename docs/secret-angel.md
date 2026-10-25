@@ -4,7 +4,7 @@
 
 ## 현재 구현
 
-관리자 기능은 `/leader?tab=secret-angel`의 **마니또 관리** 탭에서만 제공합니다. `/leader` 상단 바로가기로 접근할 수 있습니다. `/secret_angel`은 참가자 전용이며 관리자 로그인·운영 기능이 없습니다. 기존 마니또 관리자 비밀번호는 그대로 사용합니다.
+관리자 기능은 `/leader?tab=secret-angel`의 **마니또 관리** 탭에서만 제공합니다. `/leader`의 마니또 관리 메뉴로 접근할 수 있습니다. `/secret_angel`은 참가자 전용이며 관리자 로그인·운영 기능이 없습니다. 기존 마니또 관리자 비밀번호는 그대로 사용합니다.
 
 - 기존 Next.js 14 Pages Router, React 18, Supabase service role API 구조를 유지했습니다. `/cell`에 `/secret_angel` 진입 링크를 추가했습니다.
 - 기존 셀의 이름·기기 ID 로그인은 마니또 인증으로 사용하지 않습니다. 기존 `members`, `app_members`, 셀모임 테이블은 수정하지 않습니다.
@@ -47,7 +47,7 @@ Supabase 권한 설계 참고: [Row Level Security](https://supabase.com/docs/gu
 | 파일 | 역할 |
 | --- | --- |
 | `pages/secret_angel/index.js` | 참가자 전용 화면 |
-| `components/SecretAngelAdmin.js`, `pages/leader/index.js` | 리더 도구의 마니또 관리 탭·바로가기 |
+| `components/SecretAngelAdmin.js`, `pages/leader/index.js` | 리더 도구의 마니또 관리 탭 |
 | `pages/api/leader/secret-angel.js` | 관리자 전용 API |
 | `styles/SecretAngel.module.css` | 기존 베이지·브라운·그린 계열 반응형 디자인 |
 | `pages/api/secret-angel/index.js` | API 진입점과 본문 제한 |
@@ -107,3 +107,5 @@ delete from public.secret_angel_limits where resets_at < now();
 ## 리더 도구 통합 검증
 
 관리자 API와 참가자 API의 교차 접근 차단, 과거 관리자 쿠키 차단, 같은 브라우저의 독립 세션, 관리자 Secure 쿠키 검사를 추가했습니다. 전체 테스트 25개 통과. 기존 세션에서 관리자 기능을 썼다면 리더 도구에서 한 번 다시 로그인해야 합니다. DB와 관리자 비밀번호의 변경은 필요 없습니다.
+
+리더 메뉴는 말씀 자료·셀 조 편성·회원 관리·운영 대시보드·마니또 관리 5개로 정리했습니다. 중복되는 상단 마니또 바로가기 링크와 출석 관리·딕싯 메뉴는 제거했습니다.

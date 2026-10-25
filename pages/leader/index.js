@@ -8,7 +8,7 @@ import { fontSizePx, useFontScale } from '../../hooks/useFontScale'
 
 const SecretAngelAdmin = dynamic(() => import('../../components/SecretAngelAdmin'))
 
-const LEADER_TAB_KEYS = ['sermons', 'cells', 'members', 'attendance', 'dashboard', 'dixit', 'secret-angel']
+const LEADER_TAB_KEYS = ['sermons', 'cells', 'members', 'dashboard', 'secret-angel']
 
 const LEADER_SECRET = process.env.NEXT_PUBLIC_LEADER_SECRET || 'wordlife-leader-2025'
 
@@ -2123,9 +2123,8 @@ export default function Leader() {
           <div style={{margin:'0 0 12px'}}>
             <FontScaleControl fontScaleKey={fontScaleKey} setFontScaleKey={setFontScaleKey} />
           </div>
-          <p style={{ margin: '0 0 12px' }}><a href="/leader?tab=secret-angel" onClick={e => { e.preventDefault(); selectTab(6) }} style={{ display: 'inline-block', background: '#edf3e8', color: '#426443', padding: '10px 16px', borderRadius: 10, textDecoration: 'none', fontWeight: 700 }}>🕊️ 마니또 관리 바로가기 →</a></p>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))'}}>
-            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','✅ 출석 관리','📊 운영 대시보드','🃏 딕싯','🕊️ 마니또 관리'].map((t,i)=>(
+            {['📖 말씀 자료','👥 셀 조 편성','🧾 회원 관리','📊 운영 대시보드','🕊️ 마니또 관리'].map((t,i)=>(
               <button key={i} aria-pressed={activeTab===i} onClick={()=>selectTab(i)} style={{flex:1,padding:'12px 8px',border:'none',background:'none',fontSize:fontSizePx(13),fontFamily:"'Gowun Batang',serif",color:activeTab===i?'#4a3520':'#a08060',fontWeight:activeTab===i?700:400,borderBottom:activeTab===i?'2.5px solid #a0784e':'2.5px solid transparent',cursor:'pointer',transition:'all 0.2s'}}>
                 {t}
               </button>
@@ -2135,10 +2134,8 @@ export default function Leader() {
         {activeTab===0 && <SermonTab/>}
         {activeTab===1 && <CellTab/>}
         {activeTab===2 && <MemberTab/>}
-        {activeTab===3 && <AttendanceTab/>}
-        {activeTab===4 && <DashboardTab/>}
-        {activeTab===5 && <DixitTab/>}
-        {activeTab===6 && <SecretAngelAdmin/>}
+        {activeTab===3 && <DashboardTab/>}
+        {activeTab===4 && <SecretAngelAdmin/>}
       </div>
     </>
   )
