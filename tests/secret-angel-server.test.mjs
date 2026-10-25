@@ -136,3 +136,15 @@ test('관리자 쿠키는 전용 API 경로에만 전달되고 운영에서 Secu
   assert.match(res.headers['set-cookie'], /Path=\/api\/leader\/secret-angel;/)
   assert.match(res.headers['set-cookie'], /; Secure/)
 })
+
+test('직접 정한 짧은 관리자 비밀번호 허용, 오입력과 반복 시도는 차단', async () => {
+  const db = memoryDb(), handler = makeHandler(db, { ...env, SECRET_ANGEL_ADMIN_SECRET: 'easy-login' }, { adminSurface: true })
+  let res = await request(handler, { action: 'admin_login', password: 'easy-login' })
+  assert.equal(res.statusCode, 200)
+  for (let i = 0; i < 7; i++) {
+    res = await request(handler, { action: 'admin_login', password: 'wrong' })
+    assert.equal(res.statusCode, 401)
+  }
+  res = await request(handler, { action: 'admin_login', password: 'easy-login' })
+  assert.equal(res.statusCode, 429)
+})

@@ -81,7 +81,7 @@ Supabase 권한 설계 참고: [Row Level Security](https://supabase.com/docs/gu
 5. 서버 환경변수를 설정합니다:
    - `SUPABASE_URL`: staging/대상 DB URL
    - `SUPABASE_SERVICE_KEY`: 해당 DB의 서버 전용 service role key
-   - `SECRET_ANGEL_ADMIN_SECRET`: 새롭고 독립적인 32자 이상의 무작위 비밀번호. 예: `openssl rand -hex 32`로 생성. `.env.example`의 예제 문구를 실제 값으로 쓰지 마세요.
+   - `SECRET_ANGEL_ADMIN_SECRET`: 직접 정한 관리자 비밀번호(1~256자). 32자 최소 제한은 없으며 로그인 시도 제한은 유지됩니다. `.env.example`의 예제 문구를 실제 값으로 쓰지 마세요.
    - `NEXT_PUBLIC_APP_URL`: 실제 접속할 URL의 origin과 일치해야 합니다. 로컬은 `http://localhost:3000`, preview는 해당 preview origin, 운영은 `https://ghchurch.vercel.app`. 경로는 제외합니다. 이 값이 다른 origin이면 변경 요청이 거절됩니다.
 6. `npm run build` 후 preview에 반영합니다. `/cell` 링크, 10명 테스트 모임 생성·개별 등록·로그인·PIN 복구·시작을 확인합니다. 두 명 이상의 세션으로 배정된 친구와 천사 간 편지/기도를 확인하고, 제3자 접근이 차단되는지 점검합니다. 주차를 빠르게 확인하려면 격리된 테스트 DB의 테스트 모임 시작 시각만 조정합니다.
 7. 사용자가 프로덕션 반영을 요청한 뒤에만 운영 DB에 migration 적용 → 운영 환경변수 설정 → 앱 배포 순서로 진행합니다. 현재 작업에는 이 단계 실행이 포함되지 않았습니다.
@@ -109,3 +109,5 @@ delete from public.secret_angel_limits where resets_at < now();
 관리자 API와 참가자 API의 교차 접근 차단, 과거 관리자 쿠키 차단, 같은 브라우저의 독립 세션, 관리자 Secure 쿠키 검사를 추가했습니다. 전체 테스트 25개 통과. 기존 세션에서 관리자 기능을 썼다면 리더 도구에서 한 번 다시 로그인해야 합니다. DB와 관리자 비밀번호의 변경은 필요 없습니다.
 
 리더 메뉴는 말씀 자료·셀 조 편성·회원 관리·운영 대시보드·마니또 관리 5개로 정리했습니다. 중복되는 상단 마니또 바로가기 링크와 출석 관리·딕싯 메뉴는 제거했습니다.
+
+관리자 비밀번호를 변경하면 운영 환경변수와 배포를 갱신한 후 기존 관리자 세션을 취소합니다. 참가자 PIN과 참가자 세션은 변경하지 않습니다.
