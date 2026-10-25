@@ -466,6 +466,7 @@ export default function CellPage() {
         </div>
 
         <div style={{maxWidth:640,margin:'16px auto 0',padding:'0 16px'}}>
+          <a href="/secret_angel" style={{display:'block',background:'#edf3e8',border:'1px solid #d5dfc8',borderRadius:14,padding:'14px 16px',marginBottom:12,color:'#426443',textDecoration:'none',fontWeight:700,fontSize:fontSizePx(14)}}>🕊️ 비밀 천사 · 8주 마니또 참여하기 →</a>
           <div style={{background:'#fff',borderRadius:14,padding:'14px 16px',border:'1px solid #e8d8c0'}}>
             <label style={{display:'block',fontSize:fontSizePx(12),color:'#8b6e4e',fontWeight:700,marginBottom:8}}>대상 주 선택</label>
             <select value={week} onChange={e=>setWeek(e.target.value)} style={{width:'100%',padding:'11px 14px',border:'1.5px solid #ddd0ba',borderRadius:10,fontSize:fontSizePx(14),background:'#faf7f4',color:'#4a3520',outline:'none',fontFamily:"'Noto Sans KR',sans-serif",cursor:'pointer'}}>

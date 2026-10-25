@@ -81,3 +81,7 @@ https://github.com/kyuky920/kyesin.git
 3. Vercel 환경변수 등록 후 첫 배포
 4. Supabase 스키마와 인증 정책 설계
 5. 실제 화면/기능 개발 시작
+
+## 비밀 천사 (8주 마니또)
+
+`/cell`에서 `/secret_angel`로 이동할 수 있습니다. 별도의 서버 세션·개인 PIN·참여코드로 보호합니다. DB 마이그레이션, 환경변수, 운영 및 검증 절차는 [운영 안내](docs/secret-angel.md)를 확인하세요.
