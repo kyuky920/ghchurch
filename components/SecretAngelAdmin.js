@@ -12,7 +12,7 @@ export default function SecretAngelAdmin() {
   const [error, setError] = useState('')
   const [invites, setInvites] = useState([])
   const [seasons, setSeasons] = useState([])
-  const [admin, setAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [confirmAction, setConfirmAction] = useState('')
 
   async function api(body, get = false) {
@@ -22,20 +22,19 @@ export default function SecretAngelAdmin() {
     })
     const result = await res.json()
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) { setData(null); setAdmin(false); setInvites([]); setSeasons([]) }
       throw new Error(result.error || '요청을 처리하지 못했습니다.')
     }
     return result
   }
   async function refresh(selected = slug) {
     const result = await api({ slug: selected }, true)
-    if (result.data) { setData(result.data); setSlug(result.data.slug); setAdmin(true); sessionStorage.setItem('sa_admin_slug', result.data.slug) }
-    if (result.seasons) { setAdmin(true); setSeasons(result.seasons); setData(null); setSlug(''); sessionStorage.removeItem('sa_admin_slug') }
+    if (result.data) { setData(result.data); setSlug(result.data.slug); sessionStorage.setItem('sa_admin_slug', result.data.slug) }
+    if (result.seasons) { setSeasons(result.seasons); setData(null); setSlug(''); sessionStorage.removeItem('sa_admin_slug') }
   }
   useEffect(() => {
     const saved = sessionStorage.getItem('sa_admin_slug') || ''
     setSlug(saved)
-    refresh(saved).catch(() => {})
+    refresh(saved).catch(() => refresh('')).catch(e => setError(e.message)).finally(() => setLoading(false))
   }, [])
   async function perform(body, success = '저장했습니다.') {
     setBusy(true); setError(''); setNotice('')
@@ -45,11 +44,6 @@ export default function SecretAngelAdmin() {
       if (result.invites) setInvites(result.invites)
       setNotice(success); return result
     } catch (e) { setError(e.message); return null } finally { setBusy(false) }
-  }
-  async function login(e) {
-    e.preventDefault(); const form = e.currentTarget
-    const result = await perform({ action: 'admin_login', password: new FormData(form).get('password') }, '관리자로 로그인했습니다.')
-    if (result) { form.reset(); await refresh('').catch(e => setError(e.message)) }
   }
   async function formAction(e, action, extra = {}) {
     e.preventDefault(); const form = e.currentTarget
@@ -63,19 +57,15 @@ export default function SecretAngelAdmin() {
     const result = await perform({ ...values, action: 'create', names: values.names.split('\n').map(n => n.trim()).filter(Boolean) }, '모임을 만들었습니다. 개인 참여코드는 지금 안전하게 전달해 주세요.')
     if (result) { setSlug(result.slug); await refresh(result.slug).catch(e => setError(e.message)) }
   }
-  async function logout() {
-    const result = await perform({ action: 'logout' }, '로그아웃했습니다.')
-    if (result) { setData(null); setAdmin(false); setInvites([]); setSeasons([]); sessionStorage.removeItem('sa_admin_slug') }
-  }
   return <div className={styles.page} style={{ minHeight: 'auto', background: 'transparent' }}>
     <div className={styles.main}>
-      <div className={styles.row}><div><h2>🕊️ 마니또 관리</h2><p>모임 생성부터 비밀 배정과 마지막 정체 공개까지 이곳에서 관리하세요.</p></div>{admin && <button disabled={busy} onClick={logout}>관리자 로그아웃</button>}</div>
+      <div className={styles.row}><div><h2>🕊️ 마니또 관리</h2><p>모임 생성부터 비밀 배정과 마지막 정체 공개까지 이곳에서 관리하세요.</p><small>비밀번호 없이 이용하는 공개 관리 화면입니다.</small></div></div>
       <p><Link href="/secret_angel">참가자 페이지 열기 →</Link></p>
       <div aria-live="polite">{error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p className={styles.notice}>{notice}</p>}</div>
-      {!admin && <section className={styles.card}><h3>마니또 관리자 로그인</h3><p>기존에 설정한 마니또 관리자 비밀번호로 로그인해 주세요.</p><form onSubmit={login}><label>마니또 관리자 비밀번호<input name="password" type="password" required maxLength={256} autoComplete="current-password" /></label><button className={styles.primary} disabled={busy}>{busy ? '확인 중…' : '관리자 로그인'}</button></form></section>}
-      {admin && !data && <section className={styles.card}><h2>관리자 · 모임 관리</h2>{seasons.length > 0 && <div className={styles.row}>{seasons.map(s => <button disabled={busy} key={s.slug} onClick={() => refresh(s.slug).catch(e => setError(e.message))}>{s.slug} 열기</button>)}</div>}
+      {loading && <p role="status">모임을 불러오고 있습니다…</p>}
+      {!loading && !data && <section className={styles.card}><h2>관리자 · 모임 관리</h2>{seasons.length > 0 && <div className={styles.row}>{seasons.map(s => <button disabled={busy} key={s.slug} onClick={() => refresh(s.slug).catch(e => setError(e.message))}>{s.slug} 열기</button>)}</div>}
         <h3>새 8주 모임</h3><form onSubmit={create}><label>모임 이름<input name="title" required maxLength={60} placeholder="청년부 가을 비밀 천사" /></label><label>모임 코드<input name="slug" required pattern="[a-z0-9][a-z0-9-]{2,39}" maxLength={40} placeholder="youth-2026" /></label><label>참가자 명단 (10~20명, 한 줄에 한 명)<textarea name="names" required rows={10} maxLength={700} placeholder={'김청년\n이소망\n박믿음'} /><small>동명이인은 구분 이름을 사용하세요. 시작 후 명단은 바꿀 수 없습니다.</small></label><button className={styles.primary} disabled={busy}>모임과 개인 참여코드 만들기</button></form></section>}
-      {invites.length > 0 && admin && <section className={styles.card}><h2>개인 참여코드 · 한 번만 표시</h2><p>모임 코드: <strong>{slug}</strong>. 각 참가자에게 본인의 코드만 개별 전달하세요. 다시 조회할 수 없으며 분실하면 재발급해야 합니다.</p>{invites.map(x => <div className={styles.invite} key={x.name}><strong>{x.name}</strong><code>{x.code}</code></div>)}<button onClick={() => setInvites([])}>전달 완료 · 화면에서 지우기</button></section>}
+      {invites.length > 0 && <section className={styles.card}><h2>개인 참여코드 · 한 번만 표시</h2><p>모임 코드: <strong>{slug}</strong>. 각 참가자에게 본인의 코드만 개별 전달하세요. 다시 조회할 수 없으며 분실하면 재발급해야 합니다.</p>{invites.map(x => <div className={styles.invite} key={x.name}><strong>{x.name}</strong><code>{x.code}</code></div>)}<button onClick={() => setInvites([])}>전달 완료 · 화면에서 지우기</button></section>}
       {data && <>
         <section className={styles.summary}><div><span className={styles.eyebrow}>{data.status === 'draft' ? '참가자 등록 중' : data.status === 'revealed' ? '정체 공개' : data.week === 0 ? '시작 대기' : `8주 중 ${data.week}주차`}</span><h2>{data.title}</h2><p>{data.startsAt ? `시작 ${date(data.startsAt)} · 공개 가능 ${date(data.endsAt)}` : '모두 등록하면 관리자가 비밀 배정을 시작합니다.'}</p></div><button disabled={busy} onClick={() => refresh().then(() => setNotice('최신 소식을 불러왔습니다.')).catch(e => setError(e.message))}>새로고침</button></section>
 

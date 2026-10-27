@@ -8,8 +8,7 @@ const env = { SECRET_ANGEL_ADMIN_SECRET: password, NODE_ENV: 'test' }
 const spec = { slug: 'first-season', title: '청년부', names: Array.from({ length: 10 }, (_, i) => `청년${i}`) }
 async function fixture() {
   const db = memoryDb(), handler = makeHandler(db, env), adminHandler = makeHandler(db, env, { adminSurface: true })
-  const login = await request(adminHandler, { action: 'admin_login', password })
-  const adminCookie = login.headers['set-cookie'].split(';')[0]
+  const adminCookie = ''
   const created = await request(adminHandler, { action: 'create', ...spec }, { cookie: adminCookie })
   assert.equal(created.statusCode, 200)
   const invite = created.body.invites[0]
@@ -89,13 +88,6 @@ test('원자적 버전 충돌 재시도와 동시 미션 중복 방지', async (
   assert.equal(results.filter(x => x.statusCode === 200).length, 1)
   assert.equal(db.tables.secret_angel_seasons[0].state.missions.length, 1)
 })
-test('DB 오류 상세 노출 안 함, 관리자 비밀번호 미설정 시 닫힘', async () => {
-  const db = memoryDb(), handler = makeHandler(db, {}, { adminSurface: true })
-  let res = await request(handler, { action: 'admin_login', password }); assert.equal(res.statusCode, 503)
-  db.fail = true
-  res = await request(handler, { action: 'admin_login', password }); assert.equal(res.statusCode, 500)
-  assert.ok(!JSON.stringify(res.body).includes('private database detail'))
-})
 test('모임 삭제는 관리자·코드 확인 필요, 관련 세션 삭제', async () => {
   const { db, handler, adminHandler, userCookie, adminCookie } = await fixture()
   let res = await request(handler, { action: 'delete', slug: spec.slug, confirm: spec.slug }, { cookie: userCookie }); assert.equal(res.statusCode, 403)
@@ -105,46 +97,58 @@ test('모임 삭제는 관리자·코드 확인 필요, 관련 세션 삭제', a
   assert.equal(db.tables.secret_angel_sessions.filter(x => !x.is_admin).length, 0)
 })
 
-test('참가자 페이지 API에서 모든 관리자 기능과 과거 관리자 쿠키 차단', async () => {
-  const { handler, adminCookie, userCookie } = await fixture()
+test('관리 API는 비밀번호·환경변수·쿠키 없이 조회와 생성 가능', async () => {
+  const db = memoryDb(), handler = makeHandler(db, {}, { adminSurface: true })
+  let res = await request(handler, {}, { method: 'GET' })
+  assert.equal(res.statusCode, 200); assert.deepEqual(res.body.seasons, [])
+  res = await request(handler, { action: 'create', ...spec })
+  assert.equal(res.statusCode, 200); assert.equal(res.body.invites.length, 10)
+  res = await request(handler, { slug: spec.slug }, { method: 'GET', cookie: 'unrelated=ignored' })
+  assert.equal(res.statusCode, 200); assert.equal(res.body.data.admin, true)
+  assert.equal(res.headers['set-cookie'], undefined)
+  assert.equal(db.tables.secret_angel_sessions.length, 0)
+  assert.match(res.headers['cache-control'], /no-store/)
+})
+test('관리자 로그인·로그아웃 제거, 참가자 인증과 관리 경로 구분 유지', async () => {
+  const { db, handler, adminHandler, userCookie } = await fixture()
+  for (const action of ['admin_login', 'logout']) assert.equal((await request(adminHandler, { action, password: 'anything' })).statusCode, 410)
+  for (const action of ['login', 'join']) assert.equal((await request(adminHandler, { action })).statusCode, 403)
   for (const action of ['admin_login', 'create', 'start', 'reset_pin', 'reveal', 'delete', 'test_advance', 'test_reset']) {
-    const res = await request(handler, { action, password, slug: spec.slug }, { cookie: userCookie })
+    assert.equal((await request(handler, { action, slug: spec.slug }, { cookie: userCookie })).statusCode, 403)
+  }
+  assert.equal((await request(adminHandler, {}, { method: 'GET', cookie: userCookie })).statusCode, 200)
+  assert.equal((await request(handler, {}, { method: 'GET' })).statusCode, 401)
+  const raw = 'a'.repeat(64)
+  db.tables.secret_angel_sessions.push({ token_hash: digest(raw), is_admin: true, expires_at: new Date(Date.now()+60000).toISOString() })
+  assert.equal((await request(handler, {}, { method: 'GET', cookie: 'sa_session='+raw })).statusCode, 403)
+})
+test('공개 관리 변경도 출처·JSON·메서드와 삭제 코드 확인 유지', async () => {
+  const { adminHandler } = await fixture()
+  let res = await request(adminHandler, { action: 'delete', slug: spec.slug, confirm: spec.slug }, { headers: { origin: 'https://other.example' } })
+  assert.equal(res.statusCode, 403)
+  res = await request(adminHandler, { action: 'delete', slug: spec.slug, confirm: spec.slug }, { headers: { 'content-type': 'text/plain' } })
+  assert.equal(res.statusCode, 415)
+  res = await request(adminHandler, {}, { method: 'DELETE' }); assert.equal(res.statusCode, 405)
+  res = await request(adminHandler, { action: 'delete', slug: spec.slug, confirm: 'wrong' }); assert.equal(res.statusCode, 403)
+})
+test('공개 관리 요청 제한은 쿠키가 바뀌어도 같은 DB 제한을 사용', async () => {
+  const db = memoryDb(), handler = makeHandler(db, env, { adminSurface: true })
+  for (let i = 0; i < 120; i++) assert.equal((await request(handler, {}, { method: 'GET', cookie: `arbitrary=${i}` })).statusCode, 200)
+  const second = makeHandler(db, env, { adminSurface: true })
+  const res = await request(second, {}, { method: 'GET' })
+  assert.equal(res.statusCode, 429); assert.equal(res.headers['retry-after'], '900')
+})
+test('공개 관리에서도 일반 모임의 테스트 주차 이동·초기화는 금지', async () => {
+  const { adminHandler } = await fixture()
+  for (const action of ['test_advance', 'test_reset']) {
+    const res = await request(adminHandler, { action, slug: spec.slug, week: 3 })
     assert.equal(res.statusCode, 403)
   }
-  const oldCookie = adminCookie.replace('sa_admin_session=', 'sa_session=')
-  const res = await request(handler, { slug: spec.slug }, { method: 'GET', cookie: oldCookie })
-  assert.equal(res.statusCode, 403)
-  assert.ok(!JSON.stringify(res.body).includes('assignments'))
 })
-test('관리자 API는 참가자 인증·세션 거부, 양쪽 로그인 세션 독립 유지', async () => {
-  const { handler, adminHandler, userCookie, adminCookie } = await fixture()
-  for (const action of ['login', 'join']) assert.equal((await request(adminHandler, { action, slug: spec.slug, name: spec.names[0], pin: '123456' })).statusCode, 403)
-  assert.equal((await request(adminHandler, {}, { method: 'GET', cookie: userCookie })).statusCode, 401)
-  const forgedCookie = userCookie.replace('sa_session=', 'sa_admin_session=')
-  assert.equal((await request(adminHandler, {}, { method: 'GET', cookie: forgedCookie })).statusCode, 403)
-  const both = userCookie + '; ' + adminCookie
-  assert.equal((await request(handler, {}, { method: 'GET', cookie: both })).statusCode, 200)
-  assert.equal((await request(adminHandler, {}, { method: 'GET', cookie: both })).statusCode, 200)
-  await request(adminHandler, { action: 'logout' }, { cookie: both })
-  assert.equal((await request(handler, {}, { method: 'GET', cookie: userCookie })).statusCode, 200)
-})
-test('관리자 쿠키는 전용 API 경로에만 전달되고 운영에서 Secure 적용', async () => {
-  const db = memoryDb(), handler = makeHandler(db, { ...env, NODE_ENV: 'production' }, { adminSurface: true })
-  const res = await request(handler, { action: 'admin_login', password }, { headers: { origin: 'https://localhost:3018' } })
-  assert.equal(res.statusCode, 200)
-  assert.match(res.headers['set-cookie'], /^sa_admin_session=/)
-  assert.match(res.headers['set-cookie'], /Path=\/api\/leader\/secret-angel;/)
-  assert.match(res.headers['set-cookie'], /; Secure/)
-})
-
-test('직접 정한 짧은 관리자 비밀번호 허용, 오입력과 반복 시도는 차단', async () => {
-  const db = memoryDb(), handler = makeHandler(db, { ...env, SECRET_ANGEL_ADMIN_SECRET: 'easy-login' }, { adminSurface: true })
-  let res = await request(handler, { action: 'admin_login', password: 'easy-login' })
-  assert.equal(res.statusCode, 200)
-  for (let i = 0; i < 7; i++) {
-    res = await request(handler, { action: 'admin_login', password: 'wrong' })
-    assert.equal(res.statusCode, 401)
-  }
-  res = await request(handler, { action: 'admin_login', password: 'easy-login' })
-  assert.equal(res.statusCode, 429)
+test('공개 관리에서 DB 장애 상세 내용은 전달하지 않음', async () => {
+  const db = memoryDb(); db.fail = true
+  const handler = makeHandler(db, {}, { adminSurface: true })
+  const res = await request(handler, {}, { method: 'GET' })
+  assert.equal(res.statusCode, 500)
+  assert.ok(!JSON.stringify(res.body).includes('private database detail'))
 })
