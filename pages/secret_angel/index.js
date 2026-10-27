@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
+import { parseInviteHash } from '../../lib/secret-angel/invite-link.mjs'
 import styles from '../../styles/SecretAngel.module.css'
 
 const replies = ['쉿, 비밀이에요 🤫', '그렇게 생각하셨군요 😊', '계속 지켜봐 주세요 👀']
@@ -8,9 +9,12 @@ const date = value => value ? new Date(value).toLocaleString('ko-KR', { timeZone
 
 export default function SecretAngel() {
   const [data, setData] = useState(null)
-  const [mode, setMode] = useState('login')
+  const [loading, setLoading] = useState(true)
+  const [incoming, setIncoming] = useState(null)
+  const [invitation, setInvitation] = useState(null)
+  const [deviceName, setDeviceName] = useState('')
+  const [confirmUnregister, setConfirmUnregister] = useState(false)
   const [slug, setSlug] = useState('')
-  const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
@@ -30,10 +34,31 @@ export default function SecretAngel() {
     const result = await api({ slug: selected }, true)
     if (result.data) { setData(result.data); setSlug(result.data.slug); sessionStorage.setItem('sa_slug', result.data.slug) }
   }
+  function clearInviteAddress() {
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+  }
   useEffect(() => {
-    const saved = sessionStorage.getItem('sa_slug') || ''
-    setSlug(saved); setName(localStorage.getItem('wl_member_name') || '')
-    refresh(saved).catch(() => {})
+    async function initialize() {
+      setLoading(true); setIncoming(null); setInvitation(null); setError('')
+      const link = parseInviteHash(window.location.hash)
+      let current = null
+      try { current = (await api({}, true)).data } catch {}
+      if (current && (!link || (current.slug === link.slug && current.me.id === link.participantId))) {
+        setData(current); setSlug(current.slug); sessionStorage.setItem('sa_slug', current.slug)
+        if (link) clearInviteAddress()
+        return
+      }
+      setData(null)
+      if (link) {
+        setIncoming(link); setSlug(link.slug)
+        const result = await api({ action: 'invite_info', ...link })
+        setInvitation(result.invitation)
+      } else if (window.location.hash) setError('초대 링크가 올바르지 않습니다. 새 개인 초대 링크를 요청해 주세요.')
+    }
+    const run = () => initialize().catch(e => setError(e.message)).finally(() => setLoading(false))
+    run()
+    window.addEventListener('hashchange', run)
+    return () => window.removeEventListener('hashchange', run)
   }, [])
   async function perform(body, success = '저장했습니다.') {
     setBusy(true); setError(''); setNotice('')
@@ -43,11 +68,13 @@ export default function SecretAngel() {
       setNotice(success); return result
     } catch (e) { setError(e.message); return null } finally { setBusy(false) }
   }
-  async function login(e) {
+  async function registerDevice(e) {
     e.preventDefault()
-    const values = Object.fromEntries(new FormData(e.currentTarget))
-    const result = await perform({ ...values, slug, name, action: mode }, '로그인했습니다.')
-    if (result) { e.target.reset(); await refresh(slug).catch(e => setError(e.message)) }
+    const result = await perform({ action: 'redeem_invite', ...incoming, name: invitation.name, deviceName }, '이 기기를 등록했습니다. 다음부터 자동으로 접속됩니다.')
+    if (result) {
+      setIncoming(null); setInvitation(null); setSlug(result.data.slug)
+      sessionStorage.setItem('sa_slug', result.data.slug); clearInviteAddress()
+    }
   }
   async function formAction(e, action, extra = {}) {
     e.preventDefault(); const form = e.currentTarget
@@ -56,29 +83,37 @@ export default function SecretAngel() {
     if (result) form.reset()
   }
   async function logout() {
-    const result = await perform({ action: 'logout' }, '로그아웃했습니다.')
-    if (result) { setData(null); sessionStorage.removeItem('sa_slug') }
+    const result = await perform({ action: 'logout' }, '이 기기의 등록을 해제했습니다. 다시 참여하려면 새 초대 링크를 받아 주세요.')
+    if (result) { setData(null); setIncoming(null); setInvitation(null); setConfirmUnregister(false); sessionStorage.removeItem('sa_slug'); clearInviteAddress() }
   }
   const active = data?.status === 'active' && data.week > 0 && Date.now() < data.endsAt
   const canChat = active && data.week >= 2
   const canSuspect = active && data.week >= 3
 
   return <div className={styles.page}>
-    <Head><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" /><title>비밀 천사 · KYESIN</title><meta name="robots" content="noindex,nofollow" /><meta name="description" content="8주 동안 서로를 위해 기도하고 축복하는 청년부 마니또" /></Head>
-    <header className={styles.header}><Link href="/cell">← 셀 모임</Link><span>KYESIN · 청년부</span>{data && <button disabled={busy} onClick={logout}>로그아웃</button>}</header>
+    <Head><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" /><title>비밀 천사 · KYESIN</title><meta name="referrer" content="no-referrer" /><meta name="robots" content="noindex,nofollow" /><meta name="description" content="8주 동안 서로를 위해 기도하고 축복하는 청년부 마니또" /></Head>
+    <header className={styles.header}><Link href="/cell">← 셀 모임</Link><span>KYESIN · 청년부</span>{data && <button disabled={busy} onClick={() => setConfirmUnregister(true)}>기기 등록 해제</button>}</header>
     <main className={styles.main}>
       <div className={styles.hero}><span className={styles.eyebrow}>EIGHT WEEKS OF KINDNESS</span><h1>서로의 비밀 천사 🕊️</h1><p>작은 기도와 다정한 마음이 쌓이는 8주</p></div>
       <div aria-live="polite">{error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p className={styles.notice}>{notice}</p>}</div>
-      {!data && <section className={styles.card}>
-        <h2>우리 모임에 들어가기</h2><p>관리자에게 받은 모임 코드와 개인 참여코드를 준비하세요.</p>
-        <div className={styles.tabs}>{[['login', '로그인'], ['join', '첫 등록 / PIN 복구']].map(([key, label]) => <button key={key} aria-pressed={mode === key} onClick={() => { setMode(key); setError('') }}>{label}</button>)}</div>
-        <form onSubmit={login}>
-          <><label>모임 코드<input required maxLength={40} value={slug} onChange={e => setSlug(e.target.value.toLowerCase())} autoCapitalize="none" placeholder="예: youth-2026" /></label><label>참가자 이름<input required maxLength={30} value={name} onChange={e => setName(e.target.value)} autoComplete="username" /></label>
-          {mode === 'join' && <label>개인 참여코드<input required name="code" type="password" maxLength={24} autoComplete="off" /><small>명단에 등록된 이름을 그대로 입력하세요. 코드는 한 번만 사용할 수 있습니다.</small></label>}
-          <label>{mode === 'join' ? '새 PIN (숫자 6~12자리)' : 'PIN'}<input name="pin" type="password" required inputMode="numeric" pattern="[0-9]{6,12}" minLength={6} maxLength={12} autoComplete={mode === 'join' ? 'new-password' : 'current-password'} /></label></>
-          <button className={styles.primary} disabled={busy}>{busy ? '확인 중…' : mode === 'join' ? '참가 등록 / 복구' : '로그인'}</button>
-        </form>
-        <p className={styles.muted}>PIN을 잊었다면 관리자에게 새 개인 참여코드를 요청하세요. 공용 기기에서는 사용 후 로그아웃해 주세요.</p>
+      {loading && <p role="status" className={styles.notice}>등록한 기기를 확인하고 있습니다…</p>}
+      {!loading && !data && <section className={styles.card}>
+        {invitation ? <>
+          <h2>{invitation.name}님, 반가워요 🕊️</h2><p>{invitation.title}에 초대받았어요. 이름을 확인하고 본인 휴대폰에서 참여해 주세요.</p>
+          <form onSubmit={registerDevice}>
+            <label>참가자 이름<input value={invitation.name} readOnly autoComplete="name" /></label>
+            <label>기기 이름 (선택)<input value={deviceName} onChange={e => setDeviceName(e.target.value)} maxLength={40} placeholder="예: 내 휴대폰" autoComplete="off" /></label>
+            <button className={styles.primary} disabled={busy}>{busy ? '등록 중…' : '이 기기로 참여하기'}</button>
+          </form>
+          <p className={styles.muted}>본인 휴대폰의 평소 사용하는 브라우저에서 등록해 주세요. 다음부터 같은 브라우저에서 자동 접속됩니다. 초대 링크는 7일 동안 한 번만 사용할 수 있습니다.</p>
+        </> : <>
+          <h2>개인 초대 링크로 참여해 주세요</h2><p>담당 리더에게 받은 본인의 초대 링크를 눌러 주세요. 이름을 확인하고 기기를 등록하면 바로 참여할 수 있습니다.</p>
+          <p className={styles.muted}>이미 등록했다면 등록할 때 사용한 브라우저로 열어 주세요. 기기를 바꾸거나 브라우저 기록을 지웠다면 새 초대 링크를 요청하세요.</p>
+        </>}
+      </section>}
+      {data && confirmUnregister && <section className={styles.confirm}>
+        <p>이 기기의 자동 접속을 해제할까요? 다시 참여하려면 새 초대 링크를 받아야 합니다.</p>
+        <button disabled={busy} onClick={logout}>기기 등록 해제 확정</button><button onClick={() => setConfirmUnregister(false)}>취소</button>
       </section>}
       {data && <>
         {data.isTest && <p className={styles.notice}>🧪 가상 참가자 테스트 모임입니다. 관리자 화면에서 주차를 이동한 뒤 이 화면을 새로고침해 주세요.</p>}
