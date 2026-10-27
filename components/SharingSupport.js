@@ -20,13 +20,12 @@ export default function SharingSupport({ document, position, fallbackOpening }) 
       </div>
     </>
   }
-  if (!support.practices.length && !support.closingPrayer) return null
+  if (!support.practices.length) return null
   return <div data-capture-block style={box}>
     {support.practices.length > 0 && <>
       <p style={{fontWeight:700,margin:'0 0 8px'}}>이번 주 실천 · 한 가지만 선택해요</p>
       <p>아래 예시 중 하나를 고르거나, 자신의 상황에 맞는 행동을 직접 정해 보세요.</p>
       <ul style={{paddingLeft:22}}>{support.practices.map((p,i)=><li key={i} style={{marginBottom:10}}>{p.text}<br/><small style={{color:'#8b6e4e'}}>{p.origin === 'sermon' ? '설교에서 제시한 실천' : '말씀에 따라 제안한 예시'}</small></li>)}</ul>
     </>}
-    {support.closingPrayer && <details style={{marginTop:12}}><summary style={{cursor:'pointer',fontWeight:700}}>마무리 기도 초안</summary><p style={{whiteSpace:'pre-line'}}>{support.closingPrayer}</p></details>}
   </div>
 }

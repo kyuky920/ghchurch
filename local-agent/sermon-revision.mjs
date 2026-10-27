@@ -1,3 +1,4 @@
+import { validateSummaryWording } from '../lib/sermon-materials.mjs';
 import { buildPrompt, buildSourcePacket, buildReviewPrompt, buildReviewSchema, validateReview } from './sermon-content.mjs';
 import { revisionValue, revisionFields, mergeRevision } from '../lib/sermon-revision.mjs';
 
@@ -24,6 +25,7 @@ export function validateRevision(row, request, proposal) {
   for (const key of fields.filter(key => key !== 'source_paragraph_ids')) if (typeof value[key] !== 'string' || value[key].length > 12000) throw new Error('수정 문안 형식이 잘못되었습니다.');
   const primary = value.question ?? value.content ?? value.text;
   if (!primary?.trim()) throw new Error('수정 문안이 비어 있습니다.');
+  if (request.target.startsWith('summary_')) validateSummaryWording({ key_point: value.text, sections: [{ title: value.title, content: value.content }] });
   if (request.target.startsWith('practice:') && !['sermon', 'suggestion'].includes(value.origin)) throw new Error('수정한 실천의 출처를 구분해야 합니다.');
   const ids = new Set(buildSourcePacket(row).paragraphs.map(p => p.id));
   if (!Array.isArray(value.source_paragraph_ids) || (request.target !== 'opening' && !value.source_paragraph_ids.length) || value.source_paragraph_ids.some(id => !ids.has(id))) throw new Error('수정안의 원문 문단 근거가 잘못되었습니다.');

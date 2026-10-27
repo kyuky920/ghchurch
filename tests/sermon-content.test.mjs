@@ -62,8 +62,8 @@ test('편집 시 보조자료·근거는 남기고 이전 공개 결정을 무�
  const edited=p.flat.map(x=>({...x,question:'수정된 질문'}));const result=buildEditedQuestionDocument(p,edited);
  assert.equal(result.meta.opening_question.question,p.meta.opening_question.question);assert.equal(result.flat[0].question,'수정된 질문');assert.equal(result.flat[0].source_paragraph_ids[0],'P001');assert.equal(result.meta.human_review,undefined);assert.equal(requiresContentReview(result),true);assert.equal(p.meta.human_review.confirmed_at,'이전 승인');
 });
-test('카톡 공유에 새 여는 질문과 출처가 표시된 실천·기도를 포함한다',()=>{
- const p=payload().questions;assert.match(sharingOpeningText(p),/이번 주에 마음에 남았던 일/);assert.match(sharingClosingText(p),/제안한 예시/);assert.match(sharingClosingText(p),/기도 초안/);
+test('카톡 공유에 여는 질문과 실천을 포함하고 기존 기도 제안은 제외한다',()=>{
+ const p=payload().questions;assert.match(sharingOpeningText(p),/이번 주에 마음에 남았던 일/);assert.match(sharingClosingText(p),/제안한 예시/);assert.doesNotMatch(sharingClosingText(p),/기도 초안|주님을 의지하도록 도와주세요/);assert.equal(getSharingSupport(p).closingPrayer,undefined);
 });
 
  test('서버 저장도 부분 요약 편집의 이전 검토를 무효화하고 명시적 확인만 공개한다',()=>{
@@ -74,13 +74,14 @@ test('카톡 공유에 새 여는 질문과 출처가 표시된 실천·기도�
 });
 
 
-test('설교 기억을 요구하는 질문·보조설명·답안은 거부하고 요약의 출처 구분은 보존한다',()=>{
+test('설교 기억을 요구하는 질문과 설교·화자 서술 요약을 거부한다',()=>{
  for (const field of ['question','explanation','answer']) {
   const p=payload();p.questions.sections[0].questions[0][field]='목사님은 무엇이라고 설명하셨나요?';
   assert.throws(()=>validateGeneratedPayload(p,source),/설교 청취/);
  }
  const p=payload();p.sermon_summary.overview='목사님은 예수님을 의지하도록 권면하셨습니다.';
- assert.doesNotThrow(()=>validateGeneratedPayload(p,source));
+ assert.throws(()=>validateGeneratedPayload(p,source),/말씀 요약/);
+ p.sermon_summary.overview='주 안에서 빛인 우리는 빛의 자녀들처럼 행해야 합니다.';
  p.questions.sections[0].questions[0].scripture_anchor='';
  assert.throws(()=>validateGeneratedPayload(p,source),/성경 본문 장절/);
 });
@@ -107,4 +108,15 @@ test('명시적 게시 요청에 따른 텍스트 검토는 원음 확인과 구
  const changed=buildEditedQuestionDocument(p,p.flat);assert.equal(changed.meta.publication_review,undefined);assert.equal(requiresContentReview(changed),true);
  const partial=prepareContentReviewForSave(p,p,false);assert.equal(partial.meta.publication_review,undefined);assert.equal(requiresContentReview(partial),true);
  p.meta.quality_review.status='needs_review';assert.equal(requiresContentReview(p),true);
+});
+
+test('핵심·개요·단락 제목·본문의 설교 설명을 막고 본문 중심 직접 서술은 허용한다',()=>{
+ for (const field of ['key_point','overview','title','content']) {
+  const p=payload(); const target=['title','content'].includes(field)?p.sermon_summary.sections[0]:p.sermon_summary;
+  target[field]='설교에서는 빛의 자녀로 살라고 권면합니다.';
+  assert.throws(()=>validateGeneratedPayload(p,source),/말씀 요약/);
+ }
+ assert.doesNotThrow(()=>validateGeneratedPayload(payload(),source));
+ assert.match(buildPrompt(source),/본문으로 뒷받침되지 않는/);
+ assert.match(buildReviewPrompt(source,payload()),/성경 본문의 실제 표현과 요약/);
 });

@@ -239,3 +239,14 @@ test('근황을 나누는 마음 열기 수정에는 관련 없는 원문 ID를 
  assert.doesNotThrow(()=>validateRevision(row,{target:'opening'},{replacement,reason:'서로의 근황을 듣습니다.'}));
  replacement.source_paragraph_ids=['P999'];assert.throws(()=>validateRevision(row,{target:'opening'},{replacement,reason:'근황 나눔'}),/문단 근거/);
 });
+
+test('부분 요약 수정도 설교 설명 표현을 거부하고 본문 직접 서술을 허용한다',()=>{
+ const row=sermon();
+ for (const target of ['summary_key_point','summary_overview','summary_section:0']) {
+  const replacement=target.startsWith('summary_section:')?{title:'빛',content:'설교는 빛의 자녀답게 살라고 합니다.',source_paragraph_ids:['P001']}:{text:'설교에서는 빛이라고 합니다.',source_paragraph_ids:['P001']};
+  assert.throws(()=>validateRevision(row,{target},{replacement,reason:'문안 변경'}),/말씀 요약/);
+  if ('content' in replacement) replacement.content='주 안에서 빛이므로 빛의 자녀들처럼 행해야 합니다.';
+  else replacement.text='주 안에서 빛이므로 빛의 자녀들처럼 행해야 합니다.';
+  assert.doesNotThrow(()=>validateRevision(row,{target},{replacement,reason:'본문을 직접 서술합니다.'}));
+ }
+});
