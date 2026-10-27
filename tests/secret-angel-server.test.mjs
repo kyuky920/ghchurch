@@ -152,3 +152,15 @@ test('공개 관리에서 DB 장애 상세 내용은 전달하지 않음', async
   assert.equal(res.statusCode, 500)
   assert.ok(!JSON.stringify(res.body).includes('private database detail'))
 })
+
+test('공개 관리 API가 서로 다른 인원수로 모임 생성하고 1명·중복은 거절', async () => {
+  const db = memoryDb(), handler = makeHandler(db, {}, { adminSurface: true })
+  for (const count of [2, 9, 21, 40]) {
+    const res = await request(handler, { action: 'create', slug: `count-${count}`, title: '인원 가변 모임', names: Array.from({ length: count }, (_, i) => `참가자${i + 1}`) })
+    assert.equal(res.statusCode, 200); assert.equal(res.body.invites.length, count)
+  }
+  for (const names of [['혼자'], ['중복', '중복']]) {
+    const res = await request(handler, { action: 'create', slug: 'invalid-count', title: '검증', names })
+    assert.equal(res.statusCode, 400)
+  }
+})

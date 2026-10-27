@@ -14,6 +14,8 @@ export default function SecretAngelAdmin() {
   const [seasons, setSeasons] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmAction, setConfirmAction] = useState('')
+  const [namesText, setNamesText] = useState('')
+  const participantCount = namesText.split('\n').filter(name => name.trim()).length
 
   async function api(body, get = false) {
     const res = await fetch('/api/leader/secret-angel' + (get && body.slug ? `?slug=${encodeURIComponent(body.slug)}` : ''), {
@@ -55,7 +57,7 @@ export default function SecretAngelAdmin() {
   async function create(e) {
     e.preventDefault(); const values = Object.fromEntries(new FormData(e.currentTarget))
     const result = await perform({ ...values, action: 'create', names: values.names.split('\n').map(n => n.trim()).filter(Boolean) }, '모임을 만들었습니다. 개인 참여코드는 지금 안전하게 전달해 주세요.')
-    if (result) { setSlug(result.slug); await refresh(result.slug).catch(e => setError(e.message)) }
+    if (result) { setNamesText(''); setSlug(result.slug); await refresh(result.slug).catch(e => setError(e.message)) }
   }
   return <div className={styles.page} style={{ minHeight: 'auto', background: 'transparent' }}>
     <div className={styles.main}>
@@ -64,7 +66,7 @@ export default function SecretAngelAdmin() {
       <div aria-live="polite">{error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p className={styles.notice}>{notice}</p>}</div>
       {loading && <p role="status">모임을 불러오고 있습니다…</p>}
       {!loading && !data && <section className={styles.card}><h2>관리자 · 모임 관리</h2>{seasons.length > 0 && <div className={styles.row}>{seasons.map(s => <button disabled={busy} key={s.slug} onClick={() => refresh(s.slug).catch(e => setError(e.message))}>{s.slug} 열기</button>)}</div>}
-        <h3>새 8주 모임</h3><form onSubmit={create}><label>모임 이름<input name="title" required maxLength={60} placeholder="청년부 가을 비밀 천사" /></label><label>모임 코드<input name="slug" required pattern="[a-z0-9][a-z0-9-]{2,39}" maxLength={40} placeholder="youth-2026" /></label><label>참가자 명단 (10~20명, 한 줄에 한 명)<textarea name="names" required rows={10} maxLength={700} placeholder={'김청년\n이소망\n박믿음'} /><small>동명이인은 구분 이름을 사용하세요. 시작 후 명단은 바꿀 수 없습니다.</small></label><button className={styles.primary} disabled={busy}>모임과 개인 참여코드 만들기</button></form></section>}
+        <h3>새 8주 모임</h3><form onSubmit={create}><label>모임 이름<input name="title" required maxLength={60} placeholder="청년부 가을 비밀 천사" /></label><label>모임 코드<input name="slug" required pattern="[a-z0-9][a-z0-9-]{2,39}" maxLength={40} placeholder="youth-2026" /></label><label>참가자 명단 (한 줄에 한 명)<textarea name="names" required rows={10} value={namesText} onChange={e => setNamesText(e.target.value)} placeholder={'김청년\n이소망\n박믿음'} /><small>현재 {participantCount}명 · 2명 이상이면 인원수에 맞춰 만들 수 있습니다. 동명이인은 구분 이름을 사용하세요. 시작 후 명단은 바꿀 수 없습니다.</small></label><button className={styles.primary} disabled={busy}>모임과 개인 참여코드 만들기</button></form></section>}
       {invites.length > 0 && <section className={styles.card}><h2>개인 참여코드 · 한 번만 표시</h2><p>모임 코드: <strong>{slug}</strong>. 각 참가자에게 본인의 코드만 개별 전달하세요. 다시 조회할 수 없으며 분실하면 재발급해야 합니다.</p>{invites.map(x => <div className={styles.invite} key={x.name}><strong>{x.name}</strong><code>{x.code}</code></div>)}<button onClick={() => setInvites([])}>전달 완료 · 화면에서 지우기</button></section>}
       {data && <>
         <section className={styles.summary}><div><span className={styles.eyebrow}>{data.status === 'draft' ? '참가자 등록 중' : data.status === 'revealed' ? '정체 공개' : data.week === 0 ? '시작 대기' : `8주 중 ${data.week}주차`}</span><h2>{data.title}</h2><p>{data.startsAt ? `시작 ${date(data.startsAt)} · 공개 가능 ${date(data.endsAt)}` : '모두 등록하면 관리자가 비밀 배정을 시작합니다.'}</p></div><button disabled={busy} onClick={() => refresh().then(() => setNotice('최신 소식을 불러왔습니다.')).catch(e => setError(e.message))}>새로고침</button></section>
@@ -83,7 +85,7 @@ export default function SecretAngelAdmin() {
           </section>}
           <section className={styles.card}><div className={styles.row}><h2>운영 현황</h2><button disabled={busy} onClick={() => { setInvites([]); refresh('').catch(e => setError(e.message)) }}>모임 목록</button></div><p>등록 {data.participants.filter(p => p.registered).length}/{data.participants.length}명 · 완료 미션 {data.counts.missions}개</p>
             <ul className={styles.list}>{data.participants.map(p => <li key={p.id}><span>{p.name} · {p.registered ? '등록 완료' : '등록 대기'}</span><button disabled={busy || data.status === 'revealed'} onClick={() => setConfirmAction(`reset:${p.id}`)}>PIN / 코드 재발급</button>{confirmAction === `reset:${p.id}` && <div className={styles.confirm}><p>{p.name}님의 기존 PIN과 로그인 세션을 무효화하고 새 코드를 발급합니다.</p><button disabled={busy} onClick={async () => { await perform({ action: 'reset_pin', participantId: p.id }, '새 코드를 개별 전달해 주세요.'); setConfirmAction('') }}>재발급 확정</button><button onClick={() => setConfirmAction('')}>취소</button></div>}</li>)}</ul>
-            {data.status === 'draft' && <form onSubmit={e => formAction(e, 'start')}><h3>비밀 배정과 시작</h3><p>10~20명 전원이 등록해야 합니다. 중복·자기 배정·서로 맞교환 없이 무작위 배정하며 다시 뽑을 수 없습니다.</p><label>시작 시각 (기기 현지 시각)<input required type="datetime-local" name="startsAt" /></label><button disabled={busy || data.participants.some(p => !p.registered)} className={styles.primary}>배정 확정 · 8주 시작</button></form>}
+            {data.status === 'draft' && <form onSubmit={e => formAction(e, 'start')}><h3>비밀 배정과 시작</h3><p>명단에 있는 {data.participants.length}명 전원이 등록해야 합니다. 자기 배정·중복 없이 무작위 배정하며 다시 뽑을 수 없습니다. 2명일 때는 서로에게 배정됩니다.</p><label>시작 시각 (기기 현지 시각)<input required type="datetime-local" name="startsAt" /></label><button disabled={busy || data.participants.some(p => !p.registered)} className={styles.primary}>배정 확정 · 8주 시작</button></form>}
             {data.status === 'active' && <><p>8주 종료 후 정체를 공개할 수 있습니다. 공개하면 활동이 종료됩니다.</p><button disabled={busy || Date.now() < data.endsAt} onClick={() => setConfirmAction('reveal')}>마지막 정체 공개</button>{confirmAction === 'reveal' && <div className={styles.confirm}><p>모든 참가자에게 전체 배정이 공개됩니다.</p><button disabled={busy} onClick={async () => { await perform({ action: 'reveal' }); setConfirmAction('') }}>공개 확정</button><button onClick={() => setConfirmAction('')}>취소</button></div>}</>}
           </section>
           {data.assignments.length > 0 && <details className={styles.card}><summary>관리자 전용 비밀 배정표</summary><p>참가자에게 공개하지 마세요.</p>{data.assignments.map(x => <p key={x.from}>{x.from} → {x.to}</p>)}</details>}

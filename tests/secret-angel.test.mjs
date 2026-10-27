@@ -13,8 +13,8 @@ function setup() {
 const actor = (s, i = 0) => ({ id: s.participants[i].id })
 function friend(s, id) { return s.assignments[id] }
 
-test('명단은 중복 없는 10~20명, 모임 코드/이름 제한', () => {
-  for (const list of [names.slice(0, 9), [...names, ...names], Array(21).fill('동일')]) assert.throws(() => newSeason({ slug: 'youth-2026', title: '모임', names: list }))
+test('명단은 중복 없는 2명 이상, 모임 코드/이름 제한', () => {
+  for (const list of [[], names.slice(0, 1), [...names, ...names], Array(21).fill('동일')]) assert.throws(() => newSeason({ slug: 'youth-2026', title: '모임', names: list }))
   assert.throws(() => newSeason({ slug: '../etc', title: '모임', names }))
 })
 test('참여코드와 PIN은 평문으로 저장하지 않으며 이름만으로 등록 불가', () => {
@@ -145,4 +145,41 @@ test('시작 후 PIN 복구용 일회용 코드 재발급, epoch로 세션 취�
   register(s, { name: p.name, pin: '777777', code: result.invites[0].code })
   assert.equal(p.inviteHash, null); assert.ok(verify('777777', p.pinHash))
   assert.ok(!verify('123450', p.pinHash)); assert.equal(p.epoch, 1)
+})
+
+test('인원수 제한 없이 2·3·9·12·21·64명 생성 및 배정 불변식', () => {
+  const pinHash = hash('123456')
+  for (const count of [2, 3, 9, 12, 21, 64]) {
+    const roster = Array.from({ length: count }, (_, i) => `참가자${i + 1}`)
+    const { state: s, invites } = newSeason({ slug: 'variable-count', title: '인원 가변', names: roster })
+    assert.equal(s.participants.length, count); assert.equal(invites.length, count)
+    s.participants.forEach(p => { p.pinHash = pinHash })
+    for (let trial = 0; trial < 10; trial++) {
+      s.status = 'draft'
+      mutate(s, { admin: true }, { action: 'start', startsAt: new Date(now).toISOString() }, now)
+      assert.equal(new Set(Object.values(s.assignments)).size, count)
+      for (const [by, to] of Object.entries(s.assignments)) {
+        assert.notEqual(by, to)
+        if (count > 2) assert.notEqual(s.assignments[to], by)
+      }
+    }
+  }
+})
+test('2명 모임의 마니또·천사 대화는 같은 상대여도 섞이지 않고 양방향 응답 가능', () => {
+  const { state: s, invites } = newSeason({ slug: 'two-person', title: '2명 모임', names: ['하늘', '바다'] })
+  invites.forEach(x => register(s, { ...x, pin: '123456' }))
+  mutate(s, { admin: true }, { action: 'start', startsAt: new Date(now).toISOString() }, now)
+  const a = actor(s), b = actor(s, 1), time = now + WEEK
+  mutate(s, a, { action: 'message', channel: 'friend', body: 'A가 친구에게' }, time)
+  assert.deepEqual(view(s, b, time).messages.angel.map(x => x.body), ['A가 친구에게'])
+  assert.deepEqual(view(s, b, time).messages.friend, [])
+  mutate(s, b, { action: 'message', channel: 'angel', body: 'B가 천사에게 답장' }, time)
+  assert.deepEqual(view(s, a, time).messages.friend.map(x => x.body), ['A가 친구에게', 'B가 천사에게 답장'])
+  assert.deepEqual(view(s, a, time).messages.angel, [])
+  mutate(s, a, { action: 'message', channel: 'angel', body: 'A가 천사에게' }, time)
+  mutate(s, b, { action: 'message', channel: 'friend', body: 'B가 친구에게 답장' }, time)
+  assert.deepEqual(view(s, a, time).messages.angel.map(x => x.body), ['A가 천사에게', 'B가 친구에게 답장'])
+  assert.equal(view(s, a, time).messages.friend.length, 2)
+  assert.equal(view(s, b, time).messages.friend.length, 2)
+  assert.equal(view(s, b, time).messages.angel.length, 2)
 })
