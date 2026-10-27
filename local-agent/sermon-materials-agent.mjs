@@ -1,9 +1,12 @@
+import { runPendingRevision } from './sermon-revision-worker.mjs';
+import { buildOutputSchema, buildPrompt, normalizeOutput, buildReviewSchema, buildReviewPrompt, validateReview, needsHumanReview } from './sermon-content.mjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { spawn } from 'child_process';
 import os from 'os';
+import Anthropic from '@anthropic-ai/sdk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,14 +18,19 @@ loadEnvFile(path.join(repoRoot, '.env'));
 const DEFAULT_STALE_MINUTES = 10;
 const DEFAULT_POLL_SECONDS = 60;
 const DEFAULT_MODEL = process.env.LOCAL_AGENT_MODEL || '';
+const CODEX_DEFAULT_MODEL = 'gpt-6.1-sol';
+const KIRO_DEFAULT_MODEL = 'claude-opus-5.5';
 const DEFAULT_TIMEOUT_SECONDS = Number(process.env.LOCAL_AGENT_TIMEOUT_SECONDS || 3600);
 const DEFAULT_RETRIES = Number(process.env.LOCAL_AGENT_RETRIES || 1);
+const DEFAULT_ENGINE = process.env.LOCAL_AGENT_ENGINE || 'codex';
+const CLAUDE_DEFAULT_MODEL = 'claude-opus-5';
+const KIRO_CLI_BIN = process.env.LOCAL_AGENT_KIRO_BIN || 'kiro-cli';
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  validateEnv();
+  validateEnv(options);
 
-  const supabase = createClient(
+  const supabase = options.inputFile ? null : createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY,
   );
@@ -49,7 +57,11 @@ async function runLoop({ supabase, options }) {
 }
 
 async function runOnce({ supabase, options }) {
-  const row = await pickTarget({
+  if (!options.inputFile) {
+    const handled = await runPendingRevision({ db: supabase, options, callAi: (prompt, schema) => callAiWithRetry(prompt, options, schema), parseJson: parseModelJson });
+    if (handled || options.revisionId) return;
+  }
+  const row = options.inputFile ? JSON.parse(fs.readFileSync(options.inputFile, 'utf8')) : await pickTarget({
     supabase,
     id: options.id,
     staleMinutes: options.staleMinutes,
@@ -78,10 +90,22 @@ async function runOnce({ supabase, options }) {
   try {
     const raw = options.mockFile
       ? fs.readFileSync(path.resolve(options.mockFile), 'utf8')
-      : await callCodexWithRetry(prompt, options);
+      : await callAiWithRetry(prompt, options);
 
     const parsed = parseModelJson(raw);
-    const normalized = normalizeOutput(parsed);
+    const normalized = normalizeOutput(parsed, row);
+    // A separate call reads the source again; schema checks alone do not verify meaning.
+    if (options.mockFile) {
+      normalized.questions.meta.quality_review = { status: 'not_run', summary: '오프라인 구조 검증용 결과입니다.', issues: [] };
+    } else {
+      try {
+        const reviewRaw = await callAiWithRetry(buildReviewPrompt(row, normalized), options, buildReviewSchema());
+        normalized.questions.meta.quality_review = validateReview(parseModelJson(reviewRaw), row);
+      } catch (error) {
+        normalized.questions.meta.quality_review = { status: 'needs_review', summary: '독립 검토를 완료하지 못했습니다. 관리자가 확인해 주세요.', issues: [], error: String(error.message).slice(0, 1000) };
+      }
+    }
+    normalized.questions.meta.requires_review = Boolean(needsHumanReview(normalized));
 
     if (options.dryRun || options.printResult || options.outputFile) {
       const rendered = JSON.stringify(normalized, null, 2);
@@ -215,98 +239,31 @@ async function saveFailure(supabase, id, error) {
   }
 }
 
-async function callCodexWithRetry(prompt, options) {
-  const schema = buildOutputSchema();
+async function callAiWithRetry(prompt, options, schema = buildOutputSchema()) {
+  const engine = options.engine;
+  const maxAttempts = Math.max(1, options.retries);
   let lastError;
 
-  for (let attempt = 1; attempt <= Math.max(1, options.retries); attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      console.log(`[agent] codex call attempt=${attempt}/${Math.max(1, options.retries)}`);
+      console.log(`[agent] ${engine} call attempt=${attempt}/${maxAttempts}`);
+      if (engine === 'claude') {
+        return await callClaude(prompt, options.model, schema, options, attempt);
+      }
+      if (engine === 'kiro') {
+        return await callKiro(prompt, options.model, schema, options, attempt);
+      }
       return await callCodex(prompt, options.model, schema, options, attempt);
     } catch (error) {
       lastError = error;
-      console.error(`[agent] codex call failed attempt=${attempt}: ${error.message}`);
-      if (attempt < Math.max(1, options.retries)) {
+      console.error(`[agent] ${engine} call failed attempt=${attempt}: ${error.message}`);
+      if (attempt < maxAttempts) {
         await sleep(Math.min(10000, attempt * 2000));
       }
     }
   }
 
   throw lastError;
-}
-
-function buildOutputSchema() {
-  return {
-    type: 'object',
-    additionalProperties: false,
-    required: ['sermon_summary', 'questions'],
-    properties: {
-      sermon_summary: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['key_point', 'overview', 'sections'],
-        properties: {
-          key_point: { type: 'string' },
-          overview: { type: 'string' },
-          sections: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['title', 'content'],
-              properties: {
-                title: { type: 'string' },
-                content: { type: 'string' },
-              },
-            },
-          },
-        },
-      },
-      questions: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['sections', 'meta'],
-        properties: {
-          sections: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['section_title', 'summary_anchor', 'questions'],
-              properties: {
-                section_title: { type: 'string' },
-                summary_anchor: { type: 'string' },
-                questions: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    additionalProperties: false,
-                    required: ['flow_stage', 'category', 'explanation', 'question', 'scripture_anchor'],
-                    properties: {
-                      flow_stage: { type: 'string' },
-                      category: { type: 'string' },
-                      explanation: { type: 'string' },
-                      question: { type: 'string' },
-                      scripture_anchor: { type: 'string' },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          meta: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              theological_focus: { type: 'array', items: { type: 'string' } },
-              application_focus: { type: 'array', items: { type: 'string' } },
-            },
-            required: ['theological_focus', 'application_focus'],
-          },
-        },
-      },
-    },
-  };
 }
 
 async function callCodex(prompt, model, schema, options, attempt) {
@@ -322,7 +279,7 @@ async function callCodex(prompt, model, schema, options, attempt) {
     '- 최종 응답은 JSON 객체 하나만 반환해 주세요.',
     '- 마크다운 코드블록을 사용하지 마세요.',
     '- 출력 예시의 ... 를 그대로 남기지 마세요.',
-    '- explanation을 포함한 모든 키를 반드시 반환해 주세요. explanation이 꼭 필요 없으면 빈 문자열("")을 넣어 주세요.',
+    '- 제공된 JSON 스키마의 키를 빠짐없이 반환하고, 스키마에 없는 키는 추가하지 마세요.',
   ].join('\n');
 
   const args = [
@@ -360,126 +317,75 @@ async function callCodex(prompt, model, schema, options, attempt) {
   return outputText;
 }
 
-function buildPrompt(item) {
-  const reference = item.reference || '';
-  const passage = item.passage || '';
-  const title = item.sermon_title || '';
+async function callKiro(prompt, model, schema, options, attempt) {
+  const kiroPrompt = [
+    prompt,
+    '',
+    '[추가 실행 규칙]',
+    '- 최종 응답은 JSON 객체 하나만 반환해 주세요.',
+    '- 마크다운 코드블록(```), 설명 문장, 머리말/꼬리말을 절대 붙이지 마세요.',
+    '- 응답의 첫 글자는 반드시 "{" 여야 하고 마지막 글자는 반드시 "}" 여야 합니다.',
+    '- 출력 예시의 ... 를 그대로 남기지 마세요.',
+    '- 제공된 JSON 스키마의 키를 빠짐없이 반환하고, 스키마에 없는 키는 추가하지 마세요.',
+    '- 아래 JSON 스키마를 반드시 만족해야 합니다:',
+    JSON.stringify(schema),
+  ].join('\n');
 
-  let outline = '';
-  let summary = '';
-  let transcript = '';
-  let legacyPoints = '';
-
-  try {
-    const parsedPoints = item.sermon_points ? JSON.parse(item.sermon_points) : null;
-    if (parsedPoints && typeof parsedPoints === 'object') {
-      outline = parsedPoints.outline || '';
-      summary = parsedPoints.summary || '';
-      transcript = parsedPoints.transcript || '';
-      legacyPoints = parsedPoints.legacy_points || '';
-    } else if (item.sermon_points) {
-      legacyPoints = item.sermon_points;
-    }
-  } catch {
-    legacyPoints = item.sermon_points || '';
-  }
-
-  const lines = [
-    '너는 개혁주의 신학(성경의 충분성, 하나님의 주권, 인간의 전적 타락, 오직 은혜, 오직 그리스도)에 충실한 청년부 소그룹 교재 작성 보조자입니다.',
-    '모든 출력은 반드시 존댓말로 작성해 주세요.',
-    '',
-    '[절대 원칙]',
-    '1) 반드시 입력된 성경본문/설교대지/설교요약/설교원문에 근거해서만 작성해 주세요.',
-    '2) 추측, 과장, 근거 없는 적용은 금지해 주세요.',
-    '3) 설교를 듣지 못한 분도 요약만 읽고 핵심 흐름을 이해할 수 있도록 충분히 설명해 주세요.',
-    '4) 질문은 핵심 메시지를 따라 흐르도록 작성하고, 보조설명은 꼭 필요한 경우에만 짧게 붙여 주세요.',
-    '5) 모든 문장은 존댓말로 작성해 주세요.',
-    '6) 응답이 길어질 경우 섹션 수를 줄여서라도 반드시 완전한 단일 JSON 객체를 닫아서 반환해 주세요.',
-    '',
-    '[표현 규칙]',
-    '1) "설교는", "설교에서", "설교가" 같은 표현은 사용하지 말아 주세요.',
-    '2) 대신 "말씀은", "본문은", "오늘 본문은", "해당 구절은" 등의 표현을 사용해 주세요.',
-    '3) 가능하면 출처 표시는 최소화하고, 질문 자체가 자연스럽게 이어지도록 작성해 주세요.',
-    '4) explanation/question/summary 전체에 동일하게 적용해 주세요.',
-    '',
-    `성경 구절: ${reference}`,
-    title ? `설교 제목: ${title}` : '',
-    outline ? `설교 대지:\n${outline}` : '',
-    summary ? `설교 요약:\n${summary}` : '',
-    transcript ? `설교 원문:\n${transcript}` : '',
-    legacyPoints ? `추가 메모(하위호환):\n${legacyPoints}` : '',
-    '성경 본문(개역개정):',
-    passage,
-    '',
-    '[말씀 요약 작성 기준 - sermon_summary]',
-    '- key_point: 설교 전체 핵심을 2~3문장으로 작성해 주세요.',
-    '- overview: 설교 흐름을 6~10문장으로 자세히 설명해 주세요.',
-    '- sections: 각 대지/주제별로 구성해 주세요.',
-    '- sections[].content는 반드시 두괄식으로 작성해 주세요.',
-    '- sections[].content의 첫 1~2문장은 그 단락의 핵심 메시지를 먼저 요약하는 문장으로 작성해 주세요.',
-    '- 그 다음 3~6문장에서는 왜 그런 결론이 나오는지, 설교의 전개와 강조점, 적용 방향을 풀어서 설명해 주세요.',
-    '- 즉 각 단락은 "짧은 핵심 요약 -> 추가 설명" 구조가 분명히 드러나야 합니다.',
-    '- sections[].content는 전체적으로 5~8문장 분량으로 작성해 주세요.',
-    '- 단락 첫 문장은 가능하면 "오늘 본문은", "해당 구절은", "이 대목은", "말씀은" 등으로 시작하여 요지를 바로 드러내 주세요.',
-    '- 설교에서 강조된 복음적 의미(죄 인식, 은혜, 그리스도의 사역, 순종의 방향)를 포함해 주세요.',
-    '',
-    '[나눔 질문 작성 기준 - questions.sections[].questions[]]',
-    '- 질문 전체는 반드시 하나의 중심축, 곧 sermon_summary.key_point의 핵심 메시지를 따라 흐르도록 작성해 주세요.',
-    '- 나눔 질문은 서로 따로 노는 질문 모음이 아니라, "말씀을 점검합시다. -> 말씀을 통해 은혜를 나눕시다. -> 말씀을 따라 결단합시다."의 흐름으로 이어져야 합니다.',
-    '- 각 문항은 flow_stage, category, explanation, question, scripture_anchor를 반드시 포함해 주세요.',
-    '- flow_stage는 반드시 아래 셋 중 하나만 사용해 주세요: "말씀을 점검합시다.", "말씀을 통해 은혜를 나눕시다.", "말씀을 따라 결단합시다."',
-    '- "말씀을 점검합시다."에서는 본문과 설교의 핵심 주장, 중요한 장면, 반복된 강조를 확인하게 해 주세요.',
-    '- "말씀을 통해 은혜를 나눕시다."에서는 앞서 확인한 핵심이 내 삶, 마음, 관계, 현재 형편과 어떻게 연결되는지 나누게 해 주세요.',
-    '- "말씀을 따라 결단합시다."에서는 같은 핵심 메시지가 이번 주의 순종, 기도, 태도 변화, 실천으로 이어지게 해 주세요.',
-    '- 즉 뒤 단계 질문은 앞 단계 질문과 무관하게 새 주제를 꺼내지 말고, 앞에서 확인한 핵심을 더 깊게 가져가 주세요.',
-    '- 각 섹션의 질문 수는 반드시 2~3문항으로만 작성해 주세요. 4문항 이상은 금지합니다.',
-    '- 가능하면 각 섹션 안에서 "말씀 점검 1문항 + 은혜 나눔 1문항 + 결단 1문항"의 3문항 구조를 우선으로 해 주세요.',
-    '- 꼭 2문항만 작성해야 한다면, 핵심을 점검하는 질문 1문항과 삶으로 연결되는 질문 1문항이 남도록 구성해 주세요.',
-    '- category는 흐름에 맞게 관찰/성찰/적용/공동체/복음 등으로 사용할 수 있습니다.',
-    '- 단, "말씀을 점검합시다." 단계의 explanation은 반드시 비우지 말고, 질문에 답하기 위해 바로 참고할 수 있는 보조자료처럼 작성해 주세요.',
-    '- 즉 explanation에는 "이 질문이 어떤 장면/구절/핵심을 묻는지"뿐 아니라, 답할 때 다시 떠올려야 할 사건, 인물의 반응, 반복된 표현, 설교의 강조점이 실제로 들어가야 합니다.',
-    '- 가능하면 scripture_anchor와 section_title에 맞춰, "어떤 대목에서 무엇이 일어났는지"를 짧게 정리한 뒤 그 사실이 왜 중요한지 덧붙여 주세요.',
-    '- "말씀을 통해 은혜를 나눕시다."와 "말씀을 따라 결단합시다." 단계의 explanation은 질문만으로 의도가 충분히 분명하면 빈 문자열("")로 두어도 됩니다.',
-    '- explanation이 꼭 필요하다면 설교/본문의 근거와 질문 의도를 짧게 1~2문장으로만 적어 주세요.',
-    '- question은 나눔용 실제 질문 1문장(존댓말)으로 작성해 주세요.',
-    '- 질문은 정답형이 아니라 자기 성찰과 삶의 적용, 공동체적 책임으로 이어지게 해 주세요.',
-    '',
-    '[출력 형식]',
-    '반드시 JSON만 반환해 주세요. 코드블록, 설명문, 주석은 금지합니다.',
-    '금지어 치환 규칙: 최종 출력 문자열 어디에도 "설교는/설교에서/설교가"를 포함하지 마세요.',
-    '{',
-    '  "sermon_summary": {',
-    '    "key_point": "...",',
-    '    "overview": "...",',
-    '    "sections": [',
-    '      { "title": "...", "content": "..." }',
-    '    ]',
-    '  },',
-    '  "questions": {',
-    '    "sections": [',
-    '      {',
-    '        "section_title": "...",',
-    '        "summary_anchor": "...",',
-    '        "questions": [',
-    '          {',
-    '            "flow_stage": "말씀을 점검합시다.",',
-    '            "category": "관찰",',
-    '            "explanation": "",',
-    '            "question": "...",',
-    '            "scripture_anchor": "..."',
-    '          }',
-    '        ]',
-    '      }',
-    '    ],',
-    '    "meta": {',
-    '      "theological_focus": ["..."],',
-    '      "application_focus": ["..."]',
-    '    }',
-    '  }',
-    '}',
+  const args = [
+    'chat',
+    '--no-interactive',
+    '--trust-tools=',
   ];
 
-  return lines.filter(Boolean).join('\n');
+  if (model) {
+    args.push('--model', model);
+  }
+
+  args.push(kiroPrompt);
+
+  const result = await runCommandClosedStdin(KIRO_CLI_BIN, args, {
+    cwd: repoRoot,
+    timeoutMs: options.timeoutSeconds * 1000,
+  });
+
+  const outputText = result.stdout || '';
+  writeAttemptLogs(options, attempt, 'kiro', kiroPrompt, outputText, result.stderr);
+
+  if (result.stderr && result.stderr.trim()) {
+    console.error(result.stderr.trim());
+  }
+
+  return outputText;
+}
+
+async function callClaude(prompt, model, schema, options, attempt) {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const resolvedModel = model || CLAUDE_DEFAULT_MODEL;
+
+  const claudePrompt = [
+    prompt,
+    '',
+    '[추가 실행 규칙]',
+    '- 최종 응답은 JSON 객체 하나만 반환해 주세요.',
+    '- 마크다운 코드블록을 사용하지 마세요.',
+    '- 출력 예시의 ... 를 그대로 남기지 마세요.',
+    '- 제공된 JSON 스키마의 키를 빠짐없이 반환하고, 스키마에 없는 키는 추가하지 마세요.',
+  ].join('\n');
+
+  const stream = client.messages.stream({
+    model: resolvedModel,
+    max_tokens: 64000,
+    thinking: { type: 'adaptive' },
+    output_config: { format: { type: 'json_schema', schema } },
+    messages: [{ role: 'user', content: claudePrompt }],
+  });
+
+  const message = await stream.finalMessage();
+  const textBlock = message.content.find((b) => b.type === 'text');
+  const outputText = textBlock?.text ?? '';
+
+  writeAttemptLogs(options, attempt, 'claude', claudePrompt, outputText, '');
+  return outputText;
 }
 
 function parseModelJson(raw) {
@@ -521,85 +427,12 @@ function repairJson(text) {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 }
 
-function normalizeOutput(parsed) {
-  validateGeneratedPayload(parsed);
-
-  const summaryRaw = parsed.sermon_summary || {};
-  const sermonSummary = {
-    key_point: summaryRaw.key_point || summaryRaw.keyPoint || '',
-    overview: summaryRaw.overview || '',
-    sections: Array.isArray(summaryRaw.sections)
-      ? summaryRaw.sections.map((section) => ({
-          title: section?.title || '',
-          content: section?.content || '',
-        }))
-      : [],
-  };
-
-  const rootQuestions = parsed.questions || parsed;
-  let sections = [];
-  if (Array.isArray(rootQuestions?.sections)) {
-    sections = rootQuestions.sections;
-  } else if (Array.isArray(rootQuestions)) {
-    sections = [{ section_title: '통합 나눔', summary_anchor: '', questions: rootQuestions }];
-  }
-
-  const normalizedSections = sections
-    .map((section, index) => {
-      const title =
-        section?.section_title || section?.title || section?.topic || `섹션 ${index + 1}`;
-      const summaryAnchor = section?.summary_anchor || section?.summary || '';
-      const questionList = Array.isArray(section?.questions) ? section.questions : [];
-
-      const normalizedQuestions = questionList
-        .map((question) => {
-          if (typeof question === 'string') {
-            return {
-              section_title: title,
-              flow_stage: '',
-              category: '적용',
-              explanation: '',
-              question,
-              scripture_anchor: '',
-            };
-          }
-
-          return {
-            section_title: title,
-            flow_stage: question?.flow_stage || question?.flowStage || '',
-            category: question?.category || question?.type || '적용',
-            explanation: question?.explanation || question?.context || '',
-            question: question?.question || question?.text || question?.content || '',
-            scripture_anchor: question?.scripture_anchor || question?.anchor || '',
-          };
-        })
-        .filter((question) => question.question);
-
-      return {
-        section_title: title,
-        summary_anchor: summaryAnchor,
-        questions: normalizedQuestions,
-      };
-    })
-    .filter((section) => section.questions.length > 0);
-
-  if (!normalizedSections.length) {
-    throw new Error(`유효한 sections/questions가 없습니다. 받은 키: ${Object.keys(parsed).join(', ')}`);
-  }
-
-  return {
-    sermon_summary: sermonSummary,
-    questions: {
-      sections: normalizedSections,
-      flat: normalizedSections.flatMap((section) => section.questions),
-      meta: rootQuestions?.meta || {},
-    },
-  };
-}
-
 function parseArgs(argv) {
   const options = {
     id: null,
+    inputFile: null,
+    revisionId: null,
+    engine: DEFAULT_ENGINE,
     model: DEFAULT_MODEL,
     timeoutSeconds: DEFAULT_TIMEOUT_SECONDS,
     retries: DEFAULT_RETRIES,
@@ -617,8 +450,20 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
 
+    if (arg === '--input-file') { options.inputFile = path.resolve(argv[++index] || ''); continue; }
+
+    if (arg === '--revision-id') { options.revisionId = argv[++index] || ''; if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(options.revisionId)) throw new Error('올바른 수정 요청 ID가 필요합니다.'); continue; }
+
     if (arg === '--id') {
       options.id = argv[++index] || null;
+      continue;
+    }
+    if (arg === '--engine') {
+      const val = argv[++index] || DEFAULT_ENGINE;
+      if (val !== 'codex' && val !== 'claude' && val !== 'kiro') {
+        throw new Error(`--engine 값은 "codex", "claude" 또는 "kiro"여야 합니다: ${val}`);
+      }
+      options.engine = val;
       continue;
     }
     if (arg === '--model') {
@@ -677,6 +522,15 @@ function parseArgs(argv) {
     throw new Error(`알 수 없는 옵션: ${arg}`);
   }
 
+  if (!options.model) {
+    if (options.engine === 'codex') options.model = CODEX_DEFAULT_MODEL;
+    if (options.engine === 'kiro') options.model = KIRO_DEFAULT_MODEL;
+    if (options.engine === 'claude') options.model = CLAUDE_DEFAULT_MODEL;
+  }
+
+  if (options.revisionId && (options.inputFile || options.id || options.mockFile)) throw new Error('--revision-id는 --input-file/--id/--mock-file과 함께 사용할 수 없습니다.');
+  if (options.inputFile && (!options.dryRun || options.watch || options.id)) throw new Error('--input-file은 --dry-run과 함께 사용하고 --watch/--id는 지정하지 마세요.');
+  if (options.mockFile && !options.dryRun) throw new Error('--mock-file은 --dry-run에서만 사용합니다.');
   return options;
 }
 
@@ -685,20 +539,31 @@ function printHelp() {
   node local-agent/sermon-materials-agent.mjs [options]
 
 Options:
+  --input-file <path>    DB 연결 없는 로컬 입력 (--dry-run 필수)
+  --revision-id <uuid>   특정 부분 수정 요청 1건 처리
   --id <uuid>            특정 설교 1건만 처리
-  --model <name>         Codex 모델 이름 (비우면 계정 기본 모델 사용)
+  --engine <name>        AI 엔진 선택: kiro | codex | claude (기본값: ${DEFAULT_ENGINE}, 환경변수: LOCAL_AGENT_ENGINE)
+  --model <name>         모델 이름 (Codex 기본값: ${CODEX_DEFAULT_MODEL}, Kiro 기본값: ${KIRO_DEFAULT_MODEL}, Claude 기본값: ${CLAUDE_DEFAULT_MODEL}, 환경변수: LOCAL_AGENT_MODEL)
   --timeout-seconds <n>  모델 실행 최대 대기 시간 (기본값: ${DEFAULT_TIMEOUT_SECONDS})
   --retries <n>          실패 시 재시도 횟수 (기본값: ${DEFAULT_RETRIES})
   --log-dir <path>       실행 로그 저장 디렉터리
-  --dry-run              DB update 없이 프롬프트 생성/Codex 호출만 수행
+  --dry-run              DB update 없이 프롬프트 생성/AI 호출만 수행
   --print-prompt         생성된 프롬프트를 stdout으로 출력
   --print-result         생성 결과 JSON을 stdout으로 출력
   --output-file <path>   생성 결과 JSON을 파일로 저장
   --watch                반복 실행 모드
   --poll-seconds <sec>   watch 모드 polling 간격 (기본값: ${DEFAULT_POLL_SECONDS})
   --stale-minutes <min>  processing 재시도 대상 기준 (기본값: ${DEFAULT_STALE_MINUTES})
-  --mock-file <path>     Codex 대신 파일 내용을 응답으로 사용
+  --mock-file <path>     AI 대신 파일 내용을 응답으로 사용
   --help                 도움말 출력
+
+환경변수:
+  LOCAL_AGENT_ENGINE     기본 엔진 (kiro | codex | claude)
+  LOCAL_AGENT_MODEL      모델 재정의 (Codex 기본값: ${CODEX_DEFAULT_MODEL})
+  LOCAL_AGENT_KIRO_BIN   kiro 엔진 사용 시 실행 바이너리 (기본값: kiro-cli)
+  ANTHROPIC_API_KEY      Claude 엔진 사용 시 필수
+  SUPABASE_URL           Supabase 프로젝트 URL
+  SUPABASE_SERVICE_KEY   Supabase 서비스 키
 `);
 }
 
@@ -760,67 +625,12 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function validateGeneratedPayload(parsed) {
-  const serialized = JSON.stringify(parsed);
-  if (serialized.includes('"..."') || serialized.includes(': "..."')) {
-    throw new Error('모델이 출력 예시 템플릿(...)을 그대로 반환했습니다.');
+function validateEnv(options) {
+  const required = options?.inputFile ? [] : ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY'];
+  if (options?.engine === 'claude') {
+    required.push('ANTHROPIC_API_KEY');
   }
-
-  const overview = parsed?.sermon_summary?.overview || '';
-  const sections = parsed?.questions?.sections || [];
-  if (!String(overview).trim()) {
-    throw new Error('sermon_summary.overview가 비어 있습니다.');
-  }
-  if (!Array.isArray(sections) || sections.length === 0) {
-    throw new Error('questions.sections가 비어 있습니다.');
-  }
-
-  for (const section of sections) {
-    const count = Array.isArray(section?.questions) ? section.questions.length : 0;
-    if (count < 2 || count > 3) {
-      throw new Error(`각 섹션의 질문 수는 2~3개여야 합니다. section="${section?.section_title || section?.title || ''}" count=${count}`);
-    }
-  }
-
-  const flatQuestions = sections.flatMap((section) => Array.isArray(section?.questions) ? section.questions : []);
-  if (flatQuestions.length === 0) {
-    throw new Error('질문이 생성되지 않았습니다.');
-  }
-
-  const stageSet = new Set();
-
-  for (const question of flatQuestions) {
-    if (!String(question?.question || '').trim()) {
-      throw new Error('빈 question 항목이 있습니다.');
-    }
-    if (!String(question?.flow_stage || '').trim()) {
-      throw new Error('flow_stage가 비어 있는 질문이 있습니다.');
-    }
-    if (
-      String(question.flow_stage).trim() === '말씀을 점검합시다.' &&
-      !String(question?.explanation || '').trim()
-    ) {
-      throw new Error('말씀 점검 질문의 explanation이 비어 있습니다.');
-    }
-    stageSet.add(String(question.flow_stage).trim());
-  }
-
-  const requiredStages = [
-    '말씀을 점검합시다.',
-    '말씀을 통해 은혜를 나눕시다.',
-    '말씀을 따라 결단합시다.',
-  ];
-  for (const stage of requiredStages) {
-    if (!stageSet.has(stage)) {
-      throw new Error(`질문 흐름 단계가 누락되었습니다: ${stage}`);
-    }
-  }
-}
-
-function validateEnv() {
-  const missing = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY'].filter(
-    (key) => !process.env[key],
-  );
+  const missing = required.filter((key) => !process.env[key]);
   if (missing.length) {
     throw new Error(`필수 환경변수가 없습니다: ${missing.join(', ')}`);
   }

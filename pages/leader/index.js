@@ -1,3 +1,6 @@
+import SermonRevisionPanel from '../../components/SermonRevisionPanel'
+import SermonReviewNotice from '../../components/SermonReviewNotice'
+import { readQuestionDocument, buildEditedQuestionDocument, requiresContentReview } from '../../lib/sermon-materials.mjs'
 import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
@@ -199,6 +202,7 @@ function StatusBadge({ status }) {
     pending:    { label:'⏳ 생성 대기중', bg:'#fff8e1', color:'#f57f17' },
     processing: { label:'⚙️ AI 생성중...', bg:'#e3f2fd', color:'#1565c0' },
     done:       { label:'✅ 완료',         bg:'#e8f5e9', color:'#2e7d32' },
+    review_required: { label:'🔎 원문 검토 필요', bg:'#fff3d6', color:'#8a5700' },
     error:      { label:'❌ 오류',          bg:'#ffebee', color:'#c62828' },
   }
   const m = map[status] || map.pending
@@ -231,6 +235,7 @@ function SermonTab() {
     meditations: [],
     card_verse: '',
   })
+  const [resultBaseline, setResultBaseline] = useState('')
   const [resultSaving, setResultSaving] = useState(false)
   const [resultMsg, setResultMsg] = useState('')
   const [resultErr, setResultErr] = useState('')
@@ -301,6 +306,7 @@ function SermonTab() {
       const flowStage = options.flowStage || ''
       if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, answer: '', flow_stage: flowStage, scripture_anchor: '' }
       return {
+        ...q,
         section_title: q?.section_title || sectionTitle || '',
         category: q?.category || q?.type || '',
         explanation: q?.explanation || q?.context || '',
@@ -336,6 +342,7 @@ function SermonTab() {
     if (!val) return { key_point:'', overview:'', sections:[] }
     if (typeof val === 'object') {
       return {
+        ...val,
         key_point: val.key_point || '',
         overview: val.overview || '',
         sections: Array.isArray(val.sections) ? val.sections : [],
@@ -344,6 +351,7 @@ function SermonTab() {
     try {
       const parsed = JSON.parse(val)
       return {
+        ...parsed,
         key_point: parsed.key_point || '',
         overview: parsed.overview || '',
         sections: Array.isArray(parsed.sections) ? parsed.sections : [],
@@ -355,13 +363,16 @@ function SermonTab() {
 
   function openResultEdit(s) {
     setEditData(s)
-    setResultForm({
+    const nextForm = {
       sermon_title: s.sermon_title || '',
       sermon_summary: parseSummaryField(s.sermon_summary),
       questions: normalizeQuestionsForEdit(parseArrayField(s.questions)),
+      questions_meta: readQuestionDocument(s.questions)?.meta || {},
       meditations: parseArrayField(s.meditations),
       card_verse: s.card_verse || '',
-    })
+    }
+    setResultForm(nextForm)
+    setResultBaseline(JSON.stringify(nextForm))
     setResultMsg('')
     setResultErr('')
     setScreen('result')
@@ -399,20 +410,24 @@ function SermonTab() {
     } catch(e) { alert('삭제 실패: '+e.message) }
   }
 
-  async function handleResultSave() {
+  async function handleResultSave(confirmReview = false) {
     if (!editData?.id) return
     setResultSaving(true)
     setResultMsg('')
     setResultErr('')
     try {
+      const original = readQuestionDocument(editData.questions);
+      const questions = buildEditedQuestionDocument(original && !Array.isArray(original) ? { ...original, meta: resultForm.questions_meta } : original, resultForm.questions);
+      if (confirmReview && questions?.meta) { questions.meta.requires_review = false; questions.meta.human_review = { confirmed_at: new Date().toISOString() }; }
+      const { questions_meta, ...fields } = resultForm;
       const res = await fetch(`/api/sermons/${editData.id}`, {
         method: 'PATCH',
         headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${LEADER_SECRET}` },
-        body: JSON.stringify(resultForm)
+        body: JSON.stringify({ ...fields, questions, confirm_content_review: confirmReview })
       })
       const d = await res.json()
       if (!d.ok) throw new Error(d.error)
-      setResultMsg('생성된 나눔자료를 수정했어요.')
+      setResultMsg(confirmReview ? '검토한 나눔자료를 공개했어요.' : questions?.meta?.content_version ? '저장했어요. 변경한 자료는 원문 검토 후 공개해 주세요.' : '생성된 나눔자료를 수정했어요.')
       await loadAll()
       setTimeout(() => {
         setResultMsg('')
@@ -444,6 +459,25 @@ function SermonTab() {
       <div style={{background:'#e8f5e9',borderRadius:12,padding:'12px 16px',border:'1px solid #a5d6a7'}}>
         <p style={{fontSize:fontSizePx(12),color:'#2e7d32',margin:0,lineHeight:1.7}}>📌 생성된 결과를 직접 수정하는 화면입니다. 원문 말씀을 바꾸고 다시 정리하려면 이전 화면의 말씀 자료 수정으로 돌아가세요.</p>
       </div>
+      <SermonRevisionPanel key={editData.id} sermon={editData} secret={LEADER_SECRET} dirty={JSON.stringify(resultForm) !== resultBaseline} onApplied={async () => {
+        const response = await fetch(`/api/sermons/${editData.id}`, { headers: { Authorization: `Bearer ${LEADER_SECRET}` } });
+        const result = await response.json();
+        if (!result.ok) throw new Error(result.error);
+        openResultEdit(result.data);
+        await loadAll();
+      }} />
+      <SermonReviewNotice questions={editData.questions} sourceText={editData.sermon_points} />
+      {resultForm.questions_meta?.content_version && <div style={S.card}>
+        <label style={S.label}>여는 질문</label>
+        <textarea value={resultForm.questions_meta.opening_question?.question || ''} onChange={e=>setResultForm(prev=>({...prev,questions_meta:{...prev.questions_meta,opening_question:{...prev.questions_meta.opening_question,question:e.target.value}}}))} style={{...S.input,minHeight:70}} />
+        <label style={S.label}>실천 선택지 · 원문에 있던 실천과 서비스 제안을 구분합니다</label>
+        {(resultForm.questions_meta.practice_options || []).map((item,i)=><div key={i}>
+          <select aria-label={`실천 ${i+1} 출처`} value={item.origin} onChange={e=>setResultForm(prev=>({...prev,questions_meta:{...prev.questions_meta,practice_options:prev.questions_meta.practice_options.map((p,j)=>j===i?{...p,origin:e.target.value}:p)}}))} style={S.input}><option value="sermon">설교에서 제시한 실천</option><option value="suggestion">말씀에 따라 제안한 예시</option></select>
+          <textarea value={item.text} onChange={e=>setResultForm(prev=>({...prev,questions_meta:{...prev.questions_meta,practice_options:prev.questions_meta.practice_options.map((p,j)=>j===i?{...p,text:e.target.value}:p)}}))} style={{...S.input,minHeight:65}} />
+        </div>)}
+        <label style={S.label}>마무리 기도 초안</label>
+        <textarea value={resultForm.questions_meta.closing_prayer || ''} onChange={e=>setResultForm(prev=>({...prev,questions_meta:{...prev.questions_meta,closing_prayer:e.target.value}}))} style={{...S.input,minHeight:100}} />
+      </div>}
       <div style={S.card}>
         <label style={S.label}>설교 제목</label>
         <input value={resultForm.sermon_title} onChange={e=>setResultForm(prev=>({...prev, sermon_title:e.target.value}))} style={S.input}/>
@@ -505,7 +539,7 @@ function SermonTab() {
             <input value={item.category || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, category: e.target.value } : q)}))} placeholder="카테고리(선택)" style={{...S.input,marginBottom:6}}/>
             <textarea value={item.explanation || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, explanation: e.target.value } : q)}))} placeholder="필요한 경우에만 질문 의도/진행 가이드" style={{...S.input,minHeight:62,resize:'vertical',marginBottom:6}}/>
             <textarea value={item.question || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, question: e.target.value } : q)}))} placeholder="질문" style={{...S.input,minHeight:70,resize:'vertical',marginBottom:6}}/>
-            <textarea value={item.answer || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, answer: e.target.value } : q)}))} placeholder="말씀 점검 질문의 실제 답 (목사님 말씀에 근거)" style={{...S.input,minHeight:78,resize:'vertical'}}/>
+            <textarea value={item.answer || ''} onChange={e=>setResultForm(prev=>({...prev, questions: prev.questions.map((q, idx) => idx === i ? { ...q, answer: e.target.value } : q)}))} placeholder="말씀 점검 질문의 참고 답안 (성경 본문에 근거)" style={{...S.input,minHeight:78,resize:'vertical'}}/>
           </div>
         ))}
       </div>
@@ -525,9 +559,10 @@ function SermonTab() {
       </div>
       {resultErr && <p style={S.err}>⚠ {resultErr}</p>}
       {resultMsg && <p style={S.ok}>✓ {resultMsg}</p>}
-      <button onClick={handleResultSave} disabled={resultSaving} style={resultSaving ? S.btnGray : S.btnDark}>
+      <button onClick={()=>handleResultSave(false)} disabled={resultSaving} style={resultSaving ? S.btnGray : S.btnDark}>
         {resultSaving ? '저장 중...' : '💾 생성된 나눔자료 저장'}
       </button>
+      {(resultForm.questions_meta?.content_version || resultForm.questions_meta?.revision_review) && <button onClick={()=>handleResultSave(true)} disabled={resultSaving} style={S.btnDark}>원음·내용 확인 완료 후 공개</button>}
     </div>
   )
 
@@ -620,7 +655,7 @@ function SermonTab() {
                   <span style={{background:s.service==='morning'?'linear-gradient(135deg,#f6a623,#e8901a)':'linear-gradient(135deg,#7a6e9e,#5a5080)',borderRadius:6,padding:'3px 10px',color:'#fff',fontSize:fontSizePx(11),fontWeight:700}}>
                     {s.service==='morning'?'☀️ 오전':'🌙 오후'}
                   </span>
-                  <StatusBadge status={s.status}/>
+                  <StatusBadge status={requiresContentReview(s.questions) ? 'review_required' : s.status}/>
                 </div>
                 <div style={{display:'flex',gap:6}}>
                   <button onClick={()=>openEdit(s)} style={S.btnSm}>말씀자료 수정</button>

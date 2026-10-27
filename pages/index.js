@@ -1,3 +1,5 @@
+import SharingSupport from '../components/SharingSupport'
+import { getSharingSupport, sharingOpeningText, sharingClosingText } from '../lib/sermon-materials.mjs'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
@@ -34,6 +36,7 @@ function normalizeQuestions(raw) {
     const flowStage = options.flowStage || ''
     if (typeof q === 'string') return { section_title: sectionTitle, category: '', explanation: '', question: q, answer: '', flow_stage: flowStage, scripture_anchor: '' }
     return {
+      ...q,
       section_title: q?.section_title || sectionTitle || '',
       category: q?.category || q?.type || '',
       explanation: q?.explanation || q?.context || '',
@@ -252,7 +255,7 @@ export default function Home() {
     }
     return []
   }
-  const openingQuestion = OPENING_QUESTION
+  const openingQuestion = getSharingSupport(selected?.questions).opening || OPENING_QUESTION
   const qs      = normalizeQuestions(parseField(selected?.questions))
   const questionFlowGroups = buildQuestionFlowGroups(qs)
   const summary = (() => {
@@ -486,6 +489,14 @@ export default function Home() {
       cards.push(...summaryCards)
     }
 
+    const openingText = sharingOpeningText(selected?.questions)
+    if (openingText) {
+      const card = createShareCardShell('#a0784e', '#7a9e7e')
+      appendShareHeader(card, '마음 열기', metaText)
+      appendShareParagraph(card, openingText)
+      cards.push(card)
+    }
+
     if (questionFlowGroups.length) {
       let questionIndex = 0
       questionFlowGroups.forEach((group) => {
@@ -511,6 +522,13 @@ export default function Home() {
       })
     }
 
+    const closingText = sharingClosingText(selected?.questions)
+    if (closingText) {
+      const card = createShareCardShell('#a0784e', '#7a9e7e')
+      appendShareHeader(card, '실천과 기도', metaText)
+      appendShareParagraph(card, closingText)
+      cards.push(card)
+    }
     return cards
   }
 
@@ -727,6 +745,7 @@ export default function Home() {
       }
     } else {
       lines.push('(나눔질문)')
+      lines.push(sharingOpeningText(selected?.questions) || `[마음 열기]\n${OPENING_QUESTION.question}`, '')
       if (!qs.length) {
         lines.push('질문을 준비 중입니다.')
       } else {
@@ -748,6 +767,7 @@ export default function Home() {
         })
       }
     }
+    if (tab === 2) lines.push(sharingClosingText(selected?.questions));
     return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   }
 
@@ -930,16 +950,8 @@ export default function Home() {
                   {tab===2 && (
                     <div style={{display:'flex',flexDirection:'column',gap:10}}>
                       <p style={{fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(13),color:'#8b6e4e',margin:'4px 0'}}>✦ {selected.reference} 나눔 질문</p>
-                      <div data-capture-block style={{background:'#fff',borderRadius:18,padding:'16px 18px 15px',border:'1px solid #e8dcc8',boxShadow:'0 2px 8px rgba(55,38,15,0.03)'}}>
-                        <p style={{margin:'0 0 12px',color:'#9a7a58',fontSize:fontSizePx(12),fontWeight:700,letterSpacing:'0.01em'}}>오늘 예배를 함께 돌아봅시다.</p>
-                        <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),lineHeight:1.9,fontWeight:700}}>{openingQuestion.question}</p>
-                        {openingQuestion.explanation ? (
-                          <div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginTop:10,border:'1px solid #efe4d3'}}>
-                            <p style={{margin:0,color:'#6b5040',fontSize:fontSizePx(12),lineHeight:1.8}}>{openingQuestion.explanation}</p>
-                          </div>
-                        ) : null}
-                      </div>
-                      {questionFlowGroups.map((group, groupIndex) => {
+                  <SharingSupport document={selected?.questions} position="opening" fallbackOpening={OPENING_QUESTION} />
+                  {questionFlowGroups.map((group, groupIndex) => {
                         const firstIndex = questionFlowGroups
                           .slice(0, groupIndex)
                           .reduce((sum, current) => sum + current.items.length, 0)
@@ -958,14 +970,14 @@ export default function Home() {
                                       <span style={{minWidth:28,height:28,borderRadius:999,background:'#f3e5d2',border:'1px solid #e2cfb3',display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#8b6e4e',fontSize:fontSizePx(12),fontWeight:700,flexShrink:0,marginTop:2}}>
                                         {visualIndex + 1}
                                       </span>
-                                      <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),lineHeight:1.9,fontWeight:700,flex:1}}>{q}</p>
+                                      <p style={{margin:0,color:'#3f3124',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(16),lineHeight:1.9,fontWeight:700,flex:1}}>{item.is_core ? '★ ' : ''}{q}</p>
                                     </div>
-                                    {ex&&<div style={{background:'#faf7f2',borderRadius:8,padding:'9px 12px',marginTop:10,border:'1px solid #efe4d3'}}><p style={{margin:0,color:'#6b5040',fontSize:fontSizePx(12),lineHeight:1.8}}>{ex}</p></div>}
-                                    {answer&&(
-                                      <div style={{background:'#f3f8f1',borderRadius:10,padding:'12px 14px',marginTop:10,border:'1px solid #d7e6d1',borderLeft:'4px solid #739167'}}>
-                                        <p style={{margin:0,color:'#30452c',fontFamily:"'Gowun Batang',serif",fontSize:fontSizePx(14),lineHeight:1.85}}>{answer}</p>
-                                      </div>
-                                    )}
+                                {(ex || answer) && <details style={{marginTop:10,background:'#faf7f2',padding:'10px 12px',borderRadius:10}}>
+                                  <summary style={{cursor:'pointer',fontWeight:700,color:'#6b5040'}}>말씀 이해 도움 보기</summary>
+                                  {ex && <p style={{lineHeight:1.8}}>{ex}</p>}
+                                  {answer && <p style={{lineHeight:1.85,color:'#30452c'}}>{answer}</p>}
+                                </details>}
+
                                   </div>
                                 )
                               })}
@@ -973,6 +985,7 @@ export default function Home() {
                           </div>
                         )
                       })}
+                      <SharingSupport document={selected?.questions} position="closing" />
                     </div>
                   )}
                   <div className="capture-actions" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:8,marginTop:16}}>

@@ -7,9 +7,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:secret-angel": "node --test tests/secret-angel*.test.mjs"
+    "test:secret-angel": "node --test tests/secret-angel*.test.mjs",
+    "test:sermon-content": "node --test tests/sermon*.test.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@supabase/supabase-js": "^2.43.0",
     "html2canvas": "^1.4.1",
     "next": "14.2.3",

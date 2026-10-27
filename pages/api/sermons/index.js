@@ -1,3 +1,4 @@
+import { requiresContentReview } from '../../../lib/sermon-materials.mjs'
 import { supabase } from '../../../lib/supabase'
 
 export default async function handler(req, res) {
@@ -23,14 +24,14 @@ export default async function handler(req, res) {
         meditations:   typeof s.meditations   === 'string' ? JSON.parse(s.meditations)   : s.meditations,
         sermon_summary: typeof s.sermon_summary === 'string' ? JSON.parse(s.sermon_summary) : s.sermon_summary,
       }))
-      return res.status(200).json({ ok: true, data: parsed })
+      return res.status(200).json({ ok: true, data: parsed.filter(s => !requiresContentReview(s.questions)) })
     } catch(e) { return res.status(500).json({ ok: false, error: e.message }) }
   }
 
   // POST — 리더 도구용 (raw 데이터 저장, status=pending)
   if (req.method === 'POST') {
     const secret = req.headers['authorization']?.replace('Bearer ', '')
-    if (secret !== process.env.LEADER_API_SECRET) {
+    if (!process.env.LEADER_API_SECRET || secret !== process.env.LEADER_API_SECRET) {
       return res.status(401).json({ ok: false, error: '인증 실패' })
     }
     try {

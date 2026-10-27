@@ -6,4 +6,13 @@ node_modules/
 .env.*
 !.env.example
 local-agent/
+!local-agent/
+local-agent/*
+!local-agent/run-sermon-materials-agent.sh
 req.jpeg
+
+# Agent source is shared; local credentials and execution logs stay ignored.
+!local-agent/README.md
+!local-agent/sermon-content.mjs
+!local-agent/sermon-revision.mjs
+!local-agent/sermon-revision-worker.mjs
