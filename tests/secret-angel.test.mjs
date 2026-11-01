@@ -183,3 +183,22 @@ test('2명 모임의 마니또·천사 대화는 같은 상대여도 섞이지 �
   assert.equal(view(s, b, time).messages.friend.length, 2)
   assert.equal(view(s, b, time).messages.angel.length, 2)
 })
+
+test('주차별 선택 미션 검증, 개인별 선택, 중복 포인트 방지, 과거 기록 호환', () => {
+  const s = setup(), a = actor(s), b = actor(s, 1)
+  const first = view(s, a, now).missions[0]
+  assert.equal(first.options.length, 4)
+  assert.deepEqual(view(s, a, now).missions[1].options, [])
+  for (const missionId of ['w2-2', 'fake', null, 3]) assert.throws(() => mutate(s, a, { action: 'mission', week: 1, missionId }, now))
+  mutate(s, a, { action: 'mission', week: 1, missionId: 'w1-3' }, now)
+  mutate(s, b, { action: 'mission', week: 1, missionId: 'w1-2' }, now)
+  assert.equal(view(s, a, now).missions[0].selectedId, 'w1-3')
+  assert.equal(view(s, b, now).missions[0].selectedId, 'w1-2')
+  assert.throws(() => mutate(s, a, { action: 'mission', week: 1, missionId: 'w1-4' }, now))
+  assert.equal(view(s, a, now).me.points, 10)
+  delete s.missions[0].missionId
+  assert.equal(view(s, a, now).missions[0].selectedId, 'w1-1')
+  assert.equal(view(s, a, now).me.points, 10)
+  mutate(s, a, { action: 'mission', week: 2, missionId: 'w2-4' }, now + WEEK)
+  assert.equal(view(s, a, now + WEEK).me.points, 20)
+})
