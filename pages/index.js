@@ -127,14 +127,8 @@ function buildOverviewText(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
 }
 
-function getQuestionExplanation(item, groupTitle) {
-  if (item?.explanation) return item.explanation
-  if (groupTitle === '말씀을 점검합시다.') {
-    const anchor = item?.scripture_anchor ? ` ${item.scripture_anchor}을 다시 보며` : ''
-    if (item?.section_title) return `${item.section_title}와 관련된 장면을${anchor} 떠올려 보세요. 질문에 답할 때 본문에서 실제로 무엇이 일어났고, 무엇이 강조되었는지 먼저 정리하면 좋습니다.`
-    return `본문과 설교에서 강조된 장면을${anchor} 다시 확인해 보세요. 질문에 답할 때 핵심 사건과 반복된 강조를 먼저 짚어주면 좋습니다.`
-  }
-  return ''
+function getQuestionExplanation(item) {
+  return typeof item?.explanation === 'string' ? item.explanation.trim() : ''
 }
 
 function isWordCheckGroup(groupTitle) {
@@ -513,7 +507,7 @@ export default function Home() {
               number,
               item?.section_title || item?.category || `질문 ${number}`,
               item?.question || '',
-              item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title),
+              item?.category === '오프닝' ? '' : getQuestionExplanation(item),
               isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             )
           })
@@ -754,7 +748,7 @@ export default function Home() {
           lines.push(`[${group.title}]`)
           group.items.forEach((item) => {
             const q = item?.question || ''
-            const ex = getQuestionExplanation(item, group.title)
+            const ex = getQuestionExplanation(item)
             const answer = isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             const section = item?.section_title || item?.category || `질문 ${index}`
             lines.push(`${index}. ${section}`)
@@ -961,7 +955,7 @@ export default function Home() {
                             <div style={{display:'flex',flexDirection:'column',gap:12}}>
                               {group.items.map((item, itemIndex)=>{
                                 const q=item.question
-                                const ex=getQuestionExplanation(item, group.title)
+                                const ex=getQuestionExplanation(item)
                                 const answer=isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
                                 const visualIndex = firstIndex + itemIndex
                                 return (

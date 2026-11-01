@@ -213,16 +213,8 @@ function buildOverviewText(text) {
   return String(text || '').replace(/\s+/g, ' ').trim()
 }
 
-function getQuestionExplanation(item, groupTitle) {
-  if (item?.explanation) return item.explanation
-  if (groupTitle === '말씀을 점검합시다.') {
-    const anchor = item?.scripture_anchor ? ` ${item.scripture_anchor}을 다시 보며` : ''
-    if (item?.section_title) {
-      return `${item.section_title}와 관련된 장면을${anchor} 떠올려 보세요. 질문에 답할 때는 먼저 본문에서 실제로 어떤 사건이 일어났는지, 등장인물의 반응은 무엇이었는지, 그리고 설교에서 특별히 반복해서 강조한 메시지가 무엇인지 순서대로 정리해 주면 더 풍성하게 나눌 수 있습니다.`
-    }
-    return `본문과 설교에서 강조된 장면을${anchor} 다시 확인해 보세요. 질문에 답할 때는 핵심 사건, 인물의 반응, 그리고 오늘 우리에게 주시는 적용 포인트까지 함께 짚어 주면 답변이 더 분명하고 풍성해집니다.`
-  }
-  return ''
+function getQuestionExplanation(item) {
+  return typeof item?.explanation === 'string' ? item.explanation.trim() : ''
 }
 
 function isWordCheckGroup(groupTitle) {
@@ -771,7 +763,7 @@ export default function CellWord() {
               number,
               item?.section_title || item?.category || `질문 ${number}`,
               item?.question || '',
-              item?.category === '오프닝' ? '' : getQuestionExplanation(item, group.title),
+              item?.category === '오프닝' ? '' : getQuestionExplanation(item),
               isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             )
           })
@@ -1012,7 +1004,7 @@ export default function CellWord() {
           lines.push(`[${group.title}]`)
           group.items.forEach((item) => {
             const q = item?.question || ''
-            const ex = getQuestionExplanation(item, group.title)
+            const ex = getQuestionExplanation(item)
             const answer = isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
             const section = item?.section_title || item?.category || `질문 ${index}`
             lines.push(`${index}. ${section}`)
@@ -1284,7 +1276,7 @@ export default function CellWord() {
                         <div style={{display:'flex',flexDirection:'column',gap:12}}>
                           {group.items.map((item, itemIndex) => {
                             const q  = item.question
-                            const ex = getQuestionExplanation(item, group.title)
+                            const ex = getQuestionExplanation(item)
                             const answer = isWordCheckGroup(group.title) ? getWordCheckAnswer(item) : ''
                             const visualIndex = firstIndex + itemIndex
                             const m  = QMETA[visualIndex] || QMETA[0]
