@@ -141,3 +141,11 @@ test('본문 점검은 본문으로 답하고 원고의 중심 풀이와 적용�
  assert.match(review,/중심 충실성도 별도로 검토/);assert.match(review,/핵심 설명을 메타데이터에만/);
  assert.match(review,/특정 용어나 틀을 원고에 없는데 요구하지/);
 });
+
+test('원고 적용의 삶 나눔에는 무관한 장절을 강제하지 않고 말씀 점검에는 장절을 요구한다',()=>{
+ const p=payload();const qs=p.questions.sections.flatMap(s=>s.questions);
+ qs.filter(q=>q.flow_stage!=='말씀을 점검합시다.').forEach(q=>{q.scripture_anchor='';q.explanation='위 요약의 적용을 자신의 삶에 비추어 나눕니다.';});
+ assert.doesNotThrow(()=>validateGeneratedPayload(p,source));
+ qs.find(q=>q.flow_stage==='말씀을 점검합시다.').scripture_anchor='';
+ assert.throws(()=>validateGeneratedPayload(p,source),/성경 본문 장절/);
+});
