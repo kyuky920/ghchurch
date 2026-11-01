@@ -1,5 +1,5 @@
 import { runPendingRevision } from './sermon-revision-worker.mjs';
-import { buildOutputSchema, buildPrompt, normalizeOutput, buildReviewSchema, buildReviewPrompt, validateReview, needsHumanReview } from './sermon-content.mjs';
+import { buildOutputSchema, buildPrompt, normalizeOutput, buildReviewSchema, buildReviewPrompt, validateReview, needsHumanReview, generationResultMessages } from './sermon-content.mjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -122,9 +122,8 @@ async function runOnce({ supabase, options }) {
       await saveSuccess(supabase, row.id, normalized);
     }
 
-    console.log(
-      `[agent] 완료: ${row.id} sections=${normalized.questions.sections.length} flat=${normalized.questions.flat.length}`,
-    );
+    for (const message of generationResultMessages(normalized, { dryRun: options.dryRun })) console.log(message);
+    console.log(`[agent] 자료: ${row.id} sections=${normalized.questions.sections.length} flat=${normalized.questions.flat.length}`);
   } catch (error) {
     if (!options.dryRun) {
       await saveFailure(supabase, row.id, error);
@@ -218,7 +217,9 @@ async function saveSuccess(supabase, id, payload) {
       error_msg: null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .single();
 
   if (error) throw error;
 }

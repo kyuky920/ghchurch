@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSourcePacket, buildOutputSchema, buildPrompt, normalizeOutput, validateGeneratedPayload, buildReviewPrompt, validateReview, needsHumanReview } from '../local-agent/sermon-content.mjs';
+import { buildSourcePacket, buildOutputSchema, buildPrompt, normalizeOutput, validateGeneratedPayload, buildReviewPrompt, validateReview, needsHumanReview, generationResultMessages } from '../local-agent/sermon-content.mjs';
 import { requiresContentReview, prepareContentReviewForSave, getSharingSupport, buildEditedQuestionDocument, sharingOpeningText, sharingClosingText } from '../lib/sermon-materials.mjs';
 
 const source = { passage:'너희가 전에는 어둠이더니 이제는 주 안에서 빛이라.', sermon_points: JSON.stringify({ transcript:'예수님 안에서 이미 빛이 되었습니다.\n\n빛의 열매는 착함과 의로움과 진실함입니다. 빛을 바라는 생활을 합니다.\n\n걱정이 올 때 예수님을 깊이 생각합니다. 믿지 않는 사람도 초청합니다.' }) };
@@ -117,6 +117,27 @@ test('핵심·개요·단락 제목·본문의 설교 설명을 막고 본문 �
   assert.throws(()=>validateGeneratedPayload(p,source),/말씀 요약/);
  }
  assert.doesNotThrow(()=>validateGeneratedPayload(payload(),source));
- assert.match(buildPrompt(source),/본문으로 뒷받침되지 않는/);
+ assert.match(buildPrompt(source),/원고의 중심을 대체하지/);
  assert.match(buildReviewPrompt(source,payload()),/성경 본문의 실제 표현과 요약/);
+});
+
+test('저장 성공과 검토에 따른 공개 보류를 구분하여 사유와 다음 행동을 알린다',()=>{
+ const p=payload();p.questions.meta.quality_review={status:'needs_review',summary:'수량 조건이 빠졌습니다.',issues:[{severity:'blocking',explanation:'옷 두 벌 조건을 보존해야 합니다.'}]};
+ p.questions.meta.transcript_review.corrections=[{status:'needs_confirmation',paragraph_id:'P003'}];
+ const text=generationResultMessages(p).join('\n');assert.match(text,/DB 저장 완료/);assert.match(text,/공개 보류/);assert.match(text,/옷 두 벌/);assert.match(text,/1곳 \(P003\)/);assert.match(text,/나눔자료 수정/);assert.doesNotMatch(text,/공개 가능한 상태/);
+ p.questions.meta.quality_review={status:'passed',issues:[]};assert.match(generationResultMessages(p).join('\n'),/공개 보류/);
+ p.questions.meta.transcript_review.corrections=[];assert.match(generationResultMessages(p).join('\n'),/공개 가능한 상태/);
+ assert.doesNotMatch(generationResultMessages(p,{dryRun:true}).join('\n'),/DB 저장 완료|공개 가능한 상태/);
+ assert.match(generationResultMessages(p,{dryRun:true}).join('\n'),/DB에는 저장하지 않았습니다/);
+});
+
+test('본문 점검은 본문으로 답하고 원고의 중심 풀이와 적용은 요약·삶 나눔에 보존한다',()=>{
+ const prompt=buildPrompt(source),review=buildReviewPrompt(source,payload());
+ assert.match(prompt,/말씀 점검의 답은 제공된 성경 본문/);
+ assert.match(prompt,/은혜 나눔과 결단에서는 요약에 충분히 설명/);
+ assert.match(prompt,/메타데이터에만 넣고 참여자용 요약·나눔에서 빠뜨리지/);
+ assert.match(prompt,/원문에 없는 틀을 다른 설교에 일괄 적용하지/);
+ assert.doesNotMatch(prompt,/본문으로 뒷받침되지 않는 예화·주장·외부 구절은 요약에서 빼세요/);
+ assert.match(review,/중심 충실성도 별도로 검토/);assert.match(review,/핵심 설명을 메타데이터에만/);
+ assert.match(review,/특정 용어나 틀을 원고에 없는데 요구하지/);
 });
