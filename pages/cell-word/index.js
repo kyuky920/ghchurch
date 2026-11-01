@@ -1,3 +1,4 @@
+import QuestionExplanation from '../../components/QuestionExplanation'
 import SharingSupport from '../../components/SharingSupport'
 import { getSharingSupport, sharingOpeningText, sharingClosingText } from '../../lib/sermon-materials.mjs'
 import { useState, useEffect, useRef } from 'react'
@@ -1290,7 +1291,7 @@ export default function CellWord() {
                                 </div>
                                 {(ex || answer) && <details style={{marginTop:10,background:'#faf7f2',padding:'10px 12px',borderRadius:10}}>
                                   <summary style={{cursor:'pointer',fontWeight:700,color:'#6b5040'}}>말씀 이해 도움 보기</summary>
-                                  {ex && <p style={{lineHeight:1.8}}>{ex}</p>}
+                                  {ex && <QuestionExplanation text={ex} />}
                                   {answer && <p style={{lineHeight:1.85,color:'#30452c'}}>{answer}</p>}
                                 </details>}
                                 <div className="capture-exclude" style={{marginTop:10}}>
