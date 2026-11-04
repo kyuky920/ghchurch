@@ -14,6 +14,9 @@ export default function SecretAngel() {
   const [incoming, setIncoming] = useState(null)
   const [invitation, setInvitation] = useState(null)
   const [deviceName, setDeviceName] = useState('')
+  const [group, setGroup] = useState(null)
+  const [authMode, setAuthMode] = useState('signup')
+  const [showPassword, setShowPassword] = useState(false)
   const [confirmUnregister, setConfirmUnregister] = useState(false)
   const [slug, setSlug] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,7 +30,7 @@ export default function SecretAngel() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    if (['mission', 'prayer', 'message', 'suspect', 'footprints', 'community', 'notifications'].includes(params.get('open'))) setTab(params.get('open'))
+    if (['mission', 'prayer', 'message', 'suspect', 'footprints', 'community', 'notifications', 'account'].includes(params.get('open'))) setTab(params.get('open'))
     if (['friend', 'angel'].includes(params.get('channel'))) setChannel(params.get('channel'))
   }, [])
   useEffect(() => {
@@ -56,11 +59,12 @@ export default function SecretAngel() {
   }
   useEffect(() => {
     async function initialize() {
-      setLoading(true); setIncoming(null); setInvitation(null); setError('')
+      setLoading(true); setIncoming(null); setInvitation(null); setGroup(null); setError('')
       const link = parseInviteHash(window.location.hash)
+      const groupSlug = new URLSearchParams(window.location.search).get('group')
       let current = null
       try { current = (await api({}, true)).data } catch {}
-      if (current && (!link || (current.slug === link.slug && current.me.id === link.participantId))) {
+      if (current && (!groupSlug || current.slug === groupSlug) && (!link || (current.slug === link.slug && current.me.id === link.participantId))) {
         setData(current); setSlug(current.slug); sessionStorage.setItem('sa_slug', current.slug)
         if (link) clearInviteAddress()
         return
@@ -70,6 +74,9 @@ export default function SecretAngel() {
         setIncoming(link); setSlug(link.slug)
         const result = await api({ action: 'invite_info', ...link })
         setInvitation(result.invitation)
+      } else if (groupSlug) {
+        setSlug(groupSlug)
+        const result = await api({ action: 'group_info', slug: groupSlug }); setGroup(result.group)
       } else if (window.location.hash) setError('초대 링크가 올바르지 않습니다. 새 개인 초대 링크를 요청해 주세요.')
     }
     const run = () => initialize().catch(e => setError(e.message)).finally(() => setLoading(false))
@@ -84,6 +91,26 @@ export default function SecretAngel() {
       if (result.data) setData(result.data)
       setNotice(success); return result
     } catch (e) { setError(e.message); return null } finally { setBusy(false) }
+  }
+  async function authenticate(e) {
+    e.preventDefault()
+    const form = e.currentTarget, values = Object.fromEntries(new FormData(form))
+    if (authMode === 'signup' && values.password !== values.confirmPassword) { setError('비밀번호 확인이 일치하지 않습니다.'); return }
+    const selected = group?.slug || values.group?.trim().toLowerCase()
+    const result = await perform({ action: authMode === 'signup' ? 'account_signup' : 'password_login', slug: selected, name: values.name, password: values.password }, authMode === 'signup' ? '가입했어요. 다음부터 다른 브라우저에서도 로그인할 수 있어요.' : '로그인했어요.')
+    if (result) {
+      setIncoming(null); setInvitation(null); setGroup(null); setSlug(result.data.slug); setConfirmUnregister(false)
+      sessionStorage.setItem('sa_slug', result.data.slug)
+      const url = new URL(window.location.href); url.hash = ''; url.searchParams.set('group', result.data.slug); window.history.replaceState(window.history.state, '', url.pathname + url.search)
+      form.reset()
+    }
+  }
+  async function savePassword(e) {
+    e.preventDefault()
+    const form = e.currentTarget, values = Object.fromEntries(new FormData(form))
+    if (values.password !== values.confirmPassword) { setError('비밀번호 확인이 일치하지 않습니다.'); return }
+    const result = await perform({ action: 'set_password', password: values.password, currentPassword: values.currentPassword }, '비밀번호를 저장했어요. 다른 브라우저에서 같은 이름과 비밀번호로 로그인할 수 있어요. 알림을 사용했다면 이 기기에서 다시 켜 주세요.')
+    if (result) form.reset()
   }
   async function registerDevice(e) {
     e.preventDefault()
@@ -100,8 +127,8 @@ export default function SecretAngel() {
     if (result) { form.reset(); if (action === 'message') setMessagePhoto(null) }
   }
   async function logout() {
-    const result = await perform({ action: 'logout' }, '이 기기의 등록을 해제했습니다. 다시 참여하려면 새 초대 링크를 받아 주세요.')
-    if (result) { setData(null); setIncoming(null); setInvitation(null); setConfirmUnregister(false); sessionStorage.removeItem('sa_slug'); clearInviteAddress() }
+    const result = await perform({ action: 'logout' }, '이 브라우저에서 로그아웃했어요. 공통 링크에서 이름과 비밀번호로 다시 로그인할 수 있어요.')
+    if (result) { setGroup({ slug: data.slug, title: data.title, status: data.status }); setAuthMode('login'); setData(null); setIncoming(null); setInvitation(null); setConfirmUnregister(false); sessionStorage.removeItem('sa_slug'); clearInviteAddress() }
   }
   const active = data?.status === 'active' && data.week > 0 && Date.now() < data.endsAt
   const canChat = active && data.week >= 2
@@ -109,7 +136,7 @@ export default function SecretAngel() {
 
   return <div className={styles.page}>
     <Head><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" /><link rel="manifest" href="/secret-angel.webmanifest" /><link rel="apple-touch-icon" href="/secret-angel-icon-192.png" /><meta name="theme-color" content="#426443" /><meta name="apple-mobile-web-app-capable" content="yes" /><title>비밀 천사 · KYESIN</title><meta name="referrer" content="no-referrer" /><meta name="robots" content="noindex,nofollow" /><meta name="description" content="8주 동안 서로를 위해 기도하고 축복하는 청년부 마니또" /></Head>
-    <header className={styles.header}><Link href="/cell">← 셀 모임</Link><span>KYESIN · 청년부</span>{data && <button disabled={busy} onClick={() => setConfirmUnregister(true)}>기기 등록 해제</button>}</header>
+    <header className={styles.header}><Link href="/cell">← 셀 모임</Link><span>KYESIN · 청년부</span>{data && <button disabled={busy} onClick={() => setConfirmUnregister(true)}>로그아웃</button>}</header>
     <main className={styles.main}>
       <div className={styles.illustratedHero}><div><span className={styles.eyebrow}>EIGHT WEEKS OF KINDNESS</span><h1>작은 마음이 모여,<br />서로의 비밀 천사</h1><p>함께 웃고, 몰래 응원하고, 따뜻하게 기억하는 8주</p></div><ActivityArt kind="together" className={styles.heroArt} /></div>
       <div aria-live="polite">{error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p className={styles.notice}>{notice}</p>}</div>
@@ -124,19 +151,31 @@ export default function SecretAngel() {
           </form>
           <p className={styles.muted}>본인 휴대폰의 평소 사용하는 브라우저에서 등록해 주세요. 다음부터 같은 브라우저에서 자동 접속됩니다. 초대 링크는 7일 동안 한 번만 사용할 수 있습니다.</p>
         </> : <>
-          <h2>개인 초대 링크로 참여해 주세요</h2><p>담당 리더에게 받은 본인의 초대 링크를 눌러 주세요. 이름을 확인하고 기기를 등록하면 바로 참여할 수 있습니다.</p>
-          <p className={styles.muted}>이미 등록했다면 등록할 때 사용한 브라우저로 열어 주세요. 기기를 바꾸거나 브라우저 기록을 지웠다면 새 초대 링크를 요청하세요.</p>
+          <ActivityArt kind="letter" className={styles.authArt} /><h2>{group ? group.title : '비밀 천사에 함께해요'}</h2>
+          <p>모두 같은 링크로 들어와 본인 이름과 비밀번호를 사용해요.</p>
+          <div className={styles.tabs} role="group" aria-label="가입과 로그인"><button aria-pressed={authMode === 'signup'} onClick={() => { setAuthMode('signup'); setError('') }}>처음 참여 · 가입하기</button><button aria-pressed={authMode === 'login'} onClick={() => { setAuthMode('login'); setError('') }}>이미 가입했어요 · 로그인</button></div>
+          <form onSubmit={authenticate}>
+            {!group && <label>모임 코드<input name="group" required maxLength={40} pattern="[a-z0-9][a-z0-9-]{2,39}" placeholder="공통 참여 링크의 모임 코드" defaultValue={slug} autoCapitalize="none" /></label>}
+            <label>이름<input name="name" required maxLength={30} autoComplete="username" placeholder="명단에 등록된 본인 이름" /></label>
+            <label>비밀번호<input name="password" type={showPassword ? 'text' : 'password'} required minLength={6} maxLength={72} autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} placeholder={authMode === 'signup' ? '6자 이상, 숫자만 사용해도 돼요' : '가입할 때 정한 비밀번호'} /></label>
+            {authMode === 'signup' && <label>비밀번호 확인<input name="confirmPassword" type={showPassword ? 'text' : 'password'} required minLength={6} maxLength={72} autoComplete="new-password" /></label>}
+            <label className={styles.checkLabel}><input type="checkbox" checked={showPassword} onChange={e => setShowPassword(e.target.checked)} />비밀번호 보기</label>
+            <button className={styles.primary} disabled={busy}>{busy ? '확인 중…' : authMode === 'signup' ? '가입하고 참여하기' : '로그인'}</button>
+          </form>
+          <p className={styles.muted}>{authMode === 'signup' ? '관리자가 등록한 명단의 이름으로 가입해 주세요. 기존 기기로 참여 중이라면 그 기기에서 내 계정 → 비밀번호 설정을 해 주세요.' : '비밀번호를 잊었다면 담당자에게 초기화를 요청하세요. 활동 기록은 유지됩니다.'}</p>
         </>}
       </section>}
       {data && confirmUnregister && <section className={styles.confirm}>
-        <p>이 기기의 자동 접속을 해제할까요? 다시 참여하려면 새 초대 링크를 받아야 합니다.</p>
-        <button disabled={busy} onClick={logout}>기기 등록 해제 확정</button><button onClick={() => setConfirmUnregister(false)}>취소</button>
+        <p>이 브라우저에서 로그아웃할까요? 비밀번호를 설정했다면 공통 링크에서 다시 로그인할 수 있습니다.</p>
+        <button disabled={busy} onClick={logout}>로그아웃 확정</button><button onClick={() => setConfirmUnregister(false)}>취소</button>
       </section>}
       {data && <>
         {data.isTest && <p className={styles.notice}>🧪 테스트 모임입니다. 관리자 화면에서 주차를 이동한 뒤 이 화면을 새로고침해 주세요.</p>}
         <section className={styles.summary}><div><span className={styles.eyebrow}>{data.status === 'draft' ? '참가자 등록 중' : data.status === 'revealed' ? '정체 공개' : data.week === 0 ? '시작 대기' : `8주 중 ${data.week}주차`}</span><h2>{data.title}</h2><p>{data.startsAt ? `시작 ${date(data.startsAt)} · 공개 가능 ${date(data.endsAt)}` : '모두 등록하면 관리자가 비밀 배정을 시작합니다.'}</p></div><button disabled={busy} onClick={() => refresh().then(() => setNotice('최신 소식을 불러왔습니다.')).catch(e => setError(e.message))}>새로고침</button></section>
           <section className={styles.card}><span className={styles.eyebrow}>{data.me.name}님의 비밀 노트</span><h2>{data.friend ? <>나의 마니또는 <span className={styles.friendName}>{data.friend.name}</span>님</> : '곧 나의 마니또를 만나요'}</h2><p>받은 하트 ♥ {data.hearts} · 미션 포인트 {data.me.points}P</p>{data.friend && <button disabled={busy || !active || data.heartSent} onClick={() => perform({ action: 'heart' }, '따뜻한 하트를 보냈습니다.')}>{data.heartSent ? '오늘의 하트 전달 완료 ♥' : '마니또에게 하트 보내기 ♡'}</button>}{data.status === 'active' && !active && data.week > 0 && <p>8주 활동이 끝났습니다. 관리자의 정체 공개를 기다려 주세요.</p>}</section>
-          <nav className={styles.tabs} aria-label="마니또 활동">{[['mission', '주차별 미션'], ['prayer', '기도 노트'], ['message', '익명 편지'], ['suspect', '의심 노트'], ['footprints', '천사의 발자국'], ['community', '함께한 발자국'], ['notifications', `알림 ${(data.notifications || []).filter(n => !n.read).length ? `(${data.notifications.filter(n => !n.read).length})` : ''}`]].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
+          <nav className={styles.tabs} aria-label="마니또 활동">{[['mission', '주차별 미션'], ['prayer', '기도 노트'], ['message', '익명 편지'], ['suspect', '의심 노트'], ['footprints', '천사의 발자국'], ['community', '함께한 발자국'], ['account', '내 계정'], ['notifications', `알림 ${(data.notifications || []).filter(n => !n.read).length ? `(${data.notifications.filter(n => !n.read).length})` : ''}`]].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
+          {!data.me.passwordConfigured && <p className={styles.notice}>다른 브라우저에서도 참여하려면 비밀번호를 한 번 설정해 주세요. <button onClick={() => setTab('account')}>비밀번호 설정하기</button></p>}
+          {tab === 'account' && <section className={styles.card}><h2>{data.me.name}님의 계정</h2><p>모임 코드: {data.slug}</p><p>다른 브라우저에서도 이 모임의 공통 링크에서 같은 이름과 비밀번호로 로그인할 수 있어요.</p><h3>{data.me.passwordConfigured ? '비밀번호 변경' : '처음 비밀번호 설정'}</h3><form onSubmit={savePassword}>{data.me.passwordConfigured && <label>현재 비밀번호<input type="password" name="currentPassword" required maxLength={72} autoComplete="current-password" /></label>}<label>새 비밀번호<input type="password" name="password" required minLength={6} maxLength={72} autoComplete="new-password" placeholder="6자 이상, 숫자만 사용해도 돼요" /></label><label>새 비밀번호 확인<input type="password" name="confirmPassword" required minLength={6} maxLength={72} autoComplete="new-password" /></label><small>변경하면 다른 브라우저의 기존 로그인은 해제됩니다. 비밀번호는 담당자에게도 표시되지 않아요.</small><button className={styles.primary} disabled={busy}>비밀번호 저장</button></form></section>}
           {tab === 'mission' && <section className={styles.card}><span className={styles.eyebrow}>MY LITTLE KINDNESS</span><h2>이번 주엔, 어떤 마음을 전할까요?</h2><p>주차마다 나만의 실천 · 함께하는 시간 · 사진 · 편지 중 하나를 골라요. 완료하면 10P를 받아요.</p><div className={styles.weekPicker} role="group" aria-label="미션 주차 선택">{data.missions.map(m => <button key={m.week} aria-pressed={(selectedWeek || data.week || 1) === m.week} onClick={() => setSelectedWeek(m.week)}><small>{m.done ? '✓' : m.unlocked ? '🌿' : '🔒'}</small>{m.week}주</button>)}</div>{data.missions.filter(m => m.week === (selectedWeek || data.week || 1)).map(m => <MissionWeek key={`${data.me.id}-${m.week}`} mission={m} active={active} busy={busy} api={api} perform={perform} />)}<p className={styles.muted}>순위에는 미션 점수와 완료 주차 수만 표시돼요. 구체적인 기록은 전하기를 선택한 경우에만 친구에게 전달돼요.</p></section>}
           {tab === 'community' && <Community data={data} />}
           {tab === 'footprints' && <section className={styles.card}><h2>천사의 발자국</h2><p>나를 위해 남겨 준 작은 실천과 마음이에요. 천사가 전하기를 선택한 기록만 모여요.</p>{data.footprints.length === 0 && <div className={styles.emptyState}><ActivityArt kind="letter" /><p>아직 도착한 발자국이 없어요.<br />보이지 않는 곳에서도 마음이 자라고 있을 거예요.</p></div>}{data.footprints.map(f => <Keepsake key={f.week} filename={`${f.week}주차-천사의-발자국`}><h3>{f.week}주차 · {f.title}</h3>{f.name && <p>{f.name}님이 나를 위해 전한 마음</p>}{f.note && <p>{f.note}</p>}<Photo id={f.photoId} api={api} /></Keepsake>)}</section>}
