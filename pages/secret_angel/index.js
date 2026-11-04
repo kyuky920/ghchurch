@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { parseInviteHash } from '../../lib/secret-angel/invite-link.mjs'
+import { ActivityArt, Community, Keepsake, MissionWeek, Photo, PhotoPicker, PushSettings } from '../../components/SecretAngelExtras'
 import styles from '../../styles/SecretAngel.module.css'
 
 const replies = ['쉿, 비밀이에요 🤫', '그렇게 생각하셨군요 😊', '계속 지켜봐 주세요 👀']
@@ -20,7 +21,22 @@ export default function SecretAngel() {
   const [error, setError] = useState('')
   const [tab, setTab] = useState('mission')
   const [channel, setChannel] = useState('friend')
-  const [missionChoices, setMissionChoices] = useState({})
+  const [selectedWeek, setSelectedWeek] = useState(null)
+  const [messagePhoto, setMessagePhoto] = useState(null)
+  const [messageUploading, setMessageUploading] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (['mission', 'prayer', 'message', 'suspect', 'footprints', 'community', 'notifications'].includes(params.get('open'))) setTab(params.get('open'))
+    if (['friend', 'angel'].includes(params.get('channel'))) setChannel(params.get('channel'))
+  }, [])
+  useEffect(() => {
+    if (!data?.me?.id) return
+    const update = () => { if (document.visibilityState === 'visible') refresh().catch(() => {}) }
+    const timer = setInterval(update, 30000)
+    document.addEventListener('visibilitychange', update)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', update) }
+  }, [data?.me?.id, slug])
 
   async function api(body, get = false) {
     const res = await fetch('/api/secret-angel' + (get ? (body.slug ? `?slug=${encodeURIComponent(body.slug)}` : '') : ''), {
@@ -81,7 +97,7 @@ export default function SecretAngel() {
     e.preventDefault(); const form = e.currentTarget
     const values = Object.fromEntries(new FormData(form))
     const result = await perform({ action, ...values, ...extra })
-    if (result) form.reset()
+    if (result) { form.reset(); if (action === 'message') setMessagePhoto(null) }
   }
   async function logout() {
     const result = await perform({ action: 'logout' }, '이 기기의 등록을 해제했습니다. 다시 참여하려면 새 초대 링크를 받아 주세요.')
@@ -92,10 +108,10 @@ export default function SecretAngel() {
   const canSuspect = active && data.week >= 3
 
   return <div className={styles.page}>
-    <Head><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" /><title>비밀 천사 · KYESIN</title><meta name="referrer" content="no-referrer" /><meta name="robots" content="noindex,nofollow" /><meta name="description" content="8주 동안 서로를 위해 기도하고 축복하는 청년부 마니또" /></Head>
+    <Head><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" /><link rel="manifest" href="/secret-angel.webmanifest" /><link rel="apple-touch-icon" href="/secret-angel-icon-192.png" /><meta name="theme-color" content="#426443" /><meta name="apple-mobile-web-app-capable" content="yes" /><title>비밀 천사 · KYESIN</title><meta name="referrer" content="no-referrer" /><meta name="robots" content="noindex,nofollow" /><meta name="description" content="8주 동안 서로를 위해 기도하고 축복하는 청년부 마니또" /></Head>
     <header className={styles.header}><Link href="/cell">← 셀 모임</Link><span>KYESIN · 청년부</span>{data && <button disabled={busy} onClick={() => setConfirmUnregister(true)}>기기 등록 해제</button>}</header>
     <main className={styles.main}>
-      <div className={styles.hero}><span className={styles.eyebrow}>EIGHT WEEKS OF KINDNESS</span><h1>서로의 비밀 천사 🕊️</h1><p>작은 기도와 다정한 마음이 쌓이는 8주</p></div>
+      <div className={styles.illustratedHero}><div><span className={styles.eyebrow}>EIGHT WEEKS OF KINDNESS</span><h1>작은 마음이 모여,<br />서로의 비밀 천사</h1><p>함께 웃고, 몰래 응원하고, 따뜻하게 기억하는 8주</p></div><ActivityArt kind="together" className={styles.heroArt} /></div>
       <div aria-live="polite">{error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p className={styles.notice}>{notice}</p>}</div>
       {loading && <p role="status" className={styles.notice}>등록한 기기를 확인하고 있습니다…</p>}
       {!loading && !data && <section className={styles.card}>
@@ -117,17 +133,20 @@ export default function SecretAngel() {
         <button disabled={busy} onClick={logout}>기기 등록 해제 확정</button><button onClick={() => setConfirmUnregister(false)}>취소</button>
       </section>}
       {data && <>
-        {data.isTest && <p className={styles.notice}>🧪 가상 참가자 테스트 모임입니다. 관리자 화면에서 주차를 이동한 뒤 이 화면을 새로고침해 주세요.</p>}
+        {data.isTest && <p className={styles.notice}>🧪 테스트 모임입니다. 관리자 화면에서 주차를 이동한 뒤 이 화면을 새로고침해 주세요.</p>}
         <section className={styles.summary}><div><span className={styles.eyebrow}>{data.status === 'draft' ? '참가자 등록 중' : data.status === 'revealed' ? '정체 공개' : data.week === 0 ? '시작 대기' : `8주 중 ${data.week}주차`}</span><h2>{data.title}</h2><p>{data.startsAt ? `시작 ${date(data.startsAt)} · 공개 가능 ${date(data.endsAt)}` : '모두 등록하면 관리자가 비밀 배정을 시작합니다.'}</p></div><button disabled={busy} onClick={() => refresh().then(() => setNotice('최신 소식을 불러왔습니다.')).catch(e => setError(e.message))}>새로고침</button></section>
           <section className={styles.card}><span className={styles.eyebrow}>{data.me.name}님의 비밀 노트</span><h2>{data.friend ? <>나의 마니또는 <span className={styles.friendName}>{data.friend.name}</span>님</> : '곧 나의 마니또를 만나요'}</h2><p>받은 하트 ♥ {data.hearts} · 미션 포인트 {data.me.points}P</p>{data.friend && <button disabled={busy || !active || data.heartSent} onClick={() => perform({ action: 'heart' }, '따뜻한 하트를 보냈습니다.')}>{data.heartSent ? '오늘의 하트 전달 완료 ♥' : '마니또에게 하트 보내기 ♡'}</button>}{data.status === 'active' && !active && data.week > 0 && <p>8주 활동이 끝났습니다. 관리자의 정체 공개를 기다려 주세요.</p>}</section>
-          <nav className={styles.tabs} aria-label="마니또 활동">{[['mission', '주차별 미션'], ['prayer', '기도 노트'], ['message', '익명 편지'], ['suspect', '의심 노트']].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
-          {tab === 'mission' && <section className={styles.card}><h2>이번 주, 나다운 작은 실천</h2><p>주차마다 네 가지 미션 중 마음에 드는 하나를 골라 실천해 보세요. 완료하면 10P를 받아요. 지난 주차도 참여할 수 있습니다.</p><p className={styles.muted}>선택과 포인트는 나에게만 보여요. 돈을 쓰거나 정체를 밝힐 필요 없이, 편한 방법으로 마음을 전해 주세요.</p><ul className={styles.list}>{data.missions.map(m => <li key={m.week} className={styles.missionWeek}><div className={styles.row}><strong>{m.week}주차</strong><span>{m.done ? '완료 ✓ · 10P' : m.unlocked ? '하나를 골라 실천해요 · 10P' : '🔒 이 주차가 되면 열려요'}</span></div>{m.unlocked && <><fieldset className={styles.missionOptions} disabled={busy || m.done || !active}><legend className={styles.missionLegend}>{m.week}주차 미션 선택</legend>{m.options.filter(option => !m.done || option.id === m.selectedId).map(option => <label key={option.id} className={styles.missionOption}><input type="radio" name={`mission-${m.week}`} value={option.id} checked={(m.selectedId || missionChoices[m.week] || '') === option.id} onChange={() => setMissionChoices(previous => ({ ...previous, [m.week]: option.id }))} /><span>{option.title}</span></label>)}</fieldset>{!m.done && <button disabled={busy || !active || !missionChoices[m.week]} onClick={() => perform({ action: 'mission', week: m.week, missionId: missionChoices[m.week] }, '선택한 미션을 완료했어요. 10P를 받았습니다!')}>실천했어요 · +10P</button>}</>}</li>)}</ul></section>}
+          <nav className={styles.tabs} aria-label="마니또 활동">{[['mission', '주차별 미션'], ['prayer', '기도 노트'], ['message', '익명 편지'], ['suspect', '의심 노트'], ['footprints', '천사의 발자국'], ['community', '함께한 발자국'], ['notifications', `알림 ${(data.notifications || []).filter(n => !n.read).length ? `(${data.notifications.filter(n => !n.read).length})` : ''}`]].map(([key, label]) => <button key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
+          {tab === 'mission' && <section className={styles.card}><span className={styles.eyebrow}>MY LITTLE KINDNESS</span><h2>이번 주엔, 어떤 마음을 전할까요?</h2><p>주차마다 나만의 실천 · 함께하는 시간 · 사진 · 편지 중 하나를 골라요. 완료하면 10P를 받아요.</p><div className={styles.weekPicker} role="group" aria-label="미션 주차 선택">{data.missions.map(m => <button key={m.week} aria-pressed={(selectedWeek || data.week || 1) === m.week} onClick={() => setSelectedWeek(m.week)}><small>{m.done ? '✓' : m.unlocked ? '🌿' : '🔒'}</small>{m.week}주</button>)}</div>{data.missions.filter(m => m.week === (selectedWeek || data.week || 1)).map(m => <MissionWeek key={`${data.me.id}-${m.week}`} mission={m} active={active} busy={busy} api={api} perform={perform} />)}<p className={styles.muted}>순위에는 미션 점수와 완료 주차 수만 표시돼요. 구체적인 기록은 전하기를 선택한 경우에만 친구에게 전달돼요.</p></section>}
+          {tab === 'community' && <Community data={data} />}
+          {tab === 'footprints' && <section className={styles.card}><h2>천사의 발자국</h2><p>나를 위해 남겨 준 작은 실천과 마음이에요. 천사가 전하기를 선택한 기록만 모여요.</p>{data.footprints.length === 0 && <div className={styles.emptyState}><ActivityArt kind="letter" /><p>아직 도착한 발자국이 없어요.<br />보이지 않는 곳에서도 마음이 자라고 있을 거예요.</p></div>}{data.footprints.map(f => <Keepsake key={f.week} filename={`${f.week}주차-천사의-발자국`}><h3>{f.week}주차 · {f.title}</h3>{f.name && <p>{f.name}님이 나를 위해 전한 마음</p>}{f.note && <p>{f.note}</p>}<Photo id={f.photoId} api={api} /></Keepsake>)}</section>}
+          {tab === 'notifications' && <section className={styles.card}><h2>새로운 소식</h2><PushSettings data={data} api={api} perform={perform} /><div className={styles.row}><h3>나의 알림함</h3><button disabled={busy || !data.notifications.some(n => !n.read)} onClick={() => perform({ action: 'read_notifications' }, '모든 알림을 읽음으로 표시했어요.')}>모두 읽음</button></div><ul className={styles.list}>{data.notifications.length === 0 && <li>아직 새 소식이 없어요.</li>}{data.notifications.map(n => <li key={n.id} className={n.read ? '' : styles.unread}><div><strong>{n.read ? '' : '● '}{n.title}</strong><p>{n.body}</p></div><button disabled={busy} onClick={async () => { const result = await perform({ action: 'read_notifications', id: n.id }, ''); if (result) { setTab(n.type === 'message' ? 'message' : ['suspect', 'reply'].includes(n.type) ? 'suspect' : n.type === 'footprint' ? 'footprints' : n.type === 'pray' ? 'prayer' : 'mission'); if (n.channel) setChannel(n.channel) } }}>확인하기</button></li>)}</ul></section>}
           {tab === 'prayer' && <section className={styles.card}><h2>함께 기도해요 🙏</h2><p>내 기도 제목은 나의 비밀 천사에게만 전달됩니다. 매주 한 번 작성할 수 있어요.</p><form onSubmit={e => formAction(e, 'prayer')}><label>이번 주 기도 제목<textarea name="body" required maxLength={500} disabled={!active} /></label><button disabled={busy || !active || data.prayers.some(p => p.mine && p.week === data.week)}>기도 요청하기</button></form>
             {data.prayers.map(p => <article className={styles.note} key={p.id}><small>{p.week}주차 · {p.mine ? '나의 기도' : `${data.friend.name}님의 기도`}</small><p>{p.body}</p><p>{p.prayed ? '🙏 천사가 함께 기도했어요' : '기도를 기다리고 있어요'}</p>{!p.mine && <button disabled={busy || !active || p.prayed} onClick={() => perform({ action: 'pray', id: p.id })}>함께 기도했어요</button>}{p.answered ? <p className={styles.answer}>응답과 감사 · {p.response}</p> : p.mine && <form onSubmit={e => formAction(e, 'prayer_update', { id: p.id })}><label>기도 응답 / 감사<textarea required name="body" maxLength={500} disabled={!active} /></label><button disabled={busy || !active}>응답 기록하기</button></form>}</article>)}
           </section>}
-          {tab === 'message' && <section className={styles.card}><h2>익명의 다정한 편지 ✉️</h2><p>2주차부터 열려요. 각 대화방에 하루 5번 보낼 수 있습니다. 이름·연락처·정체를 알 수 있는 내용은 직접 쓰지 않도록 해요.</p><div className={styles.tabs}>{[['friend', '내 마니또와'], ['angel', '나의 비밀 천사와']].map(([key, label]) => <button key={key} aria-pressed={channel === key} onClick={() => setChannel(key)}>{label}</button>)}</div><div className={styles.messages}>{data.messages[channel].length === 0 && <p>아직 편지가 없어요.</p>}{data.messages[channel].map(m => <article key={m.id} className={`${styles.bubble} ${m.mine ? styles.mine : ''}`}><small>{m.mine ? '나' : channel === 'friend' ? '내 마니또' : '비밀 천사'}</small><p>{m.body}</p><small>{date(m.at)}</small></article>)}</div><form onSubmit={e => formAction(e, 'message', { channel })}><label>편지 내용<textarea key={channel} name="body" required maxLength={500} disabled={!canChat} /></label><button className={styles.primary} disabled={busy || !canChat}>익명으로 보내기</button></form></section>}
+          {tab === 'message' && <section className={styles.card}><h2>익명의 다정한 편지 ✉️</h2><p>2주차부터 열려요. 각 대화방에 하루 5번 보낼 수 있습니다. 이름·연락처·정체를 알 수 있는 내용은 직접 쓰지 않도록 해요.</p><div className={styles.tabs}>{[['friend', '내 마니또와'], ['angel', '나의 비밀 천사와']].map(([key, label]) => <button key={key} disabled={busy || messageUploading} aria-pressed={channel === key} onClick={() => { setChannel(key); setMessagePhoto(null) }}>{label}</button>)}</div><div className={styles.messages}>{data.messages[channel].length === 0 && <p>아직 편지가 없어요.</p>}{data.messages[channel].map(m => <article key={m.id} className={`${styles.bubble} ${m.mine ? styles.mine : ''}`}><small>{m.mine ? '나' : channel === 'friend' ? '내 마니또' : '비밀 천사'}</small><Keepsake filename="비밀-편지"><p>{m.body}</p><Photo id={m.photoId} api={api} /></Keepsake><small>{date(m.at)}</small></article>)}</div><form onSubmit={e => formAction(e, 'message', { channel, photoId: messagePhoto })}><label>편지 내용<textarea key={channel} name="body" maxLength={500} disabled={!canChat || busy} /></label><PhotoPicker api={api} value={messagePhoto} onChange={setMessagePhoto} onBusy={setMessageUploading} disabled={!canChat || busy} /><button className={styles.primary} disabled={busy || !canChat || messageUploading}>익명으로 보내기</button></form></section>}
           {tab === 'suspect' && <section className={styles.card}><h2>혹시 나의 천사인가요? 👀</h2><p>3주차부터 매주 한 번 의심할 수 있어요. 상대는 누가 의심했는지 알 수 있고, 준비된 문구로 한 번 답할 수 있습니다. 정답 여부는 알려주지 않아요.</p><form onSubmit={e => formAction(e, 'suspect')}><label>의심할 사람<select required name="participantId" disabled={!canSuspect}><option value="">선택해 주세요</option>{data.participants.filter(p => p.id !== data.me.id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button disabled={busy || !canSuspect || data.suspicions.some(s => !s.incoming && s.week === data.week)}>의심 보내기</button></form>{data.suspicions.map(s => <article key={s.id} className={styles.note}><small>{s.week}주차</small><p>{s.incoming ? `${s.name}님이 나를 의심했어요.` : `${s.name}님에게 의심을 보냈어요.`}</p>{s.reply ? <p>{s.reply}</p> : s.incoming ? <div className={styles.row}>{replies.map(body => <button disabled={busy || !canSuspect} key={body} onClick={() => perform({ action: 'reply', id: s.id, body })}>{body}</button>)}</div> : <small>답변을 기다리고 있어요.</small>}</article>)}</section>}
-          {data.status === 'revealed' && <section className={styles.card}><h2>나의 비밀 천사는 {data.angel}님이었어요 🎉</h2><p>8주 동안 함께한 모든 기도와 사랑에 감사해요.</p>{data.reveal.map(x => <p key={x.from}>{x.from} → {x.to}</p>)}</section>}
+          {data.status === 'revealed' && <section className={styles.card}><Keepsake filename="8주-마니또-추억"><h2>나의 비밀 천사는 {data.angel}님이었어요 🎉</h2><p>{data.me.name}님의 8주 기록 · {data.me.points}P</p>{data.badges.filter(b => b.earned).map(b => <p key={b.title}>{b.icon} {b.title}</p>)}{data.footprints.map(f => <div key={f.week}><h3>{f.week}주차 · {f.title}</h3><p>{f.note}</p><Photo id={f.photoId} api={api} /></div>)}</Keepsake><p>8주 동안 함께한 모든 기도와 사랑에 감사해요.</p>{data.reveal.map(x => <p key={x.from}>{x.from} → {x.to}</p>)}</section>}
       </>}
       <footer className={styles.footer}>작은 친절이 서로의 일상을 밝히기를.<br />기도와 편지는 배정된 두 사람 사이에서만 볼 수 있어요.<br />민감한 개인정보는 적지 말고, 불편한 일이 있다면 담당 리더에게 알려 주세요.</footer>
     </main>

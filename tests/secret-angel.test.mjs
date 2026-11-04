@@ -102,7 +102,7 @@ test('양방향 메시지 채널 분리와 타인 ID 위조 방어, 익명 응�
   const outsider = s.participants.find(p => ![a.id, to, angel].includes(p.id))
   assert.equal(view(s, { id: outsider.id }, now + WEEK).messages.friend.length, 0)
   assert.equal(view(s, { id: outsider.id }, now + WEEK).messages.angel.length, 0)
-  assert.deepEqual(Object.keys(mine.messages.friend[0]).sort(), ['at', 'body', 'id', 'mine'])
+  assert.deepEqual(Object.keys(mine.messages.friend[0]).sort(), ['at', 'body', 'id', 'mine', 'photoId'])
 })
 test('메시지 분량 / 채널 / 하루 전송 제한', () => {
   const s = setup(), a = actor(s)
@@ -187,7 +187,7 @@ test('2명 모임의 마니또·천사 대화는 같은 상대여도 섞이지 �
 test('주차별 선택 미션 검증, 개인별 선택, 중복 포인트 방지, 과거 기록 호환', () => {
   const s = setup(), a = actor(s), b = actor(s, 1)
   const first = view(s, a, now).missions[0]
-  assert.equal(first.options.length, 4)
+  assert.equal(first.options.length, 7)
   assert.deepEqual(view(s, a, now).missions[1].options, [])
   for (const missionId of ['w2-2', 'fake', null, 3]) assert.throws(() => mutate(s, a, { action: 'mission', week: 1, missionId }, now))
   mutate(s, a, { action: 'mission', week: 1, missionId: 'w1-3' }, now)
