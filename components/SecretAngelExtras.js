@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import styles from '../styles/SecretAngel.module.css'
 
-const ACTIVITY_KIND = { care: { label: '나만의 마음', hint: '조용히 준비하는 작은 실천', position: '0% 0%' }, together: { label: '함께하는 시간', hint: '옆에서 함께하는 작은 실천', position: '100% 0%' }, photo: { label: '추억 남기기', hint: '함께 남기는 따뜻한 순간', position: '0% 100%' }, letter: { label: '마음 전하기', hint: '친구에게 닿는 작은 응원', position: '100% 100%' } }
+const ACTIVITY_KIND = { care: { label: '나만의 마음', hint: '조용히 준비하는 작은 실천', position: '0% 0%', cardPosition: '0% 13.636%' }, together: { label: '함께하는 시간', hint: '옆에서 함께하는 작은 실천', position: '100% 0%', cardPosition: '100% 13.636%' }, photo: { label: '추억 남기기', hint: '함께 남기는 따뜻한 순간', position: '0% 100%', cardPosition: '0% 72.727%' }, letter: { label: '마음 전하기', hint: '친구에게 닿는 작은 응원', position: '100% 100%', cardPosition: '100% 86.364%' } }
 export function ActivityArt({ kind = 'care', className = '', decorative = false }) {
   const item = ACTIVITY_KIND[kind] || ACTIVITY_KIND.care
-  return <span className={`${styles.activityArt} ${className}`} role={decorative ? undefined : 'img'} aria-hidden={decorative || undefined} aria-label={decorative ? undefined : item.hint} style={{ backgroundPosition: item.position }} />
+  return <span className={`${styles.activityArt} ${className}`} role={decorative ? undefined : 'img'} aria-hidden={decorative || undefined} aria-label={decorative ? undefined : item.hint} style={{ backgroundPosition: item.position, '--card-position': item.cardPosition }} />
 }
 export function GardenTree({ percent }) {
   const size = percent === 0 ? 22 : percent < 25 ? 42 : percent < 60 ? 66 : 86
